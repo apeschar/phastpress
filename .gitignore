@@ -1,2 +1,4 @@
 .idea
-src/vendor
+/src/vendor
+/dist
+/workbench
