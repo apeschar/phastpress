@@ -12,12 +12,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/kiboit/phast.git",
-                "reference": "e91e3d725657f15a1c1f52b06a0260d738b181be"
+                "reference": "c5bac9f5cb6e95958e98d4f6ee43df795465c320"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/kiboit/phast/zipball/e91e3d725657f15a1c1f52b06a0260d738b181be",
-                "reference": "e91e3d725657f15a1c1f52b06a0260d738b181be",
+                "url": "https://api.github.com/repos/kiboit/phast/zipball/c5bac9f5cb6e95958e98d4f6ee43df795465c320",
+                "reference": "c5bac9f5cb6e95958e98d4f6ee43df795465c320",
                 "shasum": ""
             },
             "require": {
@@ -44,7 +44,7 @@
                 "source": "https://github.com/kiboit/phast/tree/master",
                 "issues": "https://github.com/kiboit/phast/issues"
             },
-            "time": "2017-12-13T08:57:15+00:00"
+            "time": "2017-12-13T15:48:34+00:00"
         },
         {
             "name": "mrclay/jsmin-php",
