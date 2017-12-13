@@ -12,11 +12,11 @@ dist/composer.phar :
 	mv $@~ $@
 
 dist/phastpress.zip : dist/composer.phar
-	rm -rf workbench
-	mkdir workbench
-	git archive HEAD src | tar x --strip-components 1 -C workbench
-	cd workbench && ../dist/composer.phar install
-	rm workbench/composer.*
-	find workbench -name .git\* -print0 | xargs -0 rm -rf
-	(cd workbench && zip -r9 - .) > $@~
+	rm -rf phastpress
+	mkdir -p phastpress
+	git archive HEAD src | tar x --strip-components 1 -C phastpress
+	cd phastpress && ../dist/composer.phar install
+	rm phastpress/composer.*
+	find phastpress -name .git\* -print0 | xargs -0 rm -rf
+	zip -r9 - phastpress > $@~
 	mv $@~ $@
