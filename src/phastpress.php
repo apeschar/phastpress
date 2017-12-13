@@ -10,8 +10,14 @@ License: Proprietary
 */
 
 require_once __DIR__ . '/vendor/autoload.php';
-if (!is_admin()) {
+
+call_user_func(function () {
+    if (is_admin()) {
+        return;
+    }
+
     $config = require_once __DIR__ . '/vendor/kiboit/phast/src/config-default.php';
     $config['servicesUrl'] = plugins_url('phast.php', __FILE__);
+
     \Kibo\Phast\PhastDocumentFilters::deploy($config);
-}
+});
