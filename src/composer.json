@@ -1,0 +1,16 @@
+{
+  "name": "kiboit/phastpress",
+  "description": "PhastPress is an automated page optimisation plugin for WordPress.",
+  "type": "project",
+  "license": "proprietary",
+  "require": {
+    "kiboit/phast": "*"
+  },
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/kiboit/phast.git"
+    }
+  ],
+  "minimum-stability": "dev"
+}
