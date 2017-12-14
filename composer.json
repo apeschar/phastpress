@@ -9,7 +9,7 @@
   "repositories": [
     {
       "type": "vcs",
-      "url": "https://github.com/kiboit/phast.git"
+      "url": "../phast"
     }
   ],
   "minimum-stability": "dev",
