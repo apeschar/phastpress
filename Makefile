@@ -3,7 +3,7 @@
 all : dist/phastpress.zip
 
 clean :
-	rm -f dist/phastpress.zip
+	rm -rf dist
 
 dist/composer.phar :
 	mkdir -p dist
@@ -12,11 +12,11 @@ dist/composer.phar :
 	mv $@~ $@
 
 dist/phastpress.zip : dist/composer.phar
-	rm -rf phastpress
-	mkdir -p phastpress
-	git archive HEAD src | tar x --strip-components 1 -C phastpress
-	cd phastpress && ../dist/composer.phar install
-	rm phastpress/composer.*
-	find phastpress -name .git\* -print0 | xargs -0 rm -rf
-	zip -r9 - phastpress > $@~
+	rm -rf dist/phastpress
+	mkdir -p dist/phastpress
+	git archive HEAD | tar x -C dist/phastpress
+	cd dist/phastpress && ../composer.phar install
+	find dist/phastpress -name .git\* -print0 | xargs -0 rm -rf
+	cd dist/phastpress && cat .distignore | xargs rm -rf
+	cd dist && zip -r9 - phastpress > $(shell basename $@~)
 	mv $@~ $@

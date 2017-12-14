@@ -1,4 +1,3 @@
 .idea
-/src/vendor
+/vendor
 /dist
-/phastpress
