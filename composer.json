@@ -4,7 +4,7 @@
   "type": "project",
   "license": "proprietary",
   "require": {
-    "kiboit/phast": "*"
+    "kiboit/phast": "dev-phast-press"
   },
   "repositories": [
     {

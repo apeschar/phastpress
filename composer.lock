@@ -4,15 +4,15 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "df1f09099c9f19822d77b71d9cbb798c",
+    "content-hash": "28769d87372f5fa591253c56e2fb47c4",
     "packages": [
         {
             "name": "kiboit/phast",
-            "version": "dev-master",
+            "version": "dev-phast-press",
             "source": {
                 "type": "git",
                 "url": "../phast",
-                "reference": "51a7f799a347a0fb9fd5f25710f11f58cad9df44"
+                "reference": "1fd29a670b4c400600aeb9eaf66eac825583ac1b"
             },
             "require": {
                 "mrclay/jsmin-php": "2.3.2",
@@ -34,7 +34,7 @@
                 "AGPL-3.0"
             ],
             "description": "A toolbox for optimizing web page performance",
-            "time": "2017-12-14T10:10:52+00:00"
+            "time": "2017-12-18T15:03:21+00:00"
         },
         {
             "name": "mrclay/jsmin-php",
@@ -92,7 +92,9 @@
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": [],
+    "stability-flags": {
+        "kiboit/phast": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": [],
