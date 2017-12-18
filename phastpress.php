@@ -21,3 +21,28 @@ call_user_func(function () {
 
     \Kibo\Phast\PhastDocumentFilters::deploy($config);
 });
+
+add_action('admin_menu', function () {
+    add_options_page(
+        __('PhastPress', 'phastpress'),
+        __('PhastPress', 'phastpress'),
+        'manage_options',
+        'phast-press',
+        'phastpress_render_diagnostics'
+    );
+
+}, 0);
+
+function phastpress_render_diagnostics() {
+    $config = require_once __DIR__ . '/vendor/kiboit/phast/src/config-default.php';
+    $diagnostics = new \Kibo\Phast\Diagnostics\SystemDiagnostics();
+    $groups = [];
+    foreach ($diagnostics->run($config) as $status) {
+        $type = $status->getPackage()->getType();
+        if (!isset ($groups[$type])) {
+            $groups[$type] = [];
+        }
+        $groups[$type][] = $status;
+    }
+    include __DIR__ . '/diagnostics.php';
+}
