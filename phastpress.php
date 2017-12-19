@@ -44,5 +44,5 @@ function phastpress_render_diagnostics() {
         }
         $groups[$type][] = $status;
     }
-    include __DIR__ . '/diagnostics.php';
+    include __DIR__ . '/templates/main.php';
 }
