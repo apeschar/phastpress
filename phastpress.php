@@ -34,6 +34,9 @@ add_action('admin_menu', function () {
 }, 0);
 
 function phastpress_render_diagnostics() {
+    wp_enqueue_style('phastpress-styles', plugins_url('admin-style.css', __FILE__), [], '0.1');
+
+
     $config = require_once __DIR__ . '/vendor/kiboit/phast/src/config-default.php';
     $diagnostics = new \Kibo\Phast\Diagnostics\SystemDiagnostics();
     $groups = [];

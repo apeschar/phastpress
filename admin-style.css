@@ -1,0 +1,107 @@
+.phastpress-report {
+    width: 90%;
+    margin-top: 20px;
+}
+
+.phastpress-report tr:first-child th {
+    font-size: 1.5em;
+    padding-bottom: 20px;
+}
+
+.phastpress-report td, .phastpress-report th {
+    padding: 5px;
+}
+
+.phastpress-report thead tr:last-child,
+.phastpress-report tbody tr:nth-child(even) {
+    background: lightgray;
+}
+
+.phastpress-report tbody td:last-child {
+    text-align: left;
+}
+
+.phastpress-on {
+    color: darkgreen;
+}
+
+.phastpress-off {
+    color: maroon;
+}
+
+.phastpress-report tbody tr.phastpress-unavailable {
+    background: lightpink;
+}
+
+.phastpress-report tbody tr:hover {
+    background: #e5e5e5;
+}
+
+
+.phastpress-filters-list {
+    list-style: none;
+}
+
+.phastpress-filter-item {
+    background: #e5e5e5;
+    border: 1px solid silver;
+}
+
+
+.phastpress-col {
+    margin-top: 10px;
+}
+
+.phastpress-col ol {
+    margin: 0;
+}
+
+.phastpress-filter-item.phastpress-selected {
+    background: white;
+}
+
+.phastpress-filter-item .phastpress-filter-name {
+    padding: 10px 10px 0 10px;
+    cursor: pointer;
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.phastpress-filter-item .phastpress-filter-enabled {
+    margin-left: 10px;
+}
+
+.phastpress-filter-item .phastpress-filter-error {
+    padding: 10px;
+    color: white;
+    font-weight: bold;
+    background: #dc3232;
+}
+
+.phastpress-filter-error-message {
+    margin-bottom: 10px;
+    background: #dc3232;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: white;
+    padding: 10px;
+}
+
+.phastpress-filter-settings {
+    padding: 10px;
+    background: white;
+    border: 1px solid silver;
+}
+
+.phastpress-settings-description p {
+    font-size: 1.2em;
+    line-height: 1.2;
+}
+
+.phastpress-settings-form-title {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+
+
