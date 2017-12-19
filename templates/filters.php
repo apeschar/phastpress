@@ -71,7 +71,7 @@
             Executable not found: /usr/bin/pngquant
         </div>
 
-        <div class="phastpress-filter-settings">
+        <div class="phastpress-settings">
 
             <div class="phastpress-settings-header">
                 <div class="phastpress-settings-form-title">

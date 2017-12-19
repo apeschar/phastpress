@@ -6,13 +6,13 @@
         <a href="javasctipt:;" class="nav-tab">
             <?php _e('Diagnostics', 'phastpress');?>
         </a>
-        <a href="javascript:;" class="nav-tab nav-tab-active">
+        <a href="javascript:;" class="nav-tab">
             <?php _e('HTML Filters', 'phastpress');?>
         </a>
         <a href="javascript:;" class="nav-tab">
             <?php _e('Image Filters', 'phastpress');?>
         </a>
-        <a href="javascript:;" class="nav-tab">
+        <a href="javascript:;" class="nav-tab nav-tab-active">
             <?php _e('Advanced', 'phastpress');?>
         </a>
     </h2>
@@ -21,8 +21,12 @@
         <?php require __DIR__ . '/diagnostics.php';?>
     </div>
 
-    <div id="phastpress-html-filters-tab">
+    <div id="phastpress-html-filters-tab" style="display: none">
         <?php require __DIR__ . '/filters.php';?>
+    </div>
+
+    <div id="phastpress-advanced-tab">
+        <?php require __DIR__ . '/advanced.php';?>
     </div>
 
     <div class="phastpress-settings-controls tablenav">
