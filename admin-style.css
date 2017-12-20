@@ -1,114 +1,78 @@
-.phastpress-report {
-    width: 90%;
-    margin-top: 20px;
-}
-
-.phastpress-report tr:first-child th {
-    font-size: 1.5em;
-    padding-bottom: 20px;
-}
-
-.phastpress-report td, .phastpress-report th {
-    padding: 5px;
-}
-
-.phastpress-report thead tr:last-child,
-.phastpress-report tbody tr:nth-child(even) {
-    background: lightgray;
-}
-
-.phastpress-report tbody td:last-child {
-    text-align: left;
-}
-
-.phastpress-on {
-    color: darkgreen;
-}
-
-.phastpress-off {
-    color: maroon;
-}
-
-.phastpress-report tbody tr.phastpress-unavailable {
-    background: lightpink;
-}
-
-.phastpress-report tbody tr:hover {
-    background: #e5e5e5;
-}
-
-
-.phastpress-filters-list {
-    list-style: none;
-}
-
-.phastpress-filter-item {
-    background: #e5e5e5;
-    border: 1px solid silver;
-}
-
-
-.phastpress-col,
-.phastpress-row {
-    margin-top: 10px;
-}
-
-.phastpress-col ol {
-    margin: 0;
-}
-
-.phastpress-filter-item.phastpress-selected {
-    background: white;
-}
-
-.phastpress-filter-item .phastpress-filter-name {
-    padding: 10px 10px 0 10px;
-    cursor: pointer;
-    font-size: 1.2em;
-    font-weight: bold;
-}
-
-.phastpress-filter-item .phastpress-filter-enabled {
-    margin-left: 10px;
-}
-
-.phastpress-filter-item .phastpress-filter-error {
-    padding: 10px;
-    color: white;
-    font-weight: bold;
-    background: #dc3232;
-}
-
-.phastpress-filter-error-message {
-    margin-bottom: 10px;
-    background: #dc3232;
-    font-size: 1.2em;
-    font-weight: bold;
-    color: white;
-    padding: 10px;
-}
-
 .phastpress-settings {
     margin-top: 10px;
     padding: 10px;
     background: white;
     border: 1px solid silver;
+    overflow: auto;
 }
 
-.phastpress-settings-group {
-    padding: 10px;
-    border: 1px solid #e5e5e5;
-}
-
-.phastpress-settings-description p {
-    font-size: 1.2em;
-    line-height: 1.2;
-}
-
-.phastpress-settings-form-title {
-    font-size: 1.5em;
+.phastpress-settings-title {
+    margin: 0;
+    font-size: 22px;
     font-weight: bold;
+    text-align: center;
 }
+
+.phastpress-settings-setting {
+    margin-top: 10px;
+}
+
+.phastpress-settings-setting-name {
+    float: left;
+    font-size: 16px;
+    font-weight: bold;
+    line-height: 30px;
+}
+
+.phastpress-settings-setting-value {
+    float: right;
+    vertical-align: middle;
+    line-height: 30px;
+}
+
+.phastpress-settings-setting-value label {
+    margin-left: 5px;
+}
+
+.phastpress-settings-setting-description {
+    clear: both;
+    position: relative;
+    top: -5px
+}
+
+.phastpress-settings-problem {
+    margin-top: 10px;
+    border-style: solid;
+    border-width: 1px;
+    border-radius: 5px;
+    padding: 10px;
+    text-align: center;
+    font-size: 16px;
+}
+
+.phastpress-settings-problem::before {
+    content: "\f534";
+    display: block;
+    float: left;
+    font: 400 24px/18px dashicons;
+}
+
+.phastpress-settings-warning {
+    border-color: darkorange;
+    background: orange;
+    color: white;
+}
+
+.phastpress-settings-error {
+    border-color: maroon;
+    background: #cc0000;
+    color: white;
+}
+
+
+
+
+
 
 
 
