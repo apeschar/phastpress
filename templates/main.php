@@ -25,6 +25,18 @@
                     </div>
                 <?php endforeach;?>
 
+                <?php foreach ($section['errors'] as $error):?>
+                    <div class="phastpress-settings-problem phastpress-settings-error">
+                        <?php echo $error;?>
+                    </div>
+                <?php endforeach;?>
+
+                <?php foreach ($section['warnings'] as $warning):?>
+                    <div class="phastpress-settings-problem phastpress-settings-warning">
+                        <?php echo $warning;?>
+                    </div>
+                <?php endforeach;?>
+
             </section>
         <?php endforeach;?>
 

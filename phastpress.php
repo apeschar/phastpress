@@ -49,7 +49,8 @@ function phastpress_render_settings() {
     }
 
     $sections = [
-        [
+
+        'phastpress' => [
             'title' => __('PhastPress', 'phastpress'),
             'settings' => [
                 [
@@ -64,9 +65,12 @@ function phastpress_render_settings() {
                     'description' => '',
                     'options' => phastpress_render_bool_options('footer-link')
                 ]
-            ]
+            ],
+            'warnings' => [],
+            'errors' => []
         ],
-        [
+
+        'images' => [
             'title' => __('Images', 'phastpress'),
             'settings' => [
                 [
@@ -79,9 +83,12 @@ function phastpress_render_settings() {
                     'description' => '',
                     'options' => phastpress_render_bool_options('img-optimization-css')
                 ]
-            ]
+            ],
+            'warnings' => [],
+            'errors' => []
         ],
-        [
+
+        'documents' => [
             'title' => __('CSS &amp; JS', 'phastpress'),
             'settings' => [
                 [
@@ -104,9 +111,43 @@ function phastpress_render_settings() {
                     'description' => '',
                     'options' => phastpress_render_bool_options('scripts-proxy')
                 ]
-            ]
+            ],
+            'warnings' => [],
+            'errors' => []
         ]
     ];
+
+    if (!phastpress_get_cache_root()) {
+        $sections['phastpress']['errors'][] = sprintf(
+            __(
+                'PhastPress can not write to any cache directory! Please, make one of the following directories writable: %s',
+                'phastpress'
+            ),
+            join(', ', phastpress_get_cache_root_candidates())
+        );
+    }
+    if (!phastpress_get_security_token()) {
+        $sections['phastpress']['errors'][] = sprintf(
+            __('PhastPress failed to create a security token in any of the following directories: %s', 'phastpress'),
+            join(', ', phastpress_get_cache_root_candidates())
+        );
+    }
+
+    $diagnostics = new \Kibo\Phast\Diagnostics\SystemDiagnostics();
+    foreach ($diagnostics->run(phastpress_get_phast_user_config()) as $status) {
+        if (!$status->isAvailable()) {
+            $package = $status->getPackage();
+            $type = $package->getType();
+            $name = substr($package->getNamespace(), strrpos($package->getNamespace(), '\\') + 1);
+            if ($type == 'Cache') {
+                $sections['phastpress']['errors'][] = $status->getReason();
+            } else if (in_array($name, ['Resizer', 'Compression'])) {
+                $sections['images']['errors'][] = $status->getReason();
+            } else if ($type == 'ImageFilter') {
+                $sections['images']['warnings'][] = $status->getReason();
+            }
+        }
+    }
 
     include __DIR__ . '/templates/main.php';
 }
