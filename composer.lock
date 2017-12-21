@@ -12,7 +12,7 @@
             "source": {
                 "type": "git",
                 "url": "../phast",
-                "reference": "173d7f11ba892616b63c823ad018f504c2ad796a"
+                "reference": "1508935546db24b3304b590b0b2666d1c473643d"
             },
             "require": {
                 "mrclay/jsmin-php": "2.3.2",
@@ -34,7 +34,7 @@
                 "AGPL-3.0"
             ],
             "description": "A toolbox for optimizing web page performance",
-            "time": "2017-12-20T15:59:44+00:00"
+            "time": "2017-12-21T14:27:53+00:00"
         },
         {
             "name": "mrclay/jsmin-php",

@@ -13,6 +13,7 @@ License: Proprietary
 define('PHASTPRESS_SETTINGS_OPTION', 'phastpress-settings');
 define('PHASTPRESS_NONCE_NAME', 'phastpress-nonce');
 
+
 add_action('plugins_loaded', function () {
     // we have to deploy on plugins_loaded action so we get the wp_get_current_user() to be defined
     if (is_admin()) {
