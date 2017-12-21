@@ -23,6 +23,13 @@ add_action('plugins_loaded', function () {
     require_once __DIR__ . '/functions.php';
 
     \Kibo\Phast\PhastDocumentFilters::deploy(phastpress_get_phast_user_config());
+
+    $plugin_config = phastpress_get_config();
+    if ($plugin_config['footer-link']) {
+        add_action('wp_footer', function () {
+            echo '<div style="font-size: 12px; text-align: center; height:  20px; background: black; color: white; position: relative; top: 0px">' . __('Optimized by PhastPress &copy;', 'phastpress') . '</div>';
+        });
+    }
 });
 
 add_action('admin_menu', function () {
