@@ -9,17 +9,19 @@ Author URI: https://kiboit.com
 License: Proprietary
 */
 
-require_once __DIR__ . '/vendor/autoload.php';
+function phastpress_get_user_config() {
+    return [
+        'servicesUrl' => plugins_url('phast.php', __FILE__)
+    ];
+}
 
 call_user_func(function () {
     if (is_admin()) {
         return;
     }
+    require_once __DIR__ . '/vendor/autoload.php';
 
-    $config = require_once __DIR__ . '/vendor/kiboit/phast/src/config-default.php';
-    $config['servicesUrl'] = plugins_url('phast.php', __FILE__);
-
-    \Kibo\Phast\PhastDocumentFilters::deploy($config);
+    \Kibo\Phast\PhastDocumentFilters::deploy(phastpress_get_user_config());
 });
 
 add_action('admin_menu', function () {
@@ -28,16 +30,18 @@ add_action('admin_menu', function () {
         __('PhastPress', 'phastpress'),
         'manage_options',
         'phast-press',
-        'phastpress_render_diagnostics'
+        'phastpress_render_settings'
     );
 
 }, 0);
 
-function phastpress_render_diagnostics() {
+function phastpress_render_settings() {
+    require_once __DIR__ . '/vendor/autoload.php';
+
     wp_enqueue_style('phastpress-styles', plugins_url('admin-style.css', __FILE__), [], '0.1');
 
 
-    $config = require_once __DIR__ . '/vendor/kiboit/phast/src/config-default.php';
+    $config = phastpress_get_user_config();
     $diagnostics = new \Kibo\Phast\Diagnostics\SystemDiagnostics();
     $groups = [];
     foreach ($diagnostics->run($config) as $status) {
