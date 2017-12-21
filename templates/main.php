@@ -35,6 +35,7 @@
                     type="submit"
                     class="button"
                     name="phastpress-use-defaults"
+                    onclick="return window.confirm('<?php _e('Are you sure that you want to restore the defaults?', 'phastpress');?>')"
                     value="<?php _e('Use Defaults', 'phastpress');?>"
                 >
                 <input
