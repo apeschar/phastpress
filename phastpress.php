@@ -13,7 +13,8 @@ License: Proprietary
 define('PHASTPRESS_SETTINGS_OPTION', 'phastpress-settings');
 define('PHASTPRESS_NONCE_NAME', 'phastpress-nonce');
 
-call_user_func(function () {
+add_action('plugins_loaded', function () {
+    // we have to deploy on plugins_loaded action so we get the wp_get_current_user() to be defined
     if (is_admin()) {
         return;
     }
@@ -54,7 +55,7 @@ function phastpress_render_settings() {
                     'name' => __('PhastPress General', 'phastpress'),
                     'description' => '',
                     'options' => phastpress_render_option('enabled', true)
-                                .phastpress_render_option('enabled', 'admin', __('On for admins', 'phastpress'))
+                                .phastpress_render_option('enabled', 'admin', __('On for admins only', 'phastpress'))
                                 .phastpress_render_option('enabled', false)
                 ],
                 [

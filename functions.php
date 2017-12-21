@@ -10,6 +10,8 @@ function phastpress_get_phast_user_config() {
         $phast_config['switches']['phast'] = true;
     } else if ($plugin_config['enabled'] === false) {
         $phast_config['switches']['phast'] = false;
+    } else {
+        $phast_config['switches']['phast'] = current_user_can('administrator');
     }
 
     $setting2filters = [
