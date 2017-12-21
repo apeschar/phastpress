@@ -9,19 +9,18 @@ Author URI: https://kiboit.com
 License: Proprietary
 */
 
-function phastpress_get_user_config() {
-    return [
-        'servicesUrl' => plugins_url('phast.php', __FILE__)
-    ];
-}
+
+define('PHASTPRESS_SETTINGS_OPTION', 'phastpress-settings');
+define('PHASTPRESS_NONCE_NAME', 'phastpress-nonce');
 
 call_user_func(function () {
     if (is_admin()) {
         return;
     }
     require_once __DIR__ . '/vendor/autoload.php';
+    require_once __DIR__ . '/functions.php';
 
-    \Kibo\Phast\PhastDocumentFilters::deploy(phastpress_get_user_config());
+    \Kibo\Phast\PhastDocumentFilters::deploy(phastpress_get_phast_user_config());
 });
 
 add_action('admin_menu', function () {
@@ -37,19 +36,121 @@ add_action('admin_menu', function () {
 
 function phastpress_render_settings() {
     require_once __DIR__ . '/vendor/autoload.php';
+    require_once __DIR__ . '/functions.php';
 
     wp_enqueue_style('phastpress-styles', plugins_url('admin-style.css', __FILE__), [], '0.1');
 
-
-    $config = phastpress_get_user_config();
-    $diagnostics = new \Kibo\Phast\Diagnostics\SystemDiagnostics();
-    $groups = [];
-    foreach ($diagnostics->run($config) as $status) {
-        $type = $status->getPackage()->getType();
-        if (!isset ($groups[$type])) {
-            $groups[$type] = [];
-        }
-        $groups[$type][] = $status;
+    if (isset ($_POST['phastpress-use-defaults'])) {
+        phastpress_reset_settings();
+    } else if (isset ($_POST['phastpress-settings'])) {
+        phastpress_save_settings();
     }
+
+    $sections = [
+        [
+            'title' => __('PhastPress', 'phastpress'),
+            'settings' => [
+                [
+                    'name' => __('PhastPress General', 'phastpress'),
+                    'description' => '',
+                    'options' => phastpress_render_option('enabled', true)
+                                .phastpress_render_option('enabled', 'admin', __('On for admins', 'phastpress'))
+                                .phastpress_render_option('enabled', false)
+                ],
+                [
+                    'name' => __('Let the world know about PhastPress', 'phastpress'),
+                    'description' => '',
+                    'options' => phastpress_render_bool_options('footer-link')
+                ]
+            ]
+        ],
+        [
+            'title' => __('Images', 'phastpress'),
+            'settings' => [
+                [
+                    'name' => __('Optimize images in tags', 'phastpress'),
+                    'description' => '',
+                    'options' => phastpress_render_bool_options('img-optimization-tags')
+                ],
+                [
+                    'name' => __('Optimize images in CSS', 'phastpress'),
+                    'description' => '',
+                    'options' => phastpress_render_bool_options('img-optimization-css')
+                ]
+            ]
+        ],
+        [
+            'title' => __('CSS &amp; JS', 'phastpress'),
+            'settings' => [
+                [
+                    'name' => __('Optimize CSS', 'phastpress'),
+                    'description' => '',
+                    'options' => phastpress_render_bool_options('css-optimization')
+                ],
+                [
+                    'name' => __('Move scripts to end of body', 'phastpress'),
+                    'description' => '',
+                    'options' => phastpress_render_bool_options('scripts-rearrangement')
+                ],
+                [
+                    'name' => __('Load scripts asynchronously', 'phastpress'),
+                    'description' => '',
+                    'options' => phastpress_render_bool_options('scripts-defer')
+                ],
+                [
+                    'name' => __('Cache external scripts', 'phastpress'),
+                    'description' => '',
+                    'options' => phastpress_render_bool_options('scripts-proxy')
+                ]
+            ]
+        ]
+    ];
+
     include __DIR__ . '/templates/main.php';
+}
+
+function phastpress_render_option($setting, $value, $label = null) {
+    static $config;
+    if (!isset ($config)) {
+        $config = phastpress_get_config();
+    }
+    $checked = $config[$setting] === $value ? 'checked' : '';
+    if ($value === true) {
+        $option_value = 'on';
+    } else if ($value === false) {
+        $option_value = 'off';
+    } else {
+        $option_value = $value;
+    }
+    if (is_null($label)) {
+        $label = $value ? __('On', 'phastpress') : __('Off', 'phastpress');
+    }
+    $option = "<input type=\"radio\" name=\"phastpress-$setting\" value=\"$option_value\" $checked>";
+    return "<label>$option\n$label</label>";
+}
+
+function phastpress_render_bool_options($setting) {
+    return phastpress_render_option($setting, true) . phastpress_render_option($setting, false);
+}
+
+function phastpress_save_settings() {
+    check_admin_referer(PHASTPRESS_NONCE_NAME);
+    $keys = array_keys(phastpress_get_default_config());
+    $settings = [];
+    foreach ($keys as $key) {
+        $post_key = "phastpress-$key";
+        if ($_POST[$post_key] == 'on') {
+            $settings[$key] = true;
+        } else if ($_POST[$post_key] == 'off') {
+            $settings[$key] = false;
+        } else {
+            $settings[$key] = $_POST[$post_key];
+        }
+    }
+    update_option(PHASTPRESS_SETTINGS_OPTION, $settings);
+}
+
+function phastpress_reset_settings() {
+    check_admin_referer(PHASTPRESS_NONCE_NAME);
+    delete_option(PHASTPRESS_SETTINGS_OPTION);
 }
