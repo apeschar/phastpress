@@ -25,7 +25,14 @@ add_action('plugins_loaded', function () {
     \Kibo\Phast\PhastDocumentFilters::deploy(phastpress_get_phast_user_config());
 
     $plugin_config = phastpress_get_config();
-    if ($plugin_config['footer-link']) {
+
+    $display_footer = $plugin_config['footer-link']
+                      && (
+                          $plugin_config['enabled'] === true
+                          || ($plugin_config['enabled'] == 'admin' && current_user_can('administrator'))
+                      );
+
+    if ($display_footer) {
         add_action('wp_head', function () {
             echo "<style>
                 .phast-footer a:link,
