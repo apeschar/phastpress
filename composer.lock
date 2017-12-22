@@ -4,14 +4,14 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "28769d87372f5fa591253c56e2fb47c4",
+    "content-hash": "d68801caefaf1adeda51fd5d431a5b6f",
     "packages": [
         {
             "name": "kiboit/phast",
             "version": "dev-phast-press",
             "source": {
                 "type": "git",
-                "url": "../phast",
+                "url": "/home/milko/code/kiboit/phast/phast",
                 "reference": "16086a56766e701075382f226edd49c5c2cdee41"
             },
             "require": {

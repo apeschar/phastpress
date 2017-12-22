@@ -9,7 +9,7 @@
   "repositories": [
     {
       "type": "vcs",
-      "url": "../phast"
+      "url": "/home/milko/code/kiboit/phast/phast"
     }
   ],
   "minimum-stability": "dev",
