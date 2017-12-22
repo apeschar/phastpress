@@ -98,6 +98,7 @@ add_action('plugins_loaded', function () {
                     color: white;
                     position: relative;
                     top: 0;
+                    z-index: 1000;
                 }
             </style>";
         }, 0, 2);
