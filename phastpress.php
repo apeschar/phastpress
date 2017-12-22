@@ -122,6 +122,9 @@ function phastpress_render_settings() {
 
     $phastConfig = \Kibo\Phast\Environment\Configuration::fromDefaults()->toArray();
 
+    $urlWithPhast    = add_query_arg('phast', 'phast',  site_url());
+    $urlWithoutPhast = add_query_arg('phast', '-phast', site_url());
+
     $sections = [
 
         'phastpress' => [
@@ -129,13 +132,21 @@ function phastpress_render_settings() {
             'settings' => [
                 [
                     'name' => __('PhastPress optimizations', 'phastpress'),
-                    'description' => __(
-                        '<i>On</i>: Enable PhastPress optimizations for all users<br>'
-                        . '<i>On for admins only</i>: Enable PhastPress optimizations only for logged-in users '
-                        . 'with the "Administrator" privilege. '
-                        . 'Use this to test your site before enabling PhastPress for all users.',
-                        'phastpress'
-                    ),
+                    'description' =>
+                        __(
+                            '<i>On</i>: Enable PhastPress optimizations for all users<br>'
+                            . '<i>On for admins only</i>: Enable PhastPress optimizations only for logged-in users '
+                            . 'with the "Administrator" privilege. '
+                            . 'Use this to test your site before enabling PhastPress for all users.',
+                            'phastpress'
+                        ) . '<br>' .
+                        sprintf(
+                            __('<b>Tip:</b> Test your site <a href="%s" target="_blank">without PhastPress</a> and ' .
+                               '<a href="%s" target="_blank">with PhastPress</a> in Google PageSpeed Insights.'),
+                            esc_attr('https://developers.google.com/speed/pagespeed/insights/?url=' . rawurlencode($urlWithoutPhast)),
+                            esc_attr('https://developers.google.com/speed/pagespeed/insights/?url=' . rawurlencode($urlWithPhast))
+                        )
+                    ,
                     'options' => phastpress_render_option('enabled', true)
                                 .phastpress_render_option('enabled', 'admin', __('On for admins only', 'phastpress'))
                                 .phastpress_render_option('enabled', false)
