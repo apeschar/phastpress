@@ -5,12 +5,11 @@
     <?php if (phastpress_get_config()['enabled'] === 'admin'):?>
         <div class="phastpress-settings-problem phastpress-settings-warning">
             <?php _e(
-<<<EOT
-                PhastPress optimizations will be applied only for logged users with administrator privilege.<br>
-                This is for previewing purposes. 
-                Select the 'On' setting for 'PhastPress optimizations' bellow to activate for all users!
-EOT
-, 'phastpress');?>
+                'PhastPress optimizations will be applied only for logged users with the "Administrator" privilege.<br>' .
+                'This is for previewing purposes. ' .
+                'Select the <i>On</i> setting for <i>PhastPress optimizations</i> below to activate for all users!',
+                'phastpress'
+            ); ?>
         </div>
     <?php elseif (!phastpress_get_config()['enabled']):?>
         <div class="phastpress-settings-problem phastpress-settings-error">

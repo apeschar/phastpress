@@ -69,10 +69,7 @@
     color: white;
 }
 
-
-
-
-
-
-
-
+.phastpress-settings code {
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
