@@ -14,6 +14,15 @@ define('PHASTPRESS_SETTINGS_OPTION', 'phastpress-settings');
 define('PHASTPRESS_NONCE_NAME', 'phastpress-nonce');
 
 
+add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links) {
+    admin_url();
+    array_unshift(
+        $links,
+        '<a href="' . admin_url('options-general.php?page=phast-press') . '">' . __('Settings', 'phastpress') . '</a>'
+    );
+    return $links;
+});
+
 add_action('plugins_loaded', function () {
     // we have to deploy on plugins_loaded action so we get the wp_get_current_user() to be defined
     if (is_admin()) {
