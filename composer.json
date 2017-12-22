@@ -2,7 +2,7 @@
   "name": "kiboit/phastpress",
   "description": "PhastPress is an automated page optimisation plugin for WordPress.",
   "type": "project",
-  "license": "proprietary",
+  "license": "AGPL-3.0",
   "require": {
     "kiboit/phast": "dev-phast-press"
   },
