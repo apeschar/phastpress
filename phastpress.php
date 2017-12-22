@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: PhastPress
-Plugin URI: https://phast.io/wp
+Plugin URI: https://phast.io/
 Description: PhastPress is an automated page optimisation plugin for WordPress.
 Version: 0.1
 Author: Kibo IT
@@ -26,9 +26,26 @@ add_action('plugins_loaded', function () {
 
     $plugin_config = phastpress_get_config();
     if ($plugin_config['footer-link']) {
+        add_action('wp_head', function () {
+            echo "<style>
+                .phast-footer a:link,
+                .phast-footer a:visited,
+                .phast-footer a:hover {
+                    display: block;
+                    font-size: 12px;
+                    text-align: center;
+                    height: 20px;
+                    background: black;
+                    color: white;
+                    position: relative;
+                    top: 0;
+                }
+            </style>";
+        }, 0, 2);
         add_action('wp_footer', function () {
-            echo '<div style="font-size: 12px; text-align: center; height:  20px; background: black; color: white; position: relative; top: 0px">'
-                . __('Optimized by PhastPress &copy;', 'phastpress') . '</div>';
+            echo '<div class="phast-footer">'
+               . '<a href="https://phast.io/" target="_blank">'
+               . __('Optimized by PhastPress', 'phastpress') . '</a></div>';
         });
     }
 });
