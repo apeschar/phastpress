@@ -114,7 +114,7 @@ function phastpress_render_settings() {
         ],
 
         'documents' => [
-            'title' => __('CSS &amp; JS', 'phastpress'),
+            'title' => __('HTML &amp; CSS &amp; JS', 'phastpress'),
             'settings' => [
                 [
                     'name' => __('Optimize CSS', 'phastpress'),
@@ -135,6 +135,11 @@ function phastpress_render_settings() {
                     'name' => __('Cache external scripts', 'phastpress'),
                     'description' => '',
                     'options' => phastpress_render_bool_options('scripts-proxy')
+                ],
+                [
+                    'name' => __('Defer IFrame loading', 'phastpress'),
+                    'description' => '',
+                    'options' => phastpress_render_bool_options('iframe-defer')
                 ]
             ],
             'warnings' => [],

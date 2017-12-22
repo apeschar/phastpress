@@ -9,7 +9,8 @@ function phastpress_get_default_config() {
         'css-optimization' => true,
         'scripts-rearrangement' => true,
         'scripts-defer' => true,
-        'scripts-proxy' => true
+        'scripts-proxy' => true,
+        'iframe-defer' => true,
     ];
 }
 
@@ -101,7 +102,8 @@ function phastpress_get_phast_user_config() {
         'css-optimization' => ['CSSInlining', 'CSSOptimization', 'CSSDeferring'],
         'scripts-rearrangement' => ['ScriptsRearrangement'],
         'scripts-defer' => ['ScriptsDeferring'],
-        'scripts-proxy' => ['ScriptsProxyService']
+        'scripts-proxy' => ['ScriptsProxyService'],
+        'iframe-defer' => ['DelayedIFrameLoading']
     ];
 
     $phast_config['documents']['filters'] = [];
