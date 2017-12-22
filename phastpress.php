@@ -1,9 +1,8 @@
 <?php
 /*
 Plugin Name: PhastPress
-Plugin URI: https://phast.io/
-Description: PhastPress is an automated page optimisation plugin for WordPress.
-Version: 0.1
+Description: PhastPress automatically optimizes your site for the best possible Google PageSpeed Insights score.
+Version: 1.0.0
 Author: Kibo IT
 Author URI: https://kiboit.com
 License: Proprietary
