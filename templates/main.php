@@ -77,4 +77,3 @@
         <?php wp_nonce_field(PHASTPRESS_NONCE_NAME);?>
     </form>
 </div>
-<script src="https://kiboit.com/phast/wp.js" async defer></script>
