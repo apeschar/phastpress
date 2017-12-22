@@ -12,7 +12,7 @@
             "source": {
                 "type": "git",
                 "url": "/home/milko/code/kiboit/phast/phast",
-                "reference": "16086a56766e701075382f226edd49c5c2cdee41"
+                "reference": "7728f2621643854a698cad343ec24d80ff3a4f28"
             },
             "require": {
                 "mrclay/jsmin-php": "2.3.2",
@@ -34,7 +34,7 @@
                 "AGPL-3.0"
             ],
             "description": "A toolbox for optimizing web page performance",
-            "time": "2017-12-21T17:03:37+00:00"
+            "time": "2017-12-22T10:04:10+00:00"
         },
         {
             "name": "mrclay/jsmin-php",
