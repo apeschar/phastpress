@@ -257,14 +257,17 @@ function phastpress_render_bool_options($setting) {
 function phastpress_save_settings() {
     check_admin_referer(PHASTPRESS_NONCE_NAME);
     $keys = array_keys(phastpress_get_default_config());
-    $settings = [];
+    $settings = phastpress_get_config();
     foreach ($keys as $key) {
         $post_key = "phastpress-$key";
+        if (!isset($_POST[$post_key])) {
+            continue;
+        }
         if ($_POST[$post_key] == 'on') {
             $settings[$key] = true;
         } else if ($_POST[$post_key] == 'off') {
             $settings[$key] = false;
-        } else {
+        } else if ($_POST[$post_key]) {
             $settings[$key] = $_POST[$post_key];
         }
     }
