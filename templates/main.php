@@ -2,6 +2,22 @@
     <h1><?php _e('PhastPress', 'phastpress');?></h1>
     <hr class="wp-header-end">
 
+    <?php if (phastpress_get_config()['enabled'] === 'admin'):?>
+        <div class="phastpress-settings-problem phastpress-settings-warning">
+            <?php _e(
+<<<EOT
+                PhastPress optimizations will be applied only for logged users with administrator privilege.<br>
+                This is for previewing purposes. 
+                Select the 'On' setting for 'PhastPress optimizations' bellow to activate for all users!
+EOT
+, 'phastpress');?>
+        </div>
+    <?php elseif (!phastpress_get_config()['enabled']):?>
+        <div class="phastpress-settings-problem phastpress-settings-error">
+            <?php _e('PhastPress optimizations are off!', 'phastpress');?>
+        </div>
+    <?php endif;?>
+
     <form action="" method="post">
 
         <?php foreach ($sections as $section):?>

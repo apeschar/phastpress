@@ -79,7 +79,7 @@ function phastpress_render_settings() {
             'title' => __('PhastPress', 'phastpress'),
             'settings' => [
                 [
-                    'name' => __('PhastPress General', 'phastpress'),
+                    'name' => __('PhastPress optimizations', 'phastpress'),
                     'description' => '',
                     'options' => phastpress_render_option('enabled', true)
                                 .phastpress_render_option('enabled', 'admin', __('On for admins only', 'phastpress'))
