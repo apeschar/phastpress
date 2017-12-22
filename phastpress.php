@@ -19,12 +19,10 @@ register_activation_hook(__FILE__, function () {
 });
 
 add_action('admin_notices', function () {
-    $activated = get_option(PHASTPRESS_ACTIVATION_FLAG, false);
-    if (!$activated) {
+    $display_message = get_option(PHASTPRESS_ACTIVATION_FLAG, false);
+    if (!$display_message) {
         return;
     }
-    update_option(PHASTPRESS_ACTIVATION_FLAG, false);
-
 
     require_once __DIR__ . '/functions.php';
     $message = __(
@@ -40,7 +38,22 @@ add_action('admin_notices', function () {
     } else {
         $status = __('off', 'phastpress');
     }
-    echo '<div class="notice notice-success"><p>' . sprintf($message, $status, $settings_link) . '</p></div>';
+
+    echo '
+        <script>
+            jQuery(document).ready(function ($) {
+                $("#phastpress-activated-notice").on("click", " .notice-dismiss", function() {
+                    $.get(ajaxurl + "?action=phastpress_dismiss_notice")
+                })
+            });
+        </script>';
+    echo '<div class="notice notice-success is-dismissible" id="phastpress-activated-notice">';
+    echo '<p>' . sprintf($message, $status, $settings_link) . '</p>';
+    echo '</div>';
+});
+
+add_action('wp_ajax_phastpress_dismiss_notice', function () {
+    update_option(PHASTPRESS_ACTIVATION_FLAG, false);
 });
 
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links) {
