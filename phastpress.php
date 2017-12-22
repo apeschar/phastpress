@@ -12,16 +12,47 @@ License: Proprietary
 
 define('PHASTPRESS_SETTINGS_OPTION', 'phastpress-settings');
 define('PHASTPRESS_NONCE_NAME', 'phastpress-nonce');
+define('PHASTPRESS_ACTIVATION_FLAG', 'phastpress-activated');
 
+register_activation_hook(__FILE__, function () {
+    update_option(PHASTPRESS_ACTIVATION_FLAG, true);
+});
+
+add_action('admin_notices', function () {
+    $activated = get_option(PHASTPRESS_ACTIVATION_FLAG, false);
+    if (!$activated) {
+        return;
+    }
+    update_option(PHASTPRESS_ACTIVATION_FLAG, false);
+
+
+    require_once __DIR__ . '/functions.php';
+    $message = __(
+        'Thank you for using <b>PhastPress</b>. Optimization is <b>%s</b>. Go to <b>%s</b> to setup <b>PhastPress</b>!',
+        'phastpress'
+    );
+    $settings_link = phastpress_get_settings_link();
+    $config = phastpress_get_config();
+    if ($config['enabled'] == 'admin') {
+        $status = __('on for administrators', 'phastpress');
+    } else if ($config['enabled']) {
+        $status = __('on', 'phastpress');
+    } else {
+        $status = __('off', 'phastpress');
+    }
+    echo '<div class="notice notice-success"><p>' . sprintf($message, $status, $settings_link) . '</p></div>';
+});
 
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links) {
     admin_url();
-    array_unshift(
-        $links,
-        '<a href="' . admin_url('options-general.php?page=phast-press') . '">' . __('Settings', 'phastpress') . '</a>'
-    );
+    array_unshift($links, phastpress_get_settings_link());
     return $links;
 });
+
+function phastpress_get_settings_link() {
+    return '<a href="' . admin_url('options-general.php?page=phast-press') . '">'
+           . __('Settings', 'phastpress') . '</a>';
+}
 
 add_action('plugins_loaded', function () {
     // we have to deploy on plugins_loaded action so we get the wp_get_current_user() to be defined
