@@ -4,15 +4,21 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "d68801caefaf1adeda51fd5d431a5b6f",
+    "content-hash": "98a834352cd04690fa08ceef23bfe9f8",
     "packages": [
         {
             "name": "kiboit/phast",
             "version": "dev-phast-press",
             "source": {
                 "type": "git",
-                "url": "/home/milko/code/kiboit/phast/phast",
+                "url": "https://github.com/kiboit/phast.git",
                 "reference": "7728f2621643854a698cad343ec24d80ff3a4f28"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/kiboit/phast/zipball/7728f2621643854a698cad343ec24d80ff3a4f28",
+                "reference": "7728f2621643854a698cad343ec24d80ff3a4f28",
+                "shasum": ""
             },
             "require": {
                 "mrclay/jsmin-php": "2.3.2",
@@ -30,6 +36,7 @@
                     ]
                 }
             },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "AGPL-3.0"
             ],

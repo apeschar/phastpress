@@ -6,12 +6,6 @@
   "require": {
     "kiboit/phast": "dev-phast-press"
   },
-  "repositories": [
-    {
-      "type": "vcs",
-      "url": "/home/milko/code/kiboit/phast/phast"
-    }
-  ],
   "minimum-stability": "dev",
   "config": {
     "platform": {
