@@ -2,7 +2,7 @@
 
 function phastpress_get_default_config() {
     return [
-        'enabled' => false,
+        'enabled' => 'admin',
         'footer-link' => true,
         'img-optimization-tags' => true,
         'img-optimization-css' => true,
