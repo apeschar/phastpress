@@ -205,7 +205,8 @@ function phastpress_render_option($setting, $value, $label = null) {
     if (is_null($label)) {
         $label = $value ? __('On', 'phastpress') : __('Off', 'phastpress');
     }
-    $option = "<input type=\"radio\" name=\"phastpress-$setting\" value=\"$option_value\" $checked>";
+    $disabled = $setting != 'enabled' && $config['enabled'] === false ? 'disabled' : '';
+    $option = "<input type=\"radio\" name=\"phastpress-$setting\" value=\"$option_value\" $checked $disabled>";
     return "<label>$option\n$label</label>";
 }
 
