@@ -11,10 +11,10 @@ dist/composer.phar :
 	chmod +x $@~
 	mv $@~ $@
 
-dist/phastpress.zip : dist/composer.phar
+dist/phastpress.zip : dist/composer.phar .git/refs/heads/master
 	rm -rf dist/phastpress
 	mkdir -p dist/phastpress
-	git archive HEAD | tar x -C dist/phastpress
+	git archive master | tar x -C dist/phastpress
 	cd dist/phastpress && ../composer.phar install
 	find dist/phastpress -name .git\* -print0 | xargs -0 rm -rf
 	cd dist/phastpress && cat .distignore | xargs rm -rf
