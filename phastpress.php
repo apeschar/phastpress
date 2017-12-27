@@ -337,8 +337,8 @@ function phastpress_save_settings() {
             $settings[$key] = true;
         } else if ($_POST[$post_key] == 'off') {
             $settings[$key] = false;
-        } else if ($_POST[$post_key]) {
-            $settings[$key] = $_POST[$post_key];
+        } else if ($_POST[$post_key] == 'admin') {
+            $settings[$key] = 'admin';
         }
     }
     update_option(PHASTPRESS_SETTINGS_OPTION, $settings);
