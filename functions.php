@@ -21,15 +21,16 @@ function phastpress_get_config() {
 }
 
 function phastpress_get_cache_root_candidates() {
+    $key = md5($_SERVER['DOCUMENT_ROOT']) . '.' . posix_geteuid();
     return [
-        __DIR__ . '/../../cache/phastpress',
-        sys_get_temp_dir() . '/phastpress/' . $_SERVER['HTTP_HOST']
+        __DIR__ . '/cache/' . $key,
+        sys_get_temp_dir() . '/phastpress.' . $key
     ];
 }
 
 function phastpress_get_cache_root() {
     foreach (phastpress_get_cache_root_candidates() as $dir) {
-        if (file_exists($dir)) {
+        if (is_dir($dir) && is_writable($dir)) {
             return $dir;
         }
         if (@mkdir($dir, 0777, true)) {
