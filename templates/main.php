@@ -5,7 +5,7 @@
     <?php if (phastpress_get_config()['enabled'] === 'admin'):?>
         <div class="phastpress-settings-problem phastpress-settings-warning">
             <?php _e(
-                'PhastPress optimizations will be applied only for logged users with the "Administrator" privilege.<br>' .
+                'PhastPress optimizations will be applied only for logged-in users with the "Administrator" privilege.<br>' .
                 'This is for previewing purposes. ' .
                 'Select the <i>On</i> setting for <i>PhastPress optimizations</i> below to activate for all users!',
                 'phastpress'
