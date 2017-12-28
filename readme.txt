@@ -1,6 +1,6 @@
 === PhastPress ===
 
-Tags: pagespeed insights, optimization
+Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
 Stable tag: trunk
