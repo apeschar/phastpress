@@ -5,6 +5,9 @@ all : dist/phastpress.zip
 clean :
 	rm -rf dist
 
+publish : dist/phastpress.zip
+	./bin/publish
+
 dist/composer.phar :
 	mkdir -p dist
 	wget -O $@~ https://github.com/composer/composer/releases/download/1.5.2/composer.phar

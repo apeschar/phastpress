@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -euo pipefail
+cd "$(dirname "$0")"/..
+
+if [[ ! -d svn/trunk ]]; then
+    svn co https://plugins.svn.wordpress.org/phastpress svn
+else
+    svn update svn
+fi
+
+rev="$(git show-ref --heads -s master | cut -b1-7)"
+
+svn rm --force svn/trunk
+mkdir svn/trunk
+bsdtar xf dist/phastpress.zip --strip-components 1 -C svn/trunk
+svn add svn/trunk
+svn commit svn/trunk -m "Update to git revision $rev" --username kiboit
