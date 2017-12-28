@@ -3,16 +3,20 @@
 set -euo pipefail
 cd "$(dirname "$0")"/..
 
-if [[ ! -d svn/trunk ]]; then
-    svn co https://plugins.svn.wordpress.org/phastpress svn
+if [[ ! -d svn/.git ]]; then
+    rm -rf svn
+    git svn clone --log-window-size 50000 https://plugins.svn.wordpress.org/phastpress svn
 else
-    svn update svn
+    (cd svn && git svn fetch)
 fi
 
 rev="$(git show-ref --heads -s master | cut -b1-7)"
 
-svn rm --force svn/trunk
+rm -rf svn/trunk
 mkdir svn/trunk
 bsdtar xf dist/phastpress.zip --strip-components 1 -C svn/trunk
-svn add svn/trunk
-svn commit svn/trunk -m "Update to git revision $rev" --username kiboit
+
+cd svn
+git add -A trunk
+git commit -m "Update to git revision $rev"
+git svn dcommit --username kiboit
