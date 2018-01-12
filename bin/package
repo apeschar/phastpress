@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+if ! version="$(git tag -l --points-at HEAD | head -1 | grep -P '^[0-9]\.')"; then
+    echo "Use \`git tag' to tag this commit with a version number, then try again." >&2
+    exit 1
+fi
+
+rm -rf dist/phastpress
+mkdir -p dist/phastpress
+git archive master | tar x -C dist/phastpress
+
+cd dist/phastpress
+
+../composer.phar install
+
+find -name .git\* -print0 | xargs -0 rm -rf
+xargs rm -rf < .distignore
+
+perl -p -i -e 's~\$VERSION\$~'"$version~g" phastpress.php
+
+cd ..
+zip -r9 - phastpress > phastpress.zip~
+mv phastpress.zip{~,}
