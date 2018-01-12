@@ -5,7 +5,7 @@ Description: PhastPress automatically optimizes your site for the best possible 
 Version: $VERSION$
 Author: Kibo IT
 Author URI: https://kiboit.com
-License: Proprietary
+License: AGPLv3
 */
 
 
