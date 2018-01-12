@@ -2,7 +2,7 @@
 /*
 Plugin Name: PhastPress
 Description: PhastPress automatically optimizes your site for the best possible Google PageSpeed Insights score.
-Version: 1.0.0
+Version: $VERSION$
 Author: Kibo IT
 Author URI: https://kiboit.com
 License: Proprietary
