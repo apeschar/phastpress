@@ -4,7 +4,7 @@
   "type": "project",
   "license": "AGPL-3.0",
   "require": {
-    "kiboit/phast": "dev-phast-press"
+    "kiboit/phast": "dev-phastpress"
   },
   "minimum-stability": "dev",
   "config": {

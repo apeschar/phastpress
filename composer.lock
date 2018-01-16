@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "98a834352cd04690fa08ceef23bfe9f8",
+    "content-hash": "3b8b99caba6208bd9198c201494ee3bb",
     "packages": [
         {
             "name": "kiboit/phast",
-            "version": "dev-phast-press",
+            "version": "dev-phastpress",
             "source": {
                 "type": "git",
                 "url": "https://github.com/kiboit/phast.git",
-                "reference": "8fbaf2a5df72872a62766d6302988c543c7e1ab7"
+                "reference": "cbeed190d7ea79fa8df3c9f56faea3d265ec33c8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/kiboit/phast/zipball/8fbaf2a5df72872a62766d6302988c543c7e1ab7",
-                "reference": "8fbaf2a5df72872a62766d6302988c543c7e1ab7",
+                "url": "https://api.github.com/repos/kiboit/phast/zipball/cbeed190d7ea79fa8df3c9f56faea3d265ec33c8",
+                "reference": "cbeed190d7ea79fa8df3c9f56faea3d265ec33c8",
                 "shasum": ""
             },
             "require": {
@@ -41,7 +41,7 @@
                 "AGPL-3.0"
             ],
             "description": "A toolbox for optimizing web page performance",
-            "time": "2018-01-12T07:56:27+00:00"
+            "time": "2018-01-16T08:28:46+00:00"
         },
         {
             "name": "mrclay/jsmin-php",
