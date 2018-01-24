@@ -3,3 +3,4 @@
 composer.json
 composer.lock
 Makefile
+bin
