@@ -73,3 +73,51 @@
     border: 1px solid #ccc;
     border-radius: 3px;
 }
+
+.phastpress-features-report {
+    width: 90%;
+    margin: 20px auto;
+    border-collapse: collapse;
+    font-size: 16px;
+}
+
+.phastpress-features-report-header {
+    font-size: 18px;
+}
+
+.phastpress-features-report td,
+.phastpress-features-report th
+{
+    padding: 10px;
+    border-bottom: 1px solid black;
+}
+
+.phastpress-features-report .phastpress-feature {
+    text-align: left;
+    font-weight: bold;
+}
+
+.phastpress-features-report .phastpress-feature.phastpress-header,
+.phastpress-features-report .phastpress-availability,
+.phastpress-features-report .phastpress-reason
+{
+    text-align: center;
+}
+
+.phastpress-features-report .phastpress-availability ::before {
+    display: block;
+    font: 400 40px/24px dashicons;
+}
+
+.phastpress-features-report .phastpress-feature-available::before {
+    content: '\f335';
+    color: red;
+}
+
+.phastpress-features-report .phastpress-feature-unavailable::before {
+    content: '\f147';
+    color: green;
+}
+
+
+

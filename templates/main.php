@@ -40,6 +40,45 @@
                     </div>
                 <?php endforeach;?>
 
+                <?php if (isset ($section['features'])):?>
+                    <table class="phastpress-features-report">
+                        <thead>
+                            <tr>
+                                <th colspan="3" class="phastpress-features-report-header">
+                                    <?php _e('Image optimization features report', 'phastpress');?>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th class="phastpress-feature phastpress-header">
+                                    <?php _e('Feature', 'phastpress');?>
+                                </th>
+                                <th class="phastpress-availability">
+                                    <?php _e('Available', 'phastpress');?>
+                                </th>
+                                <th class="phastpress-reason">
+                                    <?php _e('Reason', 'phastpress');?>
+                                </th>
+                            </tr>
+                            <tr>
+                                <td class="phastpress-feature">Resizing</td>
+                                <td class="phastpress-availability">
+                                    <span class="phastpress-feature-unavailable" title="<?php _e('No', 'phastpress')?>"></span>
+                                </td>
+                                <td class="phastpress-reason"></td>
+                            </tr>
+                            <tr>
+                                <td class="phastpress-feature">Compression</td>
+                                <td class="phastpress-availability">
+                                    <span class="phastpress-feature-available" title="<?php _e('Yes', 'phastpress');?>"></span>
+                                </td>
+                                <td class="phastpress-reason">There are no compression libraries available</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                <?php endif;?>
+
                 <?php foreach ($section['errors'] as $error):?>
                     <div class="phastpress-settings-problem phastpress-settings-error">
                         <?php echo $error;?>
@@ -52,7 +91,9 @@
                     </div>
                 <?php endforeach;?>
 
+
             </section>
+
         <?php endforeach;?>
 
 

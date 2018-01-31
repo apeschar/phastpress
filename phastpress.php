@@ -209,7 +209,8 @@ function phastpress_render_settings() {
                 ]
             ],
             'warnings' => [],
-            'errors' => []
+            'errors' => [],
+            'features' => []
         ],
 
         'documents' => [
