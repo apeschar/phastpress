@@ -173,7 +173,6 @@ function phastpress_render_settings() {
                     'options' => phastpress_render_bool_options('footer-link')
                 ]
             ],
-            'warnings' => [],
             'errors' => []
         ],
 
@@ -206,11 +205,23 @@ function phastpress_render_settings() {
                         $phastConfig['images']['filters'][\Kibo\Phast\Filters\Image\Resizer\Filter::class]['defaultMaxHeight']
                     ),
                     'options' => phastpress_render_bool_options('img-optimization-css')
+                ],
+                [
+                    'name' => __('Use the Phast Image Optimization API', 'phastpress'),
+                    'description' => sprintf(
+                        __(
+                            'Optimize your images on our servers free of charge.<br>' .
+                            'This will give you the best possible results without installing any software ' .
+                                'and will reduce the load on your hosting.<br>' .
+                            '<i>We will use your email address <a href="mailto: %1$s">%1$s</a> ' .
+                                'to keep you up to date about changes to the API.</i>',
+                            'phastpress'
+                        ),
+                        get_bloginfo('admin_email')
+                    ),
+                    'options' => phastpress_render_bool_options('img-optimization-api')
                 ]
-            ],
-            'warnings' => [],
-            'errors' => [],
-            'features' => []
+            ]
         ],
 
         'documents' => [
@@ -219,8 +230,8 @@ function phastpress_render_settings() {
                 [
                     'name' => __('Optimize CSS', 'phastpress'),
                     'description' => __(
-                        'Inline and minify stylesheets. Load critical styles first and ' .
-                        'prevent unused styles from blocking the page load.<br>' .
+                        'Inline critical styles first and prevent unused styles from blocking the page load.<br>' .
+                        'Minify stylesheets and leverage browser caching.<br>' .
                         'Inline Google Fonts CSS to speed up font loading.',
                         'phastpress'
                     ),
@@ -259,9 +270,7 @@ function phastpress_render_settings() {
                     ),
                     'options' => phastpress_render_bool_options('iframe-defer')
                 ]
-            ],
-            'warnings' => [],
-            'errors' => []
+            ]
         ]
     ];
 
@@ -281,6 +290,21 @@ function phastpress_render_settings() {
         );
     }
 
+    $imageFeatures = [
+        'Resizer'     => [
+            'name' => __('Resize and compress', 'phastpress'),
+        ],
+        'WEBPEncoder' => [
+            'name' => sprintf(__('Convert to <a href="%s" target="_blank">WebP</a>', 'phastpress'), 'https://developers.google.com/speed/webp/')
+        ],
+        'PNGQuantCompression' => [
+            'name' => sprintf(__('Optimize PNG using <a href="%s" target="_blank">pngquant</a>', 'phastpress'), 'https://pngquant.org/')
+        ],
+        'JPEGTransEnhancer'   => [
+            'name' => sprintf(__('Optimize JPEG using <a href="%s" target="_blank">jpegtran</a>', 'phastpress'), 'https://en.wikipedia.org/wiki/Libjpeg#jpegtran')
+        ]
+    ];
+
     $diagnostics = new \Kibo\Phast\Diagnostics\SystemDiagnostics();
     foreach ($diagnostics->run(phastpress_get_phast_user_config()) as $status) {
         if (!$status->isAvailable()) {
@@ -289,10 +313,9 @@ function phastpress_render_settings() {
             $name = substr($package->getNamespace(), strrpos($package->getNamespace(), '\\') + 1);
             if ($type == 'Cache') {
                 $sections['phastpress']['errors'][] = $status->getReason();
-            } else if (in_array($name, ['Resizer', 'Compression'])) {
-                $sections['images']['errors'][] = $status->getReason();
             } else if ($type == 'ImageFilter') {
-                $sections['images']['warnings'][] = $status->getReason();
+                $name = $name == 'Compression' ? 'Resizer' : $name;
+                $imageFeatures[$name]['error'] = $status->getReason();
             }
         }
     }

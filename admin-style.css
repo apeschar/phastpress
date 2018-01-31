@@ -115,13 +115,19 @@
 }
 
 .phastpress-features-report .phastpress-feature-available::before {
+    content: '\f147';
+    color: green;
+}
+
+.phastpress-features-report .phastpress-feature-unavailable::before {
     content: '\f335';
     color: red;
 }
 
-.phastpress-features-report .phastpress-feature-unavailable::before {
-    content: '\f147';
-    color: green;
+.phastpress-features-report .phastpress-api-hint {
+    font-size: 14px;
+    text-align: center;
+    padding: 5px;
 }
 
 

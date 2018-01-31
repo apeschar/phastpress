@@ -6,6 +6,7 @@ function phastpress_get_default_config() {
         'footer-link' => false,
         'img-optimization-tags' => true,
         'img-optimization-css' => true,
+        'img-optimization-api' => false,
         'css-optimization' => true,
         'scripts-rearrangement' => true,
         'scripts-defer' => true,

@@ -19,7 +19,7 @@
 
     <form action="" method="post">
 
-        <?php foreach ($sections as $section):?>
+        <?php foreach ($sections as $sectionName => $section):?>
             <section class="phastpress-settings">
 
                 <h2 class="phastpress-settings-title">
@@ -40,7 +40,7 @@
                     </div>
                 <?php endforeach;?>
 
-                <?php if (isset ($section['features'])):?>
+                <?php if ($sectionName == 'images'):?>
                     <table class="phastpress-features-report">
                         <thead>
                             <tr>
@@ -61,36 +61,51 @@
                                     <?php _e('Reason', 'phastpress');?>
                                 </th>
                             </tr>
-                            <tr>
-                                <td class="phastpress-feature">Resizing</td>
-                                <td class="phastpress-availability">
-                                    <span class="phastpress-feature-unavailable" title="<?php _e('No', 'phastpress')?>"></span>
-                                </td>
-                                <td class="phastpress-reason"></td>
-                            </tr>
-                            <tr>
-                                <td class="phastpress-feature">Compression</td>
-                                <td class="phastpress-availability">
-                                    <span class="phastpress-feature-available" title="<?php _e('Yes', 'phastpress');?>"></span>
-                                </td>
-                                <td class="phastpress-reason">There are no compression libraries available</td>
-                            </tr>
+                            <?php foreach ($imageFeatures as $feature):?>
+                                <tr>
+                                    <td class="phastpress-feature"><?php echo $feature['name'];?></td>
+                                    <td class="phastpress-availability">
+                                        <?php if (isset ($feature['error'])): $hasImageError = true;?>
+                                            <span
+                                                    class="phastpress-feature-unavailable"
+                                                    title="<?php _e('No', 'phastpress')?>"
+                                            ></span>
+                                        <?php else:?>
+                                            <span
+                                                    class="phastpress-feature-available"
+                                                    title="<?php _e('Yes', 'phastpress');?>"
+                                            ></span>
+                                        <?php endif;?>
+                                    </td>
+                                    <?php if (isset ($feature['error'])):?>
+                                        <td class="phastpress-reason">
+                                            <?php echo htmlspecialchars($feature['error']);?>
+                                        </td>
+                                    <?php endif;?>
+                                </tr>
+                            <?php endforeach;?>
                         </tbody>
+                        <?php if (isset ($hasImageError)):?>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" class="phastpress-api-hint">
+                                        <?php _e(
+                                            'It seems your setup does not allow for full image optimization.<br>' .
+                                            'Consider using the Phast Image Optimization API for best results!',
+                                            'phastpress'
+                                        );?>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        <?php endif;?>
                     </table>
                 <?php endif;?>
 
-                <?php foreach ($section['errors'] as $error):?>
+                <?php if ($sectionName == 'phastpress' && isset ($cacheError)):?>
                     <div class="phastpress-settings-problem phastpress-settings-error">
-                        <?php echo $error;?>
+                        <?php echo $cacheError;?>
                     </div>
-                <?php endforeach;?>
-
-                <?php foreach ($section['warnings'] as $warning):?>
-                    <div class="phastpress-settings-problem phastpress-settings-warning">
-                        <?php echo $warning;?>
-                    </div>
-                <?php endforeach;?>
-
+                <?php endif;?>
 
             </section>
 
