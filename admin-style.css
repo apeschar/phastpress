@@ -85,19 +85,24 @@
     font-size: 18px;
 }
 
-.phastpress-features-report td,
-.phastpress-features-report th
+
+.phastpress-features-report th,
+.phastpress-features-report tr:last-child td
+
 {
+    border-bottom: 1px solid #bbb;
+}
+
+.phastpress-features-report th,
+.phastpress-features-report td {
     padding: 10px;
-    border-bottom: 1px solid black;
 }
 
 .phastpress-features-report .phastpress-feature {
     text-align: left;
-    font-weight: bold;
 }
 
-.phastpress-features-report .phastpress-feature.phastpress-header,
+
 .phastpress-features-report .phastpress-availability,
 .phastpress-features-report .phastpress-reason
 {

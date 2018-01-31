@@ -45,7 +45,7 @@
                         <thead>
                             <tr>
                                 <th colspan="3" class="phastpress-features-report-header">
-                                    <?php _e('Image optimization features report', 'phastpress');?>
+                                    <?php _e('Image optimization status', 'phastpress');?>
                                 </th>
                             </tr>
                         </thead>
