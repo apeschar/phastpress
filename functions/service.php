@@ -45,33 +45,33 @@ function phastpress_get_cache_stored_file_path($filename) {
     return "$dir/$filename.php";
 }
 
-function phastpress_get_security_token_filename() {
-    return phastpress_get_cache_stored_file_path('security-token');
-}
-
-function phastpress_generate_security_token($file) {
-    $token = \Kibo\Phast\Security\ServiceSignature::generateToken();
-    return phastpress_store_in_php_file($file, $token);
-}
-
-
-function phastpress_get_security_token() {
-    $token_file = phastpress_get_security_token_filename();
-    if (!$token_file) {
-        return false;
-    }
-    if (!file_exists($token_file)) {
-        if (!phastpress_generate_security_token($token_file)) {
-            return false;
-        }
-    }
-    return phastpress_read_from_php_file($token_file);
+function phastpress_get_service_config_filename() {
+    return phastpress_get_cache_stored_file_path('service-config');
 }
 
 function phastpress_get_service_config() {
-    return [
-        'cache' => ['cacheRoot' => phastpress_get_cache_root()],
-        'securityToken' => phastpress_get_security_token()
-    ];
+    $serialized = phastpress_read_from_php_file(
+        phastpress_get_service_config_filename()
+    );
+    if (!$serialized) {
+        return false;
+    }
+    $config = @unserialize($serialized);
+    if (!$config) {
+        return false;
+    }
+    $config['cache'] = ['cacheRoot' => phastpress_get_cache_root()];
+    $config['images']['filters']['the-filter-tobe-classname']['host-name'] = $_SERVER['HTTP_HOST'];
+    $config['images']['filters']['the-filter-tobe-classname']['request-uri'] = $_SERVER['REQUEST_URI'];
+
+    $api_enabled = $config['images']['filters']['the-filter-tobe-classname']['enabled'];
+    if ($api_enabled) {
+        $phast_config = require_once __DIR__ . '/../vendor/kiboit/phast/src/Environment/config-default.php';
+        foreach ($phast_config['images']['filters'] as $filter => $config) {
+            $config['images']['filters'][$filter]['enabled'] = false;
+        }
+    }
+
+    return $config;
 }
 

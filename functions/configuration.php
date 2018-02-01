@@ -39,6 +39,7 @@ function phastpress_save_config() {
         }
     }
     update_option(PHASTPRESS_SETTINGS_OPTION, $settings);
+    phastpress_generate_service_config();
 }
 
 function phastpress_reset_config() {
@@ -46,13 +47,44 @@ function phastpress_reset_config() {
     delete_option(PHASTPRESS_SETTINGS_OPTION);
 }
 
-function phastpress_get_phast_user_config() {
+function phastpress_generate_service_config() {
     $plugin_config = phastpress_get_config();
+    $plugin_info = get_file_data(__DIR__ . '/../phastpress.php', ['Version' => 'Version']);
+    $config = [
+        'securityToken' => \Kibo\Phast\Security\ServiceSignature::generateToken(),
+        'images' => [
+            'filters' => [
+                'the-filter-tobe-classname' => [
+                    'enabled' => $plugin_config['img-optimization-api'],
+                    'admin-email' => get_bloginfo('admin_email'),
+                    'plugin-version' => $plugin_info['Version']
+                ]
+            ]
+        ]
+    ];
+    return phastpress_store_in_php_file(
+        phastpress_get_service_config_filename(),
+        serialize($config)
+    );
+}
+
+function phastpress_generate_service_config_if_not_exists() {
+    $filename = phastpress_get_service_config_filename();
+    if (!@file_exists($filename)) {
+        return phastpress_generate_service_config();
+    }
+    return true;
+}
+
+function phastpress_get_phast_user_config() {
+    phastpress_generate_service_config_if_not_exists();
 
     $phast_config = array_merge(
         ['servicesUrl' => plugins_url('phast.php', __DIR__ . '/../phastpress.php')],
         phastpress_get_service_config()
     );
+
+    $plugin_config = phastpress_get_config();
     if ($plugin_config['enabled'] === true) {
         $phast_config['switches']['phast'] = true;
     } else if ($plugin_config['enabled'] === false) {
