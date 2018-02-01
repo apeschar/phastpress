@@ -20,30 +20,13 @@ function phastpress_get_cache_root() {
     return false;
 }
 
-function phastpress_get_security_token_filename($dir) {
-    return "$dir/security-token.php";
+function phastpress_store_in_php_file($filename, $value) {
+    $content = '<?php \'' . addcslashes($value, '\\\'') . '\';';
+    return @file_put_contents($filename, $content);
 }
 
-function phastpress_generate_security_token($file) {
-    $token = \Kibo\Phast\Security\ServiceSignature::generateToken();
-    $content = '<?php \'' . addcslashes($token, '\\\'') . '\';';
-    $result = @file_put_contents($file, $content);
-    return $result;
-}
-
-
-function phastpress_get_security_token() {
-    $dir = phastpress_get_cache_root();
-    if (!$dir) {
-        return false;
-    }
-    $token_file = phastpress_get_security_token_filename($dir);
-    if (!file_exists($token_file)) {
-        if (!phastpress_generate_security_token($token_file)) {
-            return false;
-        }
-    }
-    $content = @file_get_contents($token_file);
+function phastpress_read_from_php_file($filename) {
+    $content = @file_get_contents($filename);
     if (!$content) {
         return false;
     }
@@ -52,6 +35,37 @@ function phastpress_get_security_token() {
         return false;
     }
     return stripcslashes($matches[1]);
+}
+
+function phastpress_get_cache_stored_file_path($filename) {
+    $dir = phastpress_get_cache_root();
+    if (!$dir) {
+        return false;
+    }
+    return "$dir/$filename.php";
+}
+
+function phastpress_get_security_token_filename() {
+    return phastpress_get_cache_stored_file_path('security-token');
+}
+
+function phastpress_generate_security_token($file) {
+    $token = \Kibo\Phast\Security\ServiceSignature::generateToken();
+    return phastpress_store_in_php_file($file, $token);
+}
+
+
+function phastpress_get_security_token() {
+    $token_file = phastpress_get_security_token_filename();
+    if (!$token_file) {
+        return false;
+    }
+    if (!file_exists($token_file)) {
+        if (!phastpress_generate_security_token($token_file)) {
+            return false;
+        }
+    }
+    return phastpress_read_from_php_file($token_file);
 }
 
 function phastpress_get_service_config() {
