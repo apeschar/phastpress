@@ -7,7 +7,6 @@ function phastpress_deploy() {
     }
 
     require_once __DIR__ . '/../vendor/autoload.php';
-
     \Kibo\Phast\PhastDocumentFilters::deploy(phastpress_get_phast_user_config());
 
     $plugin_config = phastpress_get_config();

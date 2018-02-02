@@ -61,7 +61,7 @@
                                     <?php _e('Reason', 'phastpress');?>
                                 </th>
                             </tr>
-                            <?php foreach ($imageFeatures as $feature):?>
+                            <?php foreach ($image_features as $feature):?>
                                 <tr>
                                     <td class="phastpress-feature"><?php echo $feature['name'];?></td>
                                     <td class="phastpress-availability">

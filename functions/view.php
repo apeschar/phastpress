@@ -87,17 +87,21 @@ function phastpress_render_settings() {
             join(', ', phastpress_get_cache_root_candidates())
         );
     }
-    if (!phastpress_get_security_token()) {
+    if (!phastpress_get_service_config()) {
         $sections['phastpress']['errors'][] = sprintf(
-            __('PhastPress failed to create a security token in any of the following directories: %s', 'phastpress'),
+            __(
+                'PhastPress failed to create a service configuration in any of the following directories: %s',
+                'phastpress'
+            ),
             join(', ', phastpress_get_cache_root_candidates())
         );
     }
 
-    $imageFeatures = require __DIR__ . '/view-image-features.php';
+    $phast_config = phastpress_get_phast_user_config();
+    $image_features = require __DIR__ . '/view-image-features.php';
 
     $diagnostics = new \Kibo\Phast\Diagnostics\SystemDiagnostics();
-    foreach ($diagnostics->run(phastpress_get_phast_user_config()) as $status) {
+    foreach ($diagnostics->run($phast_config) as $status) {
         if (!$status->isAvailable()) {
             $package = $status->getPackage();
             $type = $package->getType();
@@ -106,10 +110,30 @@ function phastpress_render_settings() {
                 $sections['phastpress']['errors'][] = $status->getReason();
             } else if ($type == 'ImageFilter') {
                 $name = $name == 'Compression' ? 'Resizer' : $name;
-                $imageFeatures[$name]['error'] = $status->getReason();
+                $image_features[$name]['error'] = $status->getReason();
             }
         }
     }
 
+    $phastpress_config = phastpress_get_config();
+    if ($phastpress_config['img-optimization-api']) {
+        foreach (array_keys($image_features) as $name) {
+            if ($name != 'ImageAPIClient' && isset ($image_features[$name]['error'])) {
+                unset ($image_features[$name]['error']);
+            }
+        }
+    } else {
+        unset ($image_features['ImageAPIClient']);
+    }
+
+
     include __DIR__ . '/../templates/main.php';
+}
+
+function run_diagnostics_for_api_client() {
+
+}
+
+function run_diagnostics_without_api_client() {
+
 }

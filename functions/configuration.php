@@ -54,7 +54,7 @@ function phastpress_generate_service_config() {
         'securityToken' => \Kibo\Phast\Security\ServiceSignature::generateToken(),
         'images' => [
             'filters' => [
-                'the-filter-tobe-classname' => [
+                \Kibo\PhastPlugins\ImageAPIClient\Filter::class => [
                     'enabled' => $plugin_config['img-optimization-api'],
                     'admin-email' => get_bloginfo('admin_email'),
                     'plugin-version' => $plugin_info['Version']
@@ -111,5 +111,6 @@ function phastpress_get_phast_user_config() {
             $phast_filters[$fullFilter] = ['enabled' => $plugin_config[$setting]];
         }
     }
+
     return $phast_config;
 }
