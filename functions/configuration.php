@@ -105,10 +105,12 @@ function phastpress_get_phast_user_config() {
 
     $phast_config['documents']['filters'] = [];
     $phast_filters = &$phast_config['documents']['filters'];
+    $phast_switches = &$phast_config['switches'];
     foreach ($setting2filters as $setting => $filters) {
         foreach ($filters as $filter) {
             $fullFilter = "Kibo\Phast\Filters\HTML\\$filter\Filter";
-            $phast_filters[$fullFilter] = ['enabled' => $plugin_config[$setting]];
+            $phast_filters[$fullFilter] = ['enabled' => $setting];
+            $phast_switches[$setting] = $plugin_config[$setting];
         }
     }
 
