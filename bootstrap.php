@@ -33,7 +33,6 @@ add_action('admin_menu', function () {
         'phast-press',
         'phastpress_render_settings'
     );
-
 }, 0);
 
 add_action('admin_init', function () {
@@ -44,6 +43,11 @@ add_action('admin_init', function () {
 add_action('plugins_loaded', function () {
     require_once __DIR__ . '/functions.php';
     phastpress_deploy();
+});
+
+add_action('update_option_admin_email', function () {
+    require_once __DIR__ . '/functions.php';
+    phastpress_update_admin_email();
 });
 
 

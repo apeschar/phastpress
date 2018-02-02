@@ -55,7 +55,7 @@ function phastpress_get_service_config_filename() {
     return phastpress_get_cache_stored_file_path('service-config');
 }
 
-function phastpress_get_service_config() {
+function phastpress_get_cache_stored_service_config() {
     $serialized = phastpress_read_from_php_file(
         phastpress_get_service_config_filename()
     );
@@ -66,6 +66,11 @@ function phastpress_get_service_config() {
     if (!$config) {
         return false;
     }
+    return $config;
+}
+
+function phastpress_get_service_config() {
+    $config = phastpress_get_cache_stored_service_config();
 
     $config['cache'] = ['cacheRoot' => phastpress_get_cache_root()];
 

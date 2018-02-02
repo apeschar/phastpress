@@ -116,3 +116,13 @@ function phastpress_get_phast_user_config() {
 
     return $phast_config;
 }
+
+function phastpress_update_admin_email() {
+    $config = phastpress_get_service_config();
+    $config['images']['filters'][\Kibo\PhastPlugins\ImageAPIClient\Filter::class]['admin-email']
+        = get_bloginfo('admin_email');
+    phastpress_store_in_php_file(
+        phastpress_get_service_config_filename(),
+        serialize($config)
+    );
+}
