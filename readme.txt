@@ -4,7 +4,7 @@ Tags: pagespeed insights, optimization, page speed, optimisation, speed, perform
 Requires at least: 4.4
 Requires PHP: 5.6
 Stable tag: trunk
-Tested up to: 4.9.1
+Tested up to: 4.9.2
 License: AGPL-3.0
 
 PhastPress automatically optimizes your site for the best possible Google PageSpeed Insights score.
