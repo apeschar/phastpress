@@ -118,7 +118,9 @@ function phastpress_render_settings() {
     $phastpress_config = phastpress_get_config();
     if ($phastpress_config['img-optimization-api']) {
         foreach (array_keys($image_features) as $name) {
-            if ($name != 'ImageAPIClient' && isset ($image_features[$name]['error'])) {
+            if ($name != 'ImageAPIClient' && isset ($image_features['ImageAPIClient']['error'])) {
+                $image_features[$name]['error'] = $image_features['ImageAPIClient']['error'];
+            }else if ($name != 'ImageAPIClient' && isset ($image_features[$name]['error'])) {
                 unset ($image_features[$name]['error']);
             }
         }

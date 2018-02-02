@@ -85,7 +85,7 @@
                                 </tr>
                             <?php endforeach;?>
                         </tbody>
-                        <?php if (isset ($hasImageError)):?>
+                        <?php if (isset ($hasImageError) && !isset ($image_features['ImageAPIClient'])):?>
                             <tfoot>
                                 <tr>
                                     <td colspan="3" class="phastpress-api-hint">

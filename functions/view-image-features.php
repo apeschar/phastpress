@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'ImageAPIClient' => [
+        'name' => __('Image Optimization API Client', 'phastpress')
+    ],
     'Resizer'     => [
         'name' => __('Resize and compress', 'phastpress'),
     ],
@@ -21,8 +24,5 @@ return [
             __('Optimize JPEG using <a href="%s" target="_blank">jpegtran</a>', 'phastpress'),
             'https://en.wikipedia.org/wiki/Libjpeg#jpegtran'
         )
-    ],
-    'ImageAPIClient' => [
-        'name' => __('Image Optimization API Client', 'phastpress')
     ]
 ];
