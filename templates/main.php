@@ -77,11 +77,11 @@
                                             ></span>
                                         <?php endif;?>
                                     </td>
-                                    <?php if (isset ($feature['error'])):?>
-                                        <td class="phastpress-reason">
+                                    <td class="phastpress-reason">
+                                        <?php if (isset ($feature['error'])):?>
                                             <?php echo htmlspecialchars($feature['error']);?>
-                                        </td>
-                                    <?php endif;?>
+                                        <?php endif;?>
+                                    </td>
                                 </tr>
                             <?php endforeach;?>
                         </tbody>
