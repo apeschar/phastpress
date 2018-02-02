@@ -8,6 +8,9 @@ use Kibo\Phast\Filters\Image\Exceptions\ImageProcessingException;
 use Kibo\Phast\Filters\Image\Image;
 use Kibo\Phast\Filters\Image\ImageFilter;
 use Kibo\Phast\Filters\Image\ImageImplementations\DummyImage;
+use Kibo\Phast\Security\ServiceSignature;
+use Kibo\Phast\Services\ServiceRequest;
+use Kibo\Phast\ValueObjects\URL;
 
 class Filter implements ImageFilter {
 
@@ -17,11 +20,19 @@ class Filter implements ImageFilter {
     private $config;
 
     /**
+     * @var ServiceSignature
+     */
+    private $signature;
+
+    /**
      * Filter constructor.
      * @param array $config
+     * @param ServiceSignature $signature
      */
-    public function __construct(array $config) {
+    public function __construct(array $config, ServiceSignature $signature) {
         $this->config = $config;
+        $this->signature = $signature;
+        $this->signature->setIdentities('');
     }
 
 
@@ -59,8 +70,11 @@ class Filter implements ImageFilter {
                 $params[$key] = $request[$key];
             }
         }
-        $glue = strpos($this->config['api-url'], '?') === false ? '?' : '&';
-        return $this->config['api-url'] . $glue . http_build_query($params);
+        return (new ServiceRequest())
+            ->withUrl(URL::fromString($this->config['api-url']))
+            ->withParams($params)
+            ->sign($this->signature)
+            ->serialize();
     }
 
     private function getRequestHeaders(array $request) {
