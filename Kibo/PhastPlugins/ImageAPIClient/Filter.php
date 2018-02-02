@@ -43,7 +43,9 @@ class Filter implements ImageFilter {
         $ch = curl_init($this->getRequestURL($request));
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => $this->getRequestHeaders($request)
+            CURLOPT_HTTPHEADER => $this->getRequestHeaders($request),
+            CURLOPT_CONNECTTIMEOUT => 2,
+            CURLOPT_TIMEOUT => 10
         ]);
         $response = @curl_exec($ch);
         if ($response === false) {
