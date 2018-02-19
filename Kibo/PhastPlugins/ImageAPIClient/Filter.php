@@ -43,7 +43,9 @@ class Filter implements ImageFilter {
         $ch = curl_init($this->getRequestURL($request));
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => $this->getRequestHeaders($request),
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => $this->getRequestHeaders($image, $request),
+            CURLOPT_POSTFIELDS => $image->getAsString(),
             CURLOPT_CONNECTTIMEOUT => 2,
             CURLOPT_TIMEOUT => 10
         ]);
@@ -67,7 +69,7 @@ class Filter implements ImageFilter {
 
     private function getRequestURL(array $request) {
         $params = [];
-        foreach (['src', 'width', 'height'] as $key) {
+        foreach (['width', 'height'] as $key) {
             if (isset ($request[$key])) {
                 $params[$key] = $request[$key];
             }
@@ -79,8 +81,11 @@ class Filter implements ImageFilter {
             ->serialize();
     }
 
-    private function getRequestHeaders(array $request) {
-        $headers = ['X-Phast-Image-API-Client: ' . $this->getRequestToken()];
+    private function getRequestHeaders(Image $image, array $request) {
+        $headers = [
+            'X-Phast-Image-API-Client: ' . $this->getRequestToken(),
+            'Content-Type: ' . $image->getType()
+        ];
         if (isset ($request['preferredType']) && $request['preferredType'] == Image::TYPE_WEBP) {
             $headers[] = 'Accept: image/webp';
         }
