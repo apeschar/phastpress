@@ -84,7 +84,7 @@ function phastpress_get_service_config() {
     $config['images']['filters'][$apiFilterName]['host-name'] = $_SERVER['HTTP_HOST'];
     $config['images']['filters'][$apiFilterName]['request-uri'] = $_SERVER['REQUEST_URI'];
     $config['images']['filters'][$apiFilterName]['api-url']
-        = 'http://phast.test/phast.php?service=images';
+        = 'http://optimize.phast.io/?service=images';
 
     $phast_config = require __DIR__ . '/../vendor/kiboit/phast/src/Environment/config-default.php';
     foreach (array_keys($phast_config['images']['filters']) as $filter) {
