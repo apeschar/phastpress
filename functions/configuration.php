@@ -51,6 +51,7 @@ function phastpress_generate_service_config() {
     $plugin_config = phastpress_get_config();
     $plugin_info = get_file_data(__DIR__ . '/../phastpress.php', ['Version' => 'Version']);
     $config = [
+        'servicesUrl' => plugins_url('phast.php', __DIR__ . '/../phastpress.php'),
         'securityToken' => \Kibo\Phast\Security\ServiceSignature::generateToken(),
         'images' => [
             'filters' => [
@@ -79,10 +80,7 @@ function phastpress_generate_service_config_if_not_exists() {
 function phastpress_get_phast_user_config() {
     phastpress_generate_service_config_if_not_exists();
 
-    $phast_config = array_merge(
-        ['servicesUrl' => plugins_url('phast.php', __DIR__ . '/../phastpress.php')],
-        phastpress_get_service_config()
-    );
+    $phast_config = phastpress_get_service_config();
 
     $plugin_config = phastpress_get_config();
     if ($plugin_config['enabled'] === true) {
