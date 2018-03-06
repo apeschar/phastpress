@@ -12,12 +12,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/kiboit/phast.git",
-                "reference": "4fa33c94489c3231c90a69ad0583d66073bc9451"
+                "reference": "4e5de8d923d345039b2e0f00066d76ea6a22d5aa"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/kiboit/phast/zipball/4fa33c94489c3231c90a69ad0583d66073bc9451",
-                "reference": "4fa33c94489c3231c90a69ad0583d66073bc9451",
+                "url": "https://api.github.com/repos/kiboit/phast/zipball/4e5de8d923d345039b2e0f00066d76ea6a22d5aa",
+                "reference": "4e5de8d923d345039b2e0f00066d76ea6a22d5aa",
                 "shasum": ""
             },
             "require": {
@@ -25,6 +25,7 @@
                 "php": ">=5.6"
             },
             "require-dev": {
+                "facebook/webdriver": "^1.5",
                 "phpunit/phpunit": "5.7.*"
             },
             "type": "library",
@@ -41,7 +42,7 @@
                 "AGPL-3.0-or-later"
             ],
             "description": "A toolbox for optimizing web page performance",
-            "time": "2018-02-19T15:30:34+00:00"
+            "time": "2018-03-06T09:37:54+00:00"
         },
         {
             "name": "mrclay/jsmin-php",
