@@ -28,7 +28,7 @@ function phastpress_get_cache_root() {
 
 function phastpress_store_in_php_file($filename, $value) {
     $content = '<?php \'' . addcslashes($value, '\\\'') . '\';';
-    return @file_put_contents($filename, $content);
+    return @file_put_contents($filename, $content, LOCK_EX);
 }
 
 function phastpress_read_from_php_file($filename) {

@@ -47,10 +47,16 @@ function phastpress_reset_config() {
     delete_option(PHASTPRESS_SETTINGS_OPTION);
 }
 
+function phastpress_get_plugin_version() {
+    $plugin_info = get_file_data(__DIR__ . '/../phastpress.php', ['Version' => 'Version']);
+    return $plugin_info['Version'];
+}
+
 function phastpress_generate_service_config() {
     $plugin_config = phastpress_get_config();
-    $plugin_info = get_file_data(__DIR__ . '/../phastpress.php', ['Version' => 'Version']);
+    $plugin_version = phastpress_get_plugin_version();
     $config = [
+        'plugin_version' => $plugin_version,
         'servicesUrl' => plugins_url('phast.php', __DIR__ . '/../phastpress.php'),
         'securityToken' => \Kibo\Phast\Security\ServiceSignature::generateToken(),
         'images' => [
@@ -58,7 +64,7 @@ function phastpress_generate_service_config() {
                 \Kibo\PhastPlugins\ImageAPIClient\Filter::class => [
                     'enabled' => $plugin_config['img-optimization-api'],
                     'admin-email' => get_bloginfo('admin_email'),
-                    'plugin-version' => $plugin_info['Version']
+                    'plugin-version' => $plugin_version
                 ]
             ]
         ]
@@ -72,15 +78,26 @@ function phastpress_generate_service_config() {
 function phastpress_generate_service_config_if_not_exists() {
     $filename = phastpress_get_service_config_filename();
     if (!@file_exists($filename)) {
-        return phastpress_generate_service_config();
+        if (phastpress_generate_service_config()) {
+            return phastpress_get_service_config();
+        }
+        return false;
     }
-    return true;
+
+    $config = phastpress_get_service_config();
+    if ($config['plugin_version'] != phastpress_get_plugin_version()) {
+        if (phastpress_generate_service_config()) {
+            return phastpress_get_service_config();
+        }
+        return false;
+    }
+
+    return $config;
 }
 
 function phastpress_get_phast_user_config() {
-    phastpress_generate_service_config_if_not_exists();
 
-    $phast_config = phastpress_get_service_config();
+    $phast_config = phastpress_generate_service_config_if_not_exists();
 
     $plugin_config = phastpress_get_config();
     if ($plugin_config['enabled'] === true) {
