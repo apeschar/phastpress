@@ -27,7 +27,7 @@ function phastpress_get_cache_root() {
 }
 
 function phastpress_store_in_php_file($filename, $value) {
-    $content = '<?php \'' . addcslashes($value, '\\\'') . '\';';
+    $content = "<?php exit; ?>\n" . sha1($value) . "\n" . $value;
     return @file_put_contents($filename, $content, LOCK_EX);
 }
 
@@ -36,11 +36,13 @@ function phastpress_read_from_php_file($filename) {
     if (!$content) {
         return false;
     }
-    $matches = [];
-    if (!preg_match('/^<\?php \'(.*?)\';$/', $content, $matches)) {
+    if (!preg_match('/^[^>]*>\n([a-f0-9]{40})\n(.*)$/s', $content, $match)) {
         return false;
     }
-    return stripcslashes($matches[1]);
+    if (sha1($match[2]) != $match[1]) {
+        return false;
+    }
+    return $match[2];
 }
 
 function phastpress_get_cache_stored_file_path($filename) {
