@@ -40,7 +40,7 @@ class Filter implements ImageFilter {
         if (!function_exists('curl_init')) {
             throw new ImageProcessingException('cURL extension not installed!');
         }
-        $ch = curl_init($this->getRequestURL($request));
+        $ch = curl_init($url=$this->getRequestURL($request));
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
@@ -78,7 +78,7 @@ class Filter implements ImageFilter {
             ->withUrl(URL::fromString($this->config['api-url']))
             ->withParams($params)
             ->sign($this->signature)
-            ->serialize();
+            ->serialize(ServiceRequest::FORMAT_QUERY);
     }
 
     private function getRequestHeaders(Image $image, array $request) {
