@@ -3,6 +3,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+composer=$PWD/vendor/bin/composer
+
 if version="$(git tag -l --points-at HEAD | head -1 | grep -P '^[0-9]\.')"; then
     file=phastpress.zip
 else
@@ -17,7 +19,7 @@ git archive "$version" | tar x -C dist/phastpress
 
 cd dist/phastpress
 
-../composer.phar install
+$composer install
 
 find -name .git\* -print0 | xargs -0 rm -rf
 xargs rm -rf < .distignore
