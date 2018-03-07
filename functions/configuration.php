@@ -85,7 +85,9 @@ function phastpress_generate_service_config_if_not_exists() {
     }
 
     $config = phastpress_get_service_config();
-    if ($config['plugin_version'] != phastpress_get_plugin_version()) {
+    if (empty($config['plugin_version'])
+        || $config['plugin_version'] != phastpress_get_plugin_version()
+    ) {
         if (phastpress_generate_service_config()) {
             return phastpress_get_service_config();
         }
