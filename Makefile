@@ -8,14 +8,14 @@ clean :
 	rm -rf dist vendor
 
 publish : dist/phastpress.zip
-	./bin/publish
+	bin/publish
 
 
 vendor/autoload.php : vendor/bin/composer composer.json composer.lock
-	composer install
+	vendor/bin/composer install
 
 dist/phastpress.zip : vendor/bin/composer $(wildcard .git/refs/heads/master)
-	./bin/package
+	bin/package
 
 vendor/bin/composer :
 	mkdir -p $(dir $@)
