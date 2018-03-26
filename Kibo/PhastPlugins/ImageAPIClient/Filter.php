@@ -35,6 +35,16 @@ class Filter implements ImageFilter {
         $this->signature->setIdentities('');
     }
 
+    public function getCacheSalt(array $request) {
+        $result = 'api-call';
+        foreach (['width', 'height', 'preferredType'] as $key) {
+            if (isset ($request[$key])) {
+                $result .= "-$key-{$request[$key]}";
+            }
+        }
+        return $result;
+    }
+
 
     public function transformImage(Image $image, array $request) {
         if (!function_exists('curl_init')) {
