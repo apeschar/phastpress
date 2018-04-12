@@ -113,7 +113,7 @@ function phastpress_get_phast_user_config() {
     $setting2filters = [
         'img-optimization-tags' => ['ImagesOptimizationService\Tags'],
         'img-optimization-css' => ['ImagesOptimizationService\CSS'],
-        'css-optimization' => ['CSSInlining', 'CSSDeferring'],
+        'css-optimization' => ['CSSInlining'],
         'scripts-rearrangement' => ['ScriptsRearrangement'],
         'scripts-defer' => ['ScriptsDeferring'],
         'scripts-proxy' => ['ScriptsProxyService'],
