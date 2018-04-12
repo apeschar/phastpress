@@ -36,7 +36,7 @@ Phast lazily loads IFrames to prioritize the main page load.
 
 == Changelog ==
 
-=== 1.1.0 ===
+= 1.1.0 =
 
 What isn't new?
 
@@ -45,7 +45,7 @@ What isn't new?
 * Small images are inlined in the HTML and CSS.
 * CSS files are now bundled into one request.
 * First byte time is optimized by starting the output before the entire page has been processed.
-* <base href=""> tags are now respected.
+* BASE tags are now respected.
 * X-Accel-Expires header is sent for better integration with Nginx and caching proxies.
 * IFrame lazy loading is now compatible with pages that already do this.
 * Cache garbage collection is improved and sets a hard limit on the cache size.
