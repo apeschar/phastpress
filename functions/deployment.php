@@ -44,6 +44,6 @@ STYLE;
 
 function phastpress_render_footer() {
     echo '<div class="phast-footer">'
-        . '<a href="https://phast.io/" target="_blank">'
+        . '<a href="https://wordpress.org/plugins/phastpress/" target="_blank">'
         . __('Optimized by PhastPress', 'phastpress') . '</a></div>';
 }
