@@ -3,6 +3,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"/..
 
+git checkout master
+git push origin master
+git push --tags
+
 if [[ ! -d svn/.git ]]; then
     rm -rf svn
     git svn clone --log-window-size 50000 https://plugins.svn.wordpress.org/phastpress svn
