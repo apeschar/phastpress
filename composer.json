@@ -3,6 +3,12 @@
   "description": "PhastPress is an automated page optimisation plugin for WordPress.",
   "type": "project",
   "license": "AGPL-3.0",
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "ssh://git@github.com/kiboit/phast"
+    }
+  ],
   "require": {
     "kiboit/phast": "dev-master"
   },

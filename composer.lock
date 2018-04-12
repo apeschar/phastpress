@@ -4,21 +4,15 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "9ce73bb34ddb81c09baa2f77f5ba6fcf",
+    "content-hash": "3debc088c803163afcffb1cad8b5fdc2",
     "packages": [
         {
             "name": "kiboit/phast",
             "version": "dev-master",
             "source": {
                 "type": "git",
-                "url": "https://github.com/kiboit/phast.git",
-                "reference": "5498420cacb185dff16b62f5c0f90045736f9f66"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/kiboit/phast/zipball/5498420cacb185dff16b62f5c0f90045736f9f66",
-                "reference": "5498420cacb185dff16b62f5c0f90045736f9f66",
-                "shasum": ""
+                "url": "ssh://git@github.com/kiboit/phast",
+                "reference": "d75428af0a4ae69b22b847ac6fa916dcd9bb9e7f"
             },
             "require": {
                 "mrclay/jsmin-php": "2.3.2",
@@ -36,12 +30,18 @@
                     ]
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "autoload-dev": {
+                "psr-4": {
+                    "Kibo\\Phast\\": [
+                        "test/php/"
+                    ]
+                }
+            },
             "license": [
                 "AGPL-3.0-or-later"
             ],
             "description": "A toolbox for optimizing web page performance",
-            "time": "2018-04-11T05:45:06+00:00"
+            "time": "2018-04-12T13:53:53+00:00"
         },
         {
             "name": "mrclay/jsmin-php",
