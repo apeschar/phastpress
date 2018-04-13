@@ -36,16 +36,8 @@ Phast lazily loads IFrames to prioritize the main page load.
 
 == Changelog ==
 
+= 1.2.0 =
+[See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
+
 = 1.1.0 =
-
-What isn't new?
-
-* The HTML parsing has been totally revamped to be resistant to incompliant code, and is now more than twice as fast.
-* The image optimization API is available.
-* Small images are inlined in the HTML and CSS.
-* CSS files are now bundled into one request.
-* First byte time is optimized by starting the output before the entire page has been processed.
-* BASE tags are now respected.
-* X-Accel-Expires header is sent for better integration with Nginx and caching proxies.
-* IFrame lazy loading is now compatible with pages that already do this.
-* Cache garbage collection is improved and sets a hard limit on the cache size.
+[See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
