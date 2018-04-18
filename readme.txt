@@ -36,8 +36,16 @@ Phast lazily loads IFrames to prioritize the main page load.
 
 == Changelog ==
 
+= 1.3.0 =
+
+* PhastPress now works on Windows.
+
+[See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
+
 = 1.2.0 =
+
 [See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
 
 = 1.1.0 =
+
 [See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
