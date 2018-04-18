@@ -7,7 +7,8 @@ require_once __DIR__ . '/../Kibo/PhastPlugins/ImageAPIClient/Diagnostics.php';
 
 
 function phastpress_get_cache_root_candidates() {
-    $key = md5($_SERVER['DOCUMENT_ROOT']) . '.' . posix_geteuid();
+    $key = md5($_SERVER['DOCUMENT_ROOT']) . '.' .
+        (new \Kibo\Phast\Common\System())->getUserId();
     return [
         __DIR__ . '/../cache/' . $key,
         sys_get_temp_dir() . '/phastpress.' . $key
