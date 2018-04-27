@@ -8,7 +8,7 @@ function phastpress_render_plugin_install_notice() {
     }
 
     $message = __(
-        'Thank you for using <b>PhastPress</b>. Optimization is <b>%s</b>. Go to <b>%s</b> to set up <b>PhastPress</b>!',
+        'Thank you for using <b>PhastPress</b>. Optimizations are <b>%s</b>. Go to <b>%s</b> to configure <b>PhastPress</b>.',
         'phastpress'
     );
     $settings_link = phastpress_get_settings_link();
