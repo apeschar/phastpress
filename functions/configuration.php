@@ -3,6 +3,7 @@
 function phastpress_get_default_config() {
     return [
         'enabled' => true,
+        'pathinfo-query-format' => false,
         'footer-link' => false,
         'img-optimization-tags' => true,
         'img-optimization-css' => true,
@@ -129,6 +130,12 @@ function phastpress_get_phast_user_config() {
             $phast_filters[$fullFilter] = ['enabled' => $setting];
             $phast_switches[$setting] = $plugin_config[$setting];
         }
+    }
+
+    if ($plugin_config['pathinfo-query-format']) {
+        $phast_config['serviceRequestFormat'] = \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH;
+    } else {
+        $phast_config['serviceRequestFormat'] = \Kibo\Phast\Services\ServiceRequest::FORMAT_QUERY;
     }
 
     return $phast_config;

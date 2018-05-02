@@ -31,6 +31,16 @@ return [
                     .phastpress_render_option('enabled', false)
             ],
             [
+                'name' => __('Use path info format for service queries', 'phastpress'),
+                'description' =>
+                    __(
+                        '<i>On</i>: use a more \'fancy\' format for queries for processed resources.<br>'
+                        . '<i>Off</i>: use the GET parameters for queries for processed resources.<br>'
+                        . 'This setting will be set automatically set to <i>On</i> if available after you install PhastPress.'
+                    ),
+                'options' => phastpress_render_bool_options('pathinfo-query-format')
+            ],
+            [
                 'name' => __('Let the world know about PhastPress', 'phastpress'),
                 'description' => __(
                     'Add a "Optimized by PhastPress" notice to the footer of your site and help spread the word.',
