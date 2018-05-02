@@ -2,11 +2,11 @@
 
 function phastpress_get_default_config() {
     return [
-        'enabled' => 'admin',
+        'enabled' => true,
         'footer-link' => false,
         'img-optimization-tags' => true,
         'img-optimization-css' => true,
-        'img-optimization-api' => false,
+        'img-optimization-api' => true,
         'css-optimization' => true,
         'scripts-rearrangement' => true,
         'scripts-defer' => true,
