@@ -6,6 +6,10 @@ function phastpress_deploy() {
         return;
     }
 
+    if (preg_match('/wp-.*\.php$/', $_SERVER['SCRIPT_FILENAME'])) {
+        return;
+    }
+
     require_once __DIR__ . '/../vendor/autoload.php';
     \Kibo\Phast\PhastDocumentFilters::deploy(phastpress_get_phast_user_config());
 
