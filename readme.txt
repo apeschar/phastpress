@@ -36,10 +36,12 @@ Phast lazily loads IFrames to prioritize the main page load.
 
 == Changelog ==
 
-= Unreleased =
+= 1.3.2 =
 
 * PhastPress is now automatically enabled on installation.
 * The image optimisation API is now automatically enabled on installation.
+
+[See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
 
 = 1.3.1 =
 
