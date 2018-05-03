@@ -2,8 +2,8 @@
 
 function phastpress_get_default_config() {
     return [
-        'enabled' => true,
-        'pathinfo-query-format' => false,
+        'enabled' => 'admin',
+        'pathinfo-query-format' => true,
         'footer-link' => false,
         'img-optimization-tags' => true,
         'img-optimization-css' => true,
