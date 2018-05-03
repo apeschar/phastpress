@@ -57,6 +57,37 @@ function phastpress_reset_config() {
     delete_option(PHASTPRESS_SETTINGS_OPTION);
 }
 
+function phastpress_auto_configure_script() {
+    if (!get_option(PHASTPRESS_ACTIVATION_AUTO_CONFIGURATION_FLAG, false)) {
+        return;
+    }
+    $image_url = plugins_url('Kibo/PhastPlugins/ImageAPIClient/kibo-logo.png', PHASTPRESS_PLUGIN_FILE);
+    $config = \Kibo\Phast\Environment\Configuration::fromDefaults()
+        ->withUserConfiguration(
+            new \Kibo\Phast\Environment\Configuration(
+                phastpress_get_phast_user_config()
+            )
+        )
+        ->getRuntimeConfig()
+        ->toArray();
+    $signature = (new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config);
+    $service_image_url = (new \Kibo\Phast\Services\ServiceRequest())
+        ->withUrl(
+            \Kibo\Phast\ValueObjects\URL::fromString(
+                plugins_url('phast.php', PHASTPRESS_PLUGIN_FILE)
+            )
+        )
+        ->withParams(['service' => 'images', 'src' => $image_url])
+        ->sign($signature)
+        ->serialize(\Kibo\Phast\Services\ServiceRequest::FORMAT_PATH);
+    $nonce = wp_create_nonce(PHASTPRESS_NONCE_NAME);
+
+
+    return '<script>(function (imageUrl, nonce) {'
+        . file_get_contents(__DIR__ . '/phastpress-auto-config.js')
+        . "})('$service_image_url', '$nonce')</script>";
+}
+
 function phastpress_get_plugin_version() {
     $plugin_info = get_file_data(__DIR__ . '/../phastpress.php', ['Version' => 'Version']);
     return $plugin_info['Version'];
@@ -67,7 +98,7 @@ function phastpress_generate_service_config() {
     $plugin_version = phastpress_get_plugin_version();
     $config = [
         'plugin_version' => $plugin_version,
-        'servicesUrl' => plugins_url('phast.php', dirname(__DIR__) . '/phastpress.php'),
+        'servicesUrl' => plugins_url('phast.php', PHASTPRESS_PLUGIN_FILE),
         'securityToken' => \Kibo\Phast\Security\ServiceSignature::generateToken(),
         'images' => [
             'filters' => [

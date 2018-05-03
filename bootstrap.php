@@ -5,13 +5,18 @@ define('PHASTPRESS_NONCE_NAME', 'phastpress-nonce');
 define('PHASTPRESS_ACTIVATION_NOTIFICATION_FLAG', 'phastpress-activated');
 define('PHASTPRESS_ACTIVATION_AUTO_CONFIGURATION_FLAG', 'phastpress-configured');
 
-register_activation_hook(__DIR__ . '/phastpress.php', function () {
+register_activation_hook(PHASTPRESS_PLUGIN_FILE, function () {
     require_once __DIR__ . '/functions.php';
     phastpress_set_activation_config();
 });
 
 add_action('wp_ajax_phastpress_dismiss_notice', function () {
     update_option(PHASTPRESS_ACTIVATION_NOTIFICATION_FLAG, false);
+});
+
+add_action('wp_ajax_phastpress_save_config', function () {
+    require_once __DIR__ . '/functions.php';
+    phastpress_save_config();
 });
 
 add_action('admin_notices', function () {
@@ -52,4 +57,8 @@ add_action('update_option_admin_email', function () {
     phastpress_update_admin_email();
 });
 
+add_action('admin_print_scripts', function () {
+    require_once __DIR__ . '/functions.php';
+    echo phastpress_auto_configure_script();
+});
 
