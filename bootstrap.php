@@ -4,7 +4,7 @@ define('PHASTPRESS_SETTINGS_OPTION', 'phastpress-settings');
 define('PHASTPRESS_NONCE_NAME', 'phastpress-nonce');
 define('PHASTPRESS_ACTIVATION_FLAG', 'phastpress-activated');
 
-register_activation_hook(__FILE__, function () {
+register_activation_hook(__DIR__ . '/phastpress.php', function () {
     update_option(PHASTPRESS_ACTIVATION_FLAG, true);
 });
 

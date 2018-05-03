@@ -13,7 +13,7 @@ function phastpress_render_plugin_install_notice() {
     );
     $settings_link = phastpress_get_settings_link();
     $config = phastpress_get_config();
-    if ($config['enabled'] == 'admin') {
+    if ($config['enabled'] === 'admin') {
         $status = __('on for administrators', 'phastpress');
     } else if ($config['enabled']) {
         $status = __('on', 'phastpress');
