@@ -27,6 +27,10 @@ function phastpress_get_cache_root() {
     return false;
 }
 
+function phastpress_has_cache_root() {
+    return (bool) phastpress_get_cache_root();
+}
+
 function phastpress_store_in_php_file($filename, $value) {
     $content = "<?php exit; ?>\n" . sha1($value) . "\n" . $value;
     return @file_put_contents($filename, $content, LOCK_EX);
@@ -94,5 +98,9 @@ function phastpress_get_service_config() {
         $config['images']['filters'][$filter]['enabled'] = false;
     }
     return $config;
+}
+
+function phastpress_has_service_config() {
+    return (bool) phastpress_get_service_config();
 }
 

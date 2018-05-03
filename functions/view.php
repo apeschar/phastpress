@@ -78,7 +78,7 @@ function phastpress_render_settings() {
 
     $sections = require __DIR__ . '/view-sections.php';
 
-    if (!phastpress_get_cache_root()) {
+    if (!phastpress_has_cache_root()) {
         $sections['phastpress']['errors'][] = sprintf(
             __(
                 'PhastPress can not write to any cache directory! Please, make one of the following directories writable: %s',
@@ -87,7 +87,7 @@ function phastpress_render_settings() {
             join(', ', phastpress_get_cache_root_candidates())
         );
     }
-    if (!phastpress_get_service_config()) {
+    if (!phastpress_has_service_config()) {
         $sections['phastpress']['errors'][] = sprintf(
             __(
                 'PhastPress failed to create a service configuration in any of the following directories: %s',
