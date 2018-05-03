@@ -6,8 +6,8 @@ define('PHASTPRESS_ACTIVATION_NOTIFICATION_FLAG', 'phastpress-activated');
 define('PHASTPRESS_ACTIVATION_AUTO_CONFIGURATION_FLAG', 'phastpress-configured');
 
 register_activation_hook(__DIR__ . '/phastpress.php', function () {
-    update_option(PHASTPRESS_ACTIVATION_NOTIFICATION_FLAG, true);
-    update_option(PHASTPRESS_ACTIVATION_AUTO_CONFIGURATION_FLAG, true);
+    require_once __DIR__ . '/functions.php';
+    phastpress_set_activation_config();
 });
 
 add_action('wp_ajax_phastpress_dismiss_notice', function () {

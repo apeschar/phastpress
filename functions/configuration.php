@@ -22,6 +22,14 @@ function phastpress_get_config() {
     return array_merge($default, $user);
 }
 
+function phastpress_set_activation_config() {
+    update_option(PHASTPRESS_ACTIVATION_NOTIFICATION_FLAG, true);
+    update_option(PHASTPRESS_ACTIVATION_AUTO_CONFIGURATION_FLAG, true);
+    $config = phastpress_get_config();
+    $config['enabled'] = phastpress_has_cache_root() && phastpress_has_service_config();
+    update_option(PHASTPRESS_SETTINGS_OPTION, $config);
+}
+
 function phastpress_save_config() {
     check_admin_referer(PHASTPRESS_NONCE_NAME);
     $keys = array_keys(phastpress_get_default_config());
