@@ -6,7 +6,7 @@ function phastpress_deploy() {
         return;
     }
 
-    if (preg_match('/wp-.*\.php$/', $_SERVER['SCRIPT_FILENAME'])) {
+    if (preg_match('/^wp-.+\.php$/', basename($_SERVER['SCRIPT_FILENAME']))) {
         return;
     }
 
