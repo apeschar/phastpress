@@ -1,8 +1,9 @@
 <?php
 
-
 namespace Kibo\PhastPlugins\ImageAPIClient;
 
+require_once $_SERVER['DOCUMENT_ROOT'] . '/wp-includes/class-requests.php';
+\Requests::register_autoloader();
 
 use Kibo\Phast\Filters\Image\Exceptions\ImageProcessingException;
 use Kibo\Phast\Filters\Image\Image;
@@ -47,33 +48,23 @@ class Filter implements ImageFilter {
 
 
     public function transformImage(Image $image, array $request) {
-        if (!function_exists('curl_init')) {
-            throw new ImageProcessingException('cURL extension not installed!');
-        }
-        $ch = curl_init($this->getRequestURL($request));
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST => true,
-            CURLOPT_HTTPHEADER => $this->getRequestHeaders($image, $request),
-            CURLOPT_POSTFIELDS => $image->getAsString(),
-            CURLOPT_CONNECTTIMEOUT => 2,
-            CURLOPT_TIMEOUT => 10
-        ]);
-        $response = @curl_exec($ch);
-        if ($response === false) {
+        $url = $this->getRequestURL($request);
+        $headers = $this->getRequestHeaders($image, $request);
+        $data = $image->getAsString();
+        $options = ['connect_timeout' => 2, 'timeout' => 10];
+        try {
+            $response = \Requests::post($url, $headers, $data, $options);
+            $response->throw_for_status();
+        } catch (\Exception $e) {
             throw new ImageProcessingException(
-                'cURL error: ' . curl_error($ch) . ' (' . curl_errno($ch) . ')'
-            );
-        }
-        $info = curl_getinfo($ch);
-        if (!preg_match('/^2/', $info['http_code'])) {
-            throw new ImageProcessingException(
-                'API responded with HTTP code: ' . $info['http_code']
+                'Request exception: ' . get_class($e)
+                . ' MSG: ' . $e->getMessage()
+                . ' Code: ' . $e->getCode()
             );
         }
         $newImage = new DummyImage();
-        $newImage->setImageString($response);
-        $newImage->setType($info['content_type']);
+        $newImage->setImageString($response->body);
+        $newImage->setType($response->headers['Content-type']);
         return $newImage;
     }
 
@@ -93,11 +84,11 @@ class Filter implements ImageFilter {
 
     private function getRequestHeaders(Image $image, array $request) {
         $headers = [
-            'X-Phast-Image-API-Client: ' . $this->getRequestToken(),
-            'Content-Type: ' . $image->getType()
+            'X-Phast-Image-API-Client' => $this->getRequestToken(),
+            'Content-Type' => $image->getType()
         ];
         if (isset ($request['preferredType']) && $request['preferredType'] == Image::TYPE_WEBP) {
-            $headers[] = 'Accept: image/webp';
+            $headers['Accept'] = 'image/webp';
         }
         return $headers;
     }
