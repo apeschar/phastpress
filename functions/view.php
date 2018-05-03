@@ -131,11 +131,3 @@ function phastpress_render_settings() {
 
     include __DIR__ . '/../templates/main.php';
 }
-
-function run_diagnostics_for_api_client() {
-
-}
-
-function run_diagnostics_without_api_client() {
-
-}
