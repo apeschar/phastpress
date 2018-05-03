@@ -27,6 +27,7 @@ function phastpress_set_activation_config() {
     update_option(PHASTPRESS_ACTIVATION_AUTO_CONFIGURATION_FLAG, true);
     $config = phastpress_get_config();
     $config['enabled'] = phastpress_has_cache_root() && phastpress_has_service_config();
+    $config['pathinfo-query-format'] = false;
     update_option(PHASTPRESS_SETTINGS_OPTION, $config);
 }
 
