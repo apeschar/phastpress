@@ -2,9 +2,6 @@
 
 namespace Kibo\PhastPlugins\ImageAPIClient;
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/wp-includes/class-requests.php';
-\Requests::register_autoloader();
-
 use Kibo\Phast\Filters\Image\Exceptions\ImageProcessingException;
 use Kibo\Phast\Filters\Image\Image;
 use Kibo\Phast\Filters\Image\ImageFilter;

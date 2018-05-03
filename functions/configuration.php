@@ -99,6 +99,7 @@ function phastpress_generate_service_config() {
     $plugin_version = phastpress_get_plugin_version();
     $config = [
         'plugin_version' => $plugin_version,
+        'wp_includes_dir' => ABSPATH . '/' . WPINC,
         'servicesUrl' => plugins_url('phast.php', PHASTPRESS_PLUGIN_FILE),
         'securityToken' => \Kibo\Phast\Security\ServiceSignature::generateToken(),
         'images' => [
