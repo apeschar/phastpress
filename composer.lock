@@ -1,18 +1,18 @@
 {
     "_readme": [
         "This file locks the dependencies of your project to a known state",
-        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
     "content-hash": "4c42164e4b747f06408d960ccd201777",
     "packages": [
         {
             "name": "kiboit/phast",
-            "version": "1.3.2",
+            "version": "1.4.0",
             "source": {
                 "type": "git",
                 "url": "ssh://git@github.com/kiboit/phast",
-                "reference": "9d595d4ec8175374165d539addc109796757275a"
+                "reference": "358b3ee435f466837e10bea50652c6a1f3fc4787"
             },
             "require": {
                 "mrclay/jsmin-php": "2.3.2",
@@ -41,7 +41,7 @@
                 "AGPL-3.0-or-later"
             ],
             "description": "A toolbox for optimizing web page performance",
-            "time": "2018-05-03T08:50:53+00:00"
+            "time": "2018-05-03T18:00:50+00:00"
         },
         {
             "name": "mrclay/jsmin-php",
