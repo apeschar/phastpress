@@ -2,7 +2,7 @@
 
 function phastpress_render_plugin_install_notice() {
 
-    $display_message = get_option(PHASTPRESS_ACTIVATION_FLAG, false);
+    $display_message = get_option(PHASTPRESS_ACTIVATION_NOTIFICATION_FLAG, false);
     if (!$display_message) {
         return;
     }

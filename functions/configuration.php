@@ -40,6 +40,7 @@ function phastpress_save_config() {
         }
     }
     update_option(PHASTPRESS_SETTINGS_OPTION, $settings);
+    update_option(PHASTPRESS_ACTIVATION_AUTO_CONFIGURATION_FLAG, false);
     phastpress_generate_service_config();
 }
 

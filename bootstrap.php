@@ -2,14 +2,16 @@
 
 define('PHASTPRESS_SETTINGS_OPTION', 'phastpress-settings');
 define('PHASTPRESS_NONCE_NAME', 'phastpress-nonce');
-define('PHASTPRESS_ACTIVATION_FLAG', 'phastpress-activated');
+define('PHASTPRESS_ACTIVATION_NOTIFICATION_FLAG', 'phastpress-activated');
+define('PHASTPRESS_ACTIVATION_AUTO_CONFIGURATION_FLAG', 'phastpress-configured');
 
 register_activation_hook(__DIR__ . '/phastpress.php', function () {
-    update_option(PHASTPRESS_ACTIVATION_FLAG, true);
+    update_option(PHASTPRESS_ACTIVATION_NOTIFICATION_FLAG, true);
+    update_option(PHASTPRESS_ACTIVATION_AUTO_CONFIGURATION_FLAG, true);
 });
 
 add_action('wp_ajax_phastpress_dismiss_notice', function () {
-    update_option(PHASTPRESS_ACTIVATION_FLAG, false);
+    update_option(PHASTPRESS_ACTIVATION_NOTIFICATION_FLAG, false);
 });
 
 add_action('admin_notices', function () {
