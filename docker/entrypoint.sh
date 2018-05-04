@@ -8,11 +8,13 @@ while ! mysql -hdb -uroot -pwordpress -e 'select 1;' >/dev/null; do
     sleep 1
 done
 
-wp config create \
-    --dbhost=db \
-    --dbname=wordpress \
-    --dbuser=wordpress \
-    --dbpass=wordpress
+if [ ! -f wp-config.php ]; then
+    wp config create \
+        --dbhost=db \
+        --dbname=wordpress \
+        --dbuser=wordpress \
+        --dbpass=wordpress
+fi
 
 wp core install \
     --url=http://phastpress.test \
@@ -21,7 +23,7 @@ wp core install \
     --admin_email=info@kiboit.com \
     --admin_password=admin
 
-ln -s /data wp-content/plugins/phastpress
+ln -sfn /data wp-content/plugins/phastpress
 wp plugin activate phastpress
 
 cd /

@@ -1,7 +1,6 @@
 version: '3.3'
 
 services:
-
     db:
         image: mysql:5.7
         environment:
@@ -9,10 +8,16 @@ services:
             MYSQL_DATABASE: wordpress
             MYSQL_USER: wordpress
             MYSQL_PASSWORD: wordpress
-
     web:
         depends_on:
             - db
         build: ./docker
         volumes:
             - ./:/data
+
+networks:
+    default:
+        ipam:
+            driver: default
+            config:
+                - subnet: 172.21.0.0/24
