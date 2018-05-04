@@ -8,6 +8,7 @@ RUN apk update && \
         php5-json \
         php5-openssl \
         php5-mysqli \
+        php5-zlib \
         mysql-client
 
 RUN ln -s /usr/bin/php5 /usr/local/bin/php
