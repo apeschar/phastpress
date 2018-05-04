@@ -31,13 +31,13 @@ return [
                     .phastpress_render_option('enabled', false)
             ],
             [
-                'name' => __('Use path info format for service queries', 'phastpress'),
+                'name' => __('Remove query string from processed resources', 'phastpress'),
                 'description' =>
-                    __(
-                        '<i>On</i>: use a more \'fancy\' format for queries for processed resources.<br>'
-                        . '<i>Off</i>: use the GET parameters for queries for processed resources.<br>'
-                        . 'This setting will be set automatically set to <i>On</i> if available after you install PhastPress.'
-                    ),
+                    implode('<br>', [
+                        __('Make sure that processed resources don\'t have query strings, for a higher score in GTmetrix.'),
+                        __('<i>On</i>: Use the path for requests for processed resources. This requires a server that supports "PATH_INFO".'),
+                        __('<i>Off</i>: Use the GET parameters for requests for processed resources.')
+                    ]),
                 'options' => phastpress_render_bool_options('pathinfo-query-format')
             ],
             [
