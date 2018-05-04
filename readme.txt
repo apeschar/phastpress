@@ -36,7 +36,7 @@ Phast lazily loads IFrames to prioritize the main page load.
 
 == Changelog ==
 
-= Unreleased =
+= 1.4.0 =
 
 * Add automatically configured option to use query strings rather than path info for service requests.
 * Automatically enable PhastPress if everything seems fine.
