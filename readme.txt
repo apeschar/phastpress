@@ -34,6 +34,10 @@ Get the full power of Phast for your website by installing PhastPress now.
 
 == Changelog ==
 
+= 1.5.0 =
+
+[See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
+
 = 1.4.0 =
 
 * Add automatically configured option to use query strings rather than path info for service requests.
