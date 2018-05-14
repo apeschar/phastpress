@@ -13,12 +13,14 @@
         Here we go with the extra info
       </template>
     </Information>
+    <section-title color="blue">Title in slot</section-title>
   </div>
 </template>
 
 <script>
 import OnOffSwitch from './components/OnOffSwitch'
 import Information from './components/Information'
+import SectionTitle from './components/SectionTitle'
 
 export default {
   name: 'App',
@@ -28,8 +30,9 @@ export default {
     }
   },
   components: {
+    OnOffSwitch,
     Information,
-    OnOffSwitch
+    SectionTitle
   }
 }
 </script>
