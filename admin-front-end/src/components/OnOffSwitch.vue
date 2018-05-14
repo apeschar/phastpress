@@ -1,13 +1,11 @@
 <template>
   <div class="on-off-switch" :class="{on: isOn}" @click="toggle()">
     <div class="button"></div>
-    <div class="layer layer-top">
-      <div class="label label-off">
-        {{ offLabel || 'Off' }}
-      </div>
-      <div class="label label-on">
-        {{ onLabel || 'On' }}
-      </div>
+    <div class="label label-off">
+      {{ offLabel || 'Off' }}
+    </div>
+    <div class="label label-on">
+      {{ onLabel || 'On' }}
     </div>
   </div>
 </template>
@@ -33,37 +31,35 @@ export default {
 </script>
 
 <style scoped>
+  * {
+    box-sizing: border-box;
+  }
+
   .on-off-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
     cursor: pointer;
     position: relative;
-    width: 163px;
-    height: 34px;
-    padding: 2px;
+    width: 169px;
+    height: 40px;
     border: 1px solid #fbfbfb;
     border-radius: 4px;
     background-color: #dddddd;
     user-select: none;
   }
 
-  .layer {
-    position: absolute;
-    width: calc(100% - 4px);
-  }
-
   .label {
-    box-sizing: border-box;
-    display: inline-block;
-    width: calc(50% - 4px);
-    padding-top: 10px;
-    text-align: center;
-    overflow: hidden;
+    position: relative;
+    padding-top: 3px;
   }
 
   .button {
     position: absolute;
     left: 2px;
     width: 80px;
-    height: 32px;
+    top: 2px;
+    bottom: 2px;
     background-color: #00aeef;
     border: 1px solid #c3d7df;
     border-radius: 4px;
