@@ -6,12 +6,12 @@
     Let info be here
     <Information>
       <template slot="title">Additional information in a (but in slot)</template>
-      <templte slot="content">
+      <template slot="content">
         Here we go with the extra info
         Here we go with the extra info
         Here we go with the extra info
         Here we go with the extra info
-      </templte>
+      </template>
     </Information>
   </div>
 </template>
