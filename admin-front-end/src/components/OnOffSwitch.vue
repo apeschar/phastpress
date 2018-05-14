@@ -31,7 +31,7 @@ export default {
 </script>
 
 <style scoped>
-  * {
+  *, *:before, *:after {
     box-sizing: border-box;
   }
 
@@ -56,19 +56,26 @@ export default {
 
   .button {
     position: absolute;
-    left: 2px;
-    width: 80px;
-    top: 2px;
-    bottom: 2px;
+    width: 50%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    padding: 2px;
+    transition: left .25s;
+  }
+
+  .button:after {
+    display: block;
+    content: " ";
+    width: 100%;
+    height: 100%;
     background-color: #00aeef;
     border: 1px solid #c3d7df;
     border-radius: 4px;
-    animation: 0.25s button-slide-off;
   }
 
   .on .button {
-    left: 84px;
-    animation: 0.25s button-slide-on;
+    left: 50%;
   }
 
   .label-on {
@@ -85,25 +92,5 @@ export default {
 
   .on .label-off {
     color: #d3d3d3;
-  }
-
-  @keyframes button-slide-on {
-    from {
-      left: 2px;
-    }
-
-    to {
-      left: 84px;
-    }
-  }
-
-  @keyframes button-slide-off {
-    from {
-      left: 84px;
-    }
-
-    to {
-      left: 2px;
-    }
   }
 </style>
