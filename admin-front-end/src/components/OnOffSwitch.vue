@@ -1,5 +1,5 @@
 <template>
-  <div :class="{'on-off-switch': true, on: on}" @click="toggle()">
+  <div :class="{'on-off-switch': true, on: isOn}" @click="toggle()">
     <div class="layer layer-bottom">
       <div class="label label-off">
         Off
@@ -23,14 +23,16 @@
 <script>
 export default {
   name: 'OnOffSwitch',
+  props: ['onValue', 'offValue', 'value'],
   data () {
     return {
-      on: true
+      isOn: this.value === this.onValue
     }
   },
   methods: {
     toggle () {
-      this.on = !this.on
+      this.isOn = !this.isOn
+      this.$emit('input', this.isOn ? this.onValue : this.offValue)
     }
   }
 }
