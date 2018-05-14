@@ -25,7 +25,7 @@ export default {
   name: 'OnOffSwitch',
   data () {
     return {
-      on: false
+      on: true
     }
   },
   methods: {
@@ -46,6 +46,7 @@ export default {
     border: 1px solid #fbfbfb;
     border-radius: 4px;
     background-color: #dddddd;
+    user-select: none;
   }
 
   .layer {
@@ -77,11 +78,13 @@ export default {
 
   .button {
     position: absolute;
+    left: 2px;
     width: 80px;
     height: 32px;
     background-color: #00aeef;
     border: 1px solid #c3d7df;
     border-radius: 4px;
+    animation: 0.25s button-slide-off;
   }
 
   .layer-top .label-on {
@@ -89,7 +92,8 @@ export default {
   }
 
   .on .button {
-    right: 2px;
+    left: 84px;
+    animation: 0.25s button-slide-on;
   }
 
   .on .layer-top .label-on {
@@ -97,7 +101,26 @@ export default {
   }
 
   .on .layer-top .label-off {
-    background: red;
     width: 0;
+  }
+
+  @keyframes button-slide-on {
+    from {
+      left: 2px;
+    }
+
+    to {
+      left: 84px;
+    }
+  }
+
+  @keyframes button-slide-off {
+    from {
+      left: 84px;
+    }
+
+    to {
+      left: 2px;
+    }
   }
 </style>
