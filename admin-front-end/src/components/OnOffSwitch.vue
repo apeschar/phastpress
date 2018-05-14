@@ -1,13 +1,5 @@
 <template>
-  <div :class="{'on-off-switch': true, on: isOn}" @click="toggle()">
-    <div class="layer layer-bottom">
-      <div class="label label-off">
-        Off
-      </div>
-      <div class="label label-on">
-        On
-      </div>
-    </div>
+  <div class="on-off-switch" :class="{on: isOn}" @click="toggle()">
     <div class="button"></div>
     <div class="layer layer-top">
       <div class="label label-off">
@@ -56,26 +48,13 @@ export default {
     width: calc(100% - 4px);
   }
 
-  .layer-bottom {
-    color: #d3d3d3;
-  }
-
-  .layer-top {
-    color: white;
-  }
-
   .label {
-    position: absolute;
     box-sizing: border-box;
     display: inline-block;
-    width: 82px;
+    width: calc(50% - 4px);
     padding-top: 10px;
     text-align: center;
     overflow: hidden;
-  }
-
-  .label-on {
-    left: 50%;
   }
 
   .button {
@@ -89,21 +68,25 @@ export default {
     animation: 0.25s button-slide-off;
   }
 
-  .layer-top .label-on {
-    width: 0;
-  }
-
   .on .button {
     left: 84px;
     animation: 0.25s button-slide-on;
   }
 
-  .on .layer-top .label-on {
-    width: 82px;
+  .label-on {
+    color: #d3d3d3;
   }
 
-  .on .layer-top .label-off {
-    width: 0;
+  .label-off {
+    color: white;
+  }
+
+  .on .label-on {
+    color: white;
+  }
+
+  .on .label-off {
+    color: #d3d3d3;
   }
 
   @keyframes button-slide-on {

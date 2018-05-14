@@ -1,6 +1,7 @@
 <template>
   <div id="app">
-    <OnOffSwitch></OnOffSwitch>
+    <OnOffSwitch on-value="asd" off-value="qwe" v-model="t"></OnOffSwitch>
+    {{ t }}
   </div>
 </template>
 
@@ -9,6 +10,11 @@ import OnOffSwitch from './components/OnOffSwitch'
 
 export default {
   name: 'App',
+  data () {
+    return {
+      t: 'asd'
+    }
+  },
   components: {
     OnOffSwitch
   }
