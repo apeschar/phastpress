@@ -2,11 +2,23 @@
   <div id="app">
     <OnOffSwitch on-value="asd" off-value="qwe" v-model="t"></OnOffSwitch>
     {{ t }}
+    <br><br>
+    Let info be here
+    <Information>
+      <template slot="title">Additional information in a (but in slot)</template>
+      <templte slot="content">
+        Here we go with the extra info
+        Here we go with the extra info
+        Here we go with the extra info
+        Here we go with the extra info
+      </templte>
+    </Information>
   </div>
 </template>
 
 <script>
 import OnOffSwitch from './components/OnOffSwitch'
+import Information from './components/Information'
 
 export default {
   name: 'App',
@@ -16,6 +28,7 @@ export default {
     }
   },
   components: {
+    Information,
     OnOffSwitch
   }
 }
