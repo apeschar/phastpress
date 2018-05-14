@@ -1,16 +1,25 @@
 <template>
   <div id="app">
-    <OnOffSwitch on-value="asd" off-value="qwe" v-model="t"></OnOffSwitch>
+    <on-off-switch on-value="asd" off-value="qwe" v-model="t"></on-off-switch>
     {{ t }}
     <br><br>
     Let info be here
-    <Information>
+    <information>
       Here we go with the extra info
       Here we go with the extra info
       Here we go with the extra info
       Here we go with the extra info
-    </Information>
+    </information>
     <section-title color="blue">Title in slot</section-title>
+    <setting>
+      The is the first setting
+    </setting>
+    <setting>
+      This is the second setting with info
+      <information>
+        This is the info for the second setting
+      </information>
+    </setting>
   </div>
 </template>
 
@@ -18,6 +27,7 @@
 import OnOffSwitch from './components/OnOffSwitch'
 import Information from './components/Information'
 import SectionTitle from './components/SectionTitle'
+import Setting from './components/Setting'
 
 export default {
   name: 'App',
@@ -27,6 +37,7 @@ export default {
     }
   },
   components: {
+    Setting,
     OnOffSwitch,
     Information,
     SectionTitle

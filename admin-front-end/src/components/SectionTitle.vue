@@ -13,6 +13,7 @@ export default {
 </script>
 <style scoped>
   .section-title {
+    margin-bottom: 10px;
     height: 30px;
     line-height: 30px;
     padding-left: 12px;
