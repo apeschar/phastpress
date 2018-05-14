@@ -3,10 +3,10 @@
     <div class="button"></div>
     <div class="layer layer-top">
       <div class="label label-off">
-        Off
+        {{ offLabel || 'Off' }}
       </div>
       <div class="label label-on">
-        On
+        {{ onLabel || 'On' }}
       </div>
     </div>
   </div>
@@ -15,17 +15,19 @@
 <script>
 export default {
   name: 'OnOffSwitch',
-  props: ['onValue', 'offValue', 'value'],
+  props: ['onValue', 'offValue', 'value', 'onLabel', 'offLabel'],
   data () {
     return {
       isOn: this.value === this.onValue
     }
   },
   methods: {
+
     toggle () {
       this.isOn = !this.isOn
       this.$emit('input', this.isOn ? this.onValue : this.offValue)
     }
+
   }
 }
 </script>
