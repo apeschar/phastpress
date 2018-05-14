@@ -30,67 +30,56 @@ export default {
 }
 </script>
 
-<style scoped>
-  *, *:before, *:after {
-    box-sizing: border-box;
-  }
+<style scoped lang="sass">
+  @import "global"
 
-  .on-off-switch {
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-    cursor: pointer;
-    position: relative;
-    width: 169px;
-    height: 40px;
-    border: 1px solid #fbfbfb;
-    border-radius: 4px;
-    background-color: #dddddd;
-    user-select: none;
-  }
+  .on-off-switch
+    display: flex
+    align-items: center
+    justify-content: space-around
+    cursor: pointer
+    position: relative
+    width: 169px
+    height: 40px
+    border: 1px solid #fbfbfb
+    border-radius: 4px
+    background-color: #dddddd
+    user-select: none
 
-  .label {
-    position: relative;
-    padding-top: 3px;
-  }
+  .label
+    position: relative
+    padding-top: 3px
 
-  .button {
-    position: absolute;
-    width: 50%;
-    height: 100%;
-    top: 0;
-    left: 0;
-    padding: 2px;
-    transition: left .25s;
-  }
+  .button
+    position: absolute
+    width: 50%
+    height: 100%
+    top: 0
+    left: 0
+    padding: 2px
+    transition: left .25s
 
-  .button:after {
-    display: block;
-    content: " ";
-    width: 100%;
-    height: 100%;
-    background-color: #00aeef;
-    border: 1px solid #c3d7df;
-    border-radius: 4px;
-  }
+  .button:after
+    display: block
+    content: " "
+    width: 100%
+    height: 100%
+    background-color: $blue
+    border: 1px solid #c3d7df
+    border-radius: 4px
 
-  .on .button {
-    left: 50%;
-  }
+  .on .button
+    left: 50%
 
-  .label-on {
-    color: #d3d3d3;
-  }
+  .label-on
+    color: #d3d3d3
 
-  .label-off {
-    color: white;
-  }
+  .label-off
+    color: white
 
-  .on .label-on {
-    color: white;
-  }
+  .on .label-on
+    color: white
 
-  .on .label-off {
-    color: #d3d3d3;
-  }
+  .on .label-off
+    color: #d3d3d3
 </style>
