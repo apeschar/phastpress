@@ -5,13 +5,10 @@
     <br><br>
     Let info be here
     <Information>
-      <template slot="title">Additional information in a (but in slot)</template>
-      <template slot="content">
-        Here we go with the extra info
-        Here we go with the extra info
-        Here we go with the extra info
-        Here we go with the extra info
-      </template>
+      Here we go with the extra info
+      Here we go with the extra info
+      Here we go with the extra info
+      Here we go with the extra info
     </Information>
     <section-title color="blue">Title in slot</section-title>
   </div>

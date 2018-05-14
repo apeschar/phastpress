@@ -3,10 +3,10 @@
     <sup class="icon"></sup>
     <div class="block">
       <div class="title">
-        <slot name="title">Additional information</slot>
+        {{ title || 'Additional information' }}
       </div>
       <div class="content">
-        <slot name="content"></slot>
+        <slot></slot>
       </div>
     </div>
   </div>
@@ -14,7 +14,8 @@
 
 <script>
 export default {
-  name: 'Information'
+  name: 'Information',
+  props: ['title']
 }
 </script>
 
