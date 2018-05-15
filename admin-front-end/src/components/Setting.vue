@@ -18,12 +18,11 @@ export default {
 }
 </script>
 
-<style scoped>
-  .setting {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 23px;
-    padding-left: 16px;
-  }
+<style scoped lang="sass">
+  .setting
+    display: flex
+    align-items: center
+    justify-content: space-between
+    margin-bottom: 23px
+    padding-left: 16px
 </style>

@@ -11,14 +11,13 @@ export default {
   props: ['color']
 }
 </script>
-<style scoped>
-  .section-title {
-    margin-bottom: 10px;
-    height: 30px;
-    line-height: 30px;
-    padding-left: 12px;
-    border-left: 4px solid;
-    font-weight: bold;
-    font-size: 15px;
-  }
+<style scoped lang="sass">
+  .section-title
+    margin-bottom: 10px
+    height: 30px
+    line-height: 30px
+    padding-left: 12px
+    border-left: 4px solid
+    font-weight: bold
+    font-size: 15px
 </style>
