@@ -21,6 +21,18 @@
         This is the info for the second setting
       </information>
     </setting>
+    <notification type="error">
+      This is an error
+    </notification>
+    <notification type="warning">
+      This is a warning
+    </notification>
+    <notification type="information">
+      This is information
+    </notification>
+    <notification type="success">
+      This is success
+    </notification>
   </div>
 </template>
 
@@ -29,6 +41,7 @@ import OnOffSwitch from './components/OnOffSwitch'
 import Information from './components/Information'
 import SectionTitle from './components/SectionTitle'
 import Setting from './components/Setting'
+import Notification from './components/Notification'
 
 export default {
   name: 'App',
@@ -38,6 +51,7 @@ export default {
     }
   },
   components: {
+    Notification,
     Setting,
     OnOffSwitch,
     Information,
