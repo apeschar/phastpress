@@ -24,6 +24,7 @@ export default {
   .information
     display: inline-block
     position: relative
+    z-index: 1000
 
   .information:hover .block
     display: block
@@ -42,12 +43,13 @@ export default {
     position: absolute
     top: -20px
     left: 14px
-    box-sizing: border-box
     margin-left: 15px
+    box-sizing: border-box
     width: 329px
     padding: 12px 10px 15px 56px
     border: 1px solid #f4f4f4
     border-radius: 4px
+    background-color: white
 
   .block::before
     display: block
