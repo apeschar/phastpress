@@ -33,6 +33,8 @@
     <notification type="success">
       This is success
     </notification>
+    <br><br>
+    <settings></settings>
   </div>
 </template>
 
@@ -42,6 +44,7 @@ import Information from './components/Information'
 import SectionTitle from './components/SectionTitle'
 import Setting from './components/Setting'
 import Notification from './components/Notification'
+import Settings from './components/Settings'
 
 export default {
   name: 'App',
@@ -51,6 +54,7 @@ export default {
     }
   },
   components: {
+    Settings,
     Notification,
     Setting,
     OnOffSwitch,
