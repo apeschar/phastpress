@@ -1,5 +1,5 @@
 <template>
-  <div class="on-off-switch" :class="{on: isOn}" @click="toggle()">
+  <div class="on-off-switch" :class="{on: isOn, disabled}" @click="toggle()">
     <div class="button"></div>
     <div class="label label-off">
       {{ offLabel || 'Off' }}
@@ -13,7 +13,7 @@
 <script>
 export default {
   name: 'OnOffSwitch',
-  props: ['onValue', 'offValue', 'value', 'onLabel', 'offLabel'],
+  props: ['onValue', 'offValue', 'value', 'onLabel', 'offLabel', 'disabled'],
   data () {
     return {
       isOn: this.value === this.onValue
@@ -22,6 +22,9 @@ export default {
   methods: {
 
     toggle () {
+      if (this.disabled) {
+        return
+      }
       this.isOn = !this.isOn
       this.$emit('input', this.isOn ? this.onValue : this.offValue)
     }
@@ -67,6 +70,10 @@ export default {
     background-color: $blue
     border: 1px solid #c3d7df
     border-radius: 4px
+
+  .disabled .button:after
+    background-color: #c0c0c0
+    border-color: #c0c0c0
 
   .on .button
     left: 50%
