@@ -1,5 +1,6 @@
 <template>
   <div id="app">
+
     <on-off-switch on-value="asd" off-value="qwe" v-model="t"></on-off-switch>
     <on-off-switch disabled="true"></on-off-switch>
     {{ t }}
