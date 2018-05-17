@@ -35,7 +35,7 @@
       This is success
     </notification>
     <br><br>
-    <settings></settings>
+    <settings :strings="settingsStrings"></settings>
   </div>
 </template>
 
@@ -51,7 +51,12 @@ export default {
   name: 'App',
   data () {
     return {
-      t: 'asd'
+      t: 'asd',
+      settingsStrings: {
+        userEmail: 'the-user@phastpress.com',
+        urlWithPhast: 'url-with',
+        urlWithoutPhast: 'url-without'
+      }
     }
   },
   components: {

@@ -11,8 +11,8 @@
         <information>
           <b v-t="'common.tip'"></b>
           <i18n path="sections.plugin.enabled.description.main">
-            <a href="#" place="without" v-t="'sections.plugin.enabled.description.without'"></a>
-            <a href="#" place="with" v-t="'sections.plugin.enabled.description.with'"></a>
+            <a :href="strings.urlWithoutPhast" place="without" v-t="'sections.plugin.enabled.description.without'"></a>
+            <a :href="strings.urlWithPhast" place="with" v-t="'sections.plugin.enabled.description.with'"></a>
           </i18n>
         </information>
       </setting>
@@ -83,7 +83,7 @@
           <div v-t="'sections.images.api.description.1'"></div>
           <div>
             <i18n path="sections.images.api.description.2">
-              <a href="mailto:" place="email">the-address@the-site.com</a>
+              <a :href="'mailto:' + strings.userEmail" place="email">{{ strings.userEmail }}</a>
             </i18n>
           </div>
         </information>
@@ -142,7 +142,8 @@ import Setting from './Setting'
 import Information from './Information'
 export default {
   name: 'Settings',
-  components: {Information, Setting, SectionTitle}
+  components: {Information, Setting, SectionTitle},
+  props: ['strings']
 }
 </script>
 <style scoped>
