@@ -3,7 +3,7 @@
     <sup class="icon"></sup>
     <div class="block">
       <div class="title">
-        {{ title || 'Additional information' }}
+        {{ title || $t('additional') }}
       </div>
       <div class="content">
         <slot></slot>
@@ -94,3 +94,8 @@ export default {
     text-transform: uppercase
 
 </style>
+
+<i18n>
+  default:
+    additiona: 'Additional information'
+</i18n>

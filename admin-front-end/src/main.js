@@ -10,8 +10,8 @@ Vue.config.productionTip = false
 /* eslint-disable no-new */
 new Vue({
   i18n: new VueI18n({
-    locale: 'en',
-    messages: {en: {}}
+    fallbackLocale: 'default',
+    silentTranslationWarn: true
   }),
   el: '#app',
   components: { App },

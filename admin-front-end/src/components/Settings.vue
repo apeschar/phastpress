@@ -2,131 +2,134 @@
   <div>
 
     <div class="settings-section">
-      <section-title color="#00aeef">Plugin</section-title>
+      <section-title color="#00aeef">
+        <span v-t="'sections.plugin.title'"></span>
+      </section-title>
 
       <setting>
-        PhastPress optimizations
+        <span v-t="'sections.plugin.enabled.name'"></span>
         <information>
-          <b>Tip: </b> Test your site
-          <a href="#">without phastpress</a>
-          and
-          <a href="#">with phastpress</a>
+          <b v-t="'common.tip'"></b>
+          <i18n path="sections.plugin.enabled.description.main">
+            <a href="#" place="without" v-t="'sections.plugin.enabled.description.without'"></a>
+            <a href="#" place="with" v-t="'sections.plugin.enabled.description.with'"></a>
+          </i18n>
         </information>
       </setting>
 
       <setting>
-        Disable for non-logged users
+        {{ $t('sections.plugin.admin-only.name')}}
         <information>
-          <i>On: </i> Only logged in users will be served with optimized version
+          <i v-t="'common.on'"></i> <span v-t="'sections.plugin.admin-only.description.on'"></span>
           <br>
-          <i>Off: </i> All users will be served with optimized version
+          <i v-t="'common.off'"></i> {{ $t('sections.plugin.admin-only.description.off')}}
           <br>
-          <b>Tip: </b> Use to preview your site before launching the optimizations
+          <b v-t="'common.tip'"></b> <span v-t="'sections.plugin.admin-only.description.tip'"></span>
         </information>
       </setting>
 
       <setting>
-        Use path info format for service queries
+        <span v-t="'sections.plugin.pathinfo.name'"></span>
         <information>
-          <i>On: </i> use a more 'fancy' format for queries for processed resources
+          <i v-t="'common.on'"></i>
+          <span v-t="'sections.plugin.pathinfo.description.on'"></span>
           <br>
-          <i>Off: </i> use the GET parameters for queries for processed resources
+          <i v-t="'common.off'"></i>
+          <span v-t="'sections.plugin.pathinfo.description.off'"></span>
           <br>
-          This setting will be automatically set to <i>On</i> if available after you install PhastPress.
+          <i18n path="sections.plugin.pathinfo.description.more">
+            <i v-t="'sections.plugin.pathinfo.description.value'" place="value"></i>
+          </i18n>
         </information>
       </setting>
 
       <setting>
-        Let the world know about PhastPress
+        <span v-t="'sections.plugin.footer-link.name'"></span>
         <information>
-          Add a "Optimized by PhastPress" notice to the footer of your site and help spread the word.
-        </information>
-      </setting>
-    </div>
-
-    <div class="settings-section">
-      <section-title color="#f26c4f">Images</section-title>
-
-      <setting>
-        Optimize images in tags
-        <information>
-          Compress images with optimal settings.
-          <br>
-          Resize images to fit 3840x2160 pixels
-          or to the appropriate size for
-          <code>&lt;img&gt;</code> tags with
-          <code>width</code> or <code>height</code>.
-          <br>
-          Reload changed images while still leveraging browser caching.
-        </information>
-      </setting>
-
-      <setting>
-        Optimize images in CSS
-        <information>
-          Compress images in stylesheets with optional settings and resizes the to fit 3840x2160 pixels.
-          <br>
-          Reload changed images while still leveraging browser caching.
-        </information>
-      </setting>
-
-      <setting>
-        Use the Phast Image Optimization API
-        <information>
-          Optimize your images on out servers free of charge.
-          <br>
-          This will give you the best possible results without installing any software
-          and will reduce the load on your hosting.
-          <br>
-          <i>
-            We will use your email address <a href="mailto:">the-address@the-site.com</a>
-            to keep you up to date about changes to the API.
-          </i>
+          <span v-t="'sections.plugin.footer-link.description'"></span>
         </information>
       </setting>
     </div>
 
     <div class="settings-section">
-      <section-title color="#a287be">HTML, CSS &amp; JS</section-title>
+      <section-title color="#f26c4f">
+        <span v-t="'sections.images.title'"></span>
+      </section-title>
 
       <setting>
-        Optimize CSS
+        <span v-t="'sections.images.tags.name'"></span>
         <information>
-          Incline critical styles first and prevent unused styles from blocking the page load.
-          <br>
-          Minify stylesheets and leverage browser caching.
-          <br>
-          Inline Google Fonts CSS to speed up font loading.
+          <i18n path="sections.images.tags.description">
+            <br place="newline">
+            <code place="imgTag">&lt;img&gt;</code>
+            <code place="widthAttr">width</code>
+            <code place="heightAttr">height</code>
+          </i18n>
         </information>
       </setting>
 
       <setting>
-        Move scripts to end of body
+        <span v-t="'sections.images.css.name'"></span>
         <information>
-          Prevent scripts from blocking the page load by loading the after the HTML and CSS.
+          <div v-t="'sections.images.css.description.0'"></div>
+          <div v-t="'sections.images.css.description.1'"></div>
         </information>
       </setting>
 
       <setting>
-        Load scripts asynchronously
+        <span v-t="'sections.images.api.name'"></span>
         <information>
-          Allow the page to finish loading before all scripts have been executed.
+          <div v-t="'sections.images.api.description.0'"></div>
+          <div v-t="'sections.images.api.description.1'"></div>
+          <div>
+            <i18n path="sections.images.api.description.2">
+              <a href="mailto:" place="email">the-address@the-site.com</a>
+            </i18n>
+          </div>
+        </information>
+      </setting>
+    </div>
+
+    <div class="settings-section">
+      <section-title color="#a287be">
+        <span v-t="'sections.html-filters.title'"></span>
+      </section-title>
+
+      <setting>
+        <span v-t="'sections.html-filters.css.name'"></span>
+        <information>
+          <div v-t="'sections.html-filters.css.description.0'"></div>
+          <div v-t="'sections.html-filters.css.description.1'"></div>
+          <div v-t="'sections.html-filters.css.description.2'"></div>
         </information>
       </setting>
 
       <setting>
-        Minify scripts and improve caching
+        <span v-t="'sections.html-filters.move-js.name'"></span>
         <information>
-          Minify scripts and fix caching for Google Analytics and Hotjar.
-          <br>
-          Reload changed scripts while still leveraging browser caching.
+          <span v-t="'sections.html-filters.move-js.description'"></span>
         </information>
       </setting>
 
       <setting>
-        Defer IFrame loading
+        <span v-t="'sections.html-filters.async-js.name'"></span>
         <information>
-          Start loading IFrames after the page has finished loading.
+          <span v-t="'sections.html-filters.async-js.description'"></span>
+        </information>
+      </setting>
+
+      <setting>
+        <span v-t="'sections.html-filters.minify-js.name'"></span>
+        <information>
+          <div v-t="'sections.html-filters.minify-js.description.0'"></div>
+          <div v-t="'sections.html-filters.minify-js.description.1'"></div>
+        </information>
+      </setting>
+
+      <setting>
+        <span v-t="'sections.html-filters.iframe.name'"></span>
+        <information>
+          <span v-t="'sections.html-filters.iframe.description'"></span>
         </information>
       </setting>
     </div>
@@ -147,3 +150,82 @@ export default {
     margin-bottom: 72px;
   }
 </style>
+
+<i18n>
+  default:
+    common:
+      tip: 'Tip:'
+      on: 'On:'
+      off: 'Off:'
+    sections:
+      plugin:
+        title: 'Plugin'
+        enabled:
+          name: 'PhastPress optimizations'
+          description:
+            main: 'Test your site {without} and {with}'
+            without: 'without phastpress'
+            with: 'with phastpress'
+        admin-only:
+          name: 'Disable for non-logged users'
+          description:
+            on:  'Only logged in users will be served with optimized version'
+            off: 'All users will be served with optimized version'
+            tip: 'Use to preview your site before launching the optimizations'
+        pathinfo:
+          name: 'Use path info format for service queries'
+          description:
+            on: 'use a more "fancy" format for queries for processed resources'
+            off: 'use the GET parameters for queries for processed resources'
+            more: 'This setting will be automatically set to {value} if available after you install PhastPress.'
+            value: 'On'
+        footer-link:
+          name: 'Let the world know about PhastPress'
+          description: 'Add a "Optimized by PhastPress" notice to the footer of your site and help spread the word.'
+      images:
+        title: 'Images'
+        tags:
+          name: 'Optimize images in tags'
+          description: >
+            Compress images with optimal settings. {newline}
+            Resize images to fit 3840x2160 pixels or to the appropriate size for
+            {imgTag} tags with {widthAttr} or {heightAttr}. {newline}
+            Reload changed images while still leveraging browser caching.
+        css:
+          name: 'Optimize images in CSS'
+          description:
+            - 'Compress images in stylesheets with optional settings and resizes the to fit 3840x2160 pixels.'
+            - 'Reload changed images while still leveraging browser caching.'
+        api:
+          name: 'Use the Phast Image Optimization API'
+          description:
+            - 'Optimize your images on our servers free of charge.'
+            - >
+              This will give you the best possible results without installing any software
+              and will reduce the load on your hosting.
+            - >
+               We will use your email address {email}
+               to keep you up to date about changes to the API.
+      html-filters:
+        title: 'HTML, CSS & JS'
+        css:
+          name: 'Optimize CSS'
+          description:
+            - 'Incline critical styles first and prevent unused styles from blocking the page load.'
+            - 'Minify stylesheets and leverage browser caching.'
+            - 'Inline Google Fonts CSS to speed up font loading.'
+        move-js:
+          name: 'Move scripts to end of body'
+          description: 'Prevent scripts from blocking the page load by loading the after the HTML and CSS.'
+        async-js:
+          name: 'Load scripts asynchronously'
+          description: 'Allow the page to finish loading before all scripts have been executed.'
+        minify-js:
+          name: 'Minify scripts and improve caching'
+          description:
+            - 'Minify scripts and fix caching for Google Analytics and Hotjar.'
+            - 'Reload changed scripts while still leveraging browser caching.'
+        iframe:
+          name: 'Defer IFrame loading'
+          description: 'Start loading IFrames after the page has finished loading.'
+</i18n>

@@ -2,10 +2,10 @@
   <div class="on-off-switch" :class="{on: isOn, disabled}" @click="toggle()">
     <div class="button"></div>
     <div class="label label-off">
-      {{ offLabel || 'Off' }}
+      {{ offLabel || $t('off') }}
     </div>
     <div class="label label-on">
-      {{ onLabel || 'On' }}
+      {{ onLabel || $t('on') }}
     </div>
   </div>
 </template>
@@ -90,3 +90,9 @@ export default {
   .on .label-off
     color: #d3d3d3
 </style>
+
+<i18n>
+  default:
+    on: 'On'
+    off: 'Off'
+</i18n>

@@ -2,7 +2,7 @@
   <div class="notification" :class="type">
     <div class="message">
       <span class="message-title">
-        {{ type }}:
+        {{ $t(type ) }}:
       </span>
       <span class="message-body">
         <slot></slot>
@@ -72,3 +72,11 @@ export default {
   .message-title
     text-transform: uppercase
 </style>
+
+<i18n>
+  default:
+    error: error
+    warning: warning
+    information: information
+    success: success
+</i18n>
