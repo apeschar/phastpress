@@ -28,10 +28,11 @@ export default {
   $content-color: #c2c2c2
 
   @mixin exclamation($size, $color)
+    $border-size: 1px
     content: "\0021"
-    width: $size
-    height: $size
-    border: 1px solid $color
+    width: $size + $border-size * 2
+    height: $size + $border-size * 2
+    border: $border-size solid $color
     border-radius: $size
     text-align: center
     color: $color
