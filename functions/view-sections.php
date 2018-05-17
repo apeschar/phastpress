@@ -13,10 +13,7 @@ return [
                 'name' => __('PhastPress optimizations', 'phastpress'),
                 'description' =>
                     __(
-                        '<i>On</i>: Enable PhastPress optimizations for all users<br>'
-                        . '<i>On for admins only</i>: Enable PhastPress optimizations only for logged-in users '
-                        . 'with the "Administrator" privilege. '
-                        . 'Use this to test your site before enabling PhastPress for all users.',
+                        '<i>On</i>: Enable PhastPress optimizations for all users<br>',
                         'phastpress'
                     ) . '<br>' .
                     sprintf(
@@ -26,9 +23,17 @@ return [
                         esc_attr('https://developers.google.com/speed/pagespeed/insights/?url=' . rawurlencode($urlWithPhast))
                     )
                 ,
-                'options' => phastpress_render_option('enabled', true)
-                    .phastpress_render_option('enabled', 'admin', __('On for admins only', 'phastpress'))
-                    .phastpress_render_option('enabled', false)
+                'options' => phastpress_render_bool_options('enabled')
+            ],
+            [
+                'name' => __('Disable for non-admin users', 'phastpress'),
+                'description' => __(
+                    '<i>On: </i> Only admin users will be served with optimized version<br>'
+                    . '<i>Off: </i> All users will be served with optimized version<br>'
+                    . '<b>Tip: </b> Use to preview your site before launching the optimizations',
+                    'phastpress'
+                ),
+                'options' => phastpress_render_bool_options('admin-only')
             ],
             [
                 'name' => __('Remove query string from processed resources', 'phastpress'),

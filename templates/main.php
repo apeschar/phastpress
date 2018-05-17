@@ -2,7 +2,7 @@
     <h1><?php _e('PhastPress', 'phastpress');?></h1>
     <hr class="wp-header-end">
 
-    <?php if (phastpress_get_config()['enabled'] === 'admin'):?>
+    <?php $config = phastpress_get_config(); if ($config['enabled'] && $config['admin-only']):?>
         <div class="phastpress-settings-problem phastpress-settings-warning">
             <?php _e(
                 'PhastPress optimizations will be applied only for logged-in users with the "Administrator" privilege.<br>' .
@@ -11,7 +11,7 @@
                 'phastpress'
             ); ?>
         </div>
-    <?php elseif (!phastpress_get_config()['enabled']):?>
+    <?php elseif (!$config['enabled']):?>
         <div class="phastpress-settings-problem phastpress-settings-error">
             <?php _e('PhastPress optimizations are off!', 'phastpress');?>
         </div>
