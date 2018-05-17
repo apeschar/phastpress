@@ -35,7 +35,7 @@
       This is success
     </notification>
     <br><br>
-    <settings :strings="settingsStrings"></settings>
+    <settings :strings="settingsStrings" :config="config"></settings>
   </div>
 </template>
 
@@ -56,6 +56,20 @@ export default {
         userEmail: 'the-user@phastpress.com',
         urlWithPhast: 'url-with',
         urlWithoutPhast: 'url-without'
+      },
+      config: {
+        'phastpress-enabled': 'on',
+        'phastpress-admin-only': 'on',
+        'phastpress-pathinfo-query-format': 'on',
+        'phastpress-footer-link': 'off',
+        'phastpress-img-optimization-tags': 'off',
+        'phastpress-img-optimization-css': 'on',
+        'phastpress-img-optimization-api': 'off',
+        'phastpress-css-optimization': 'on',
+        'phastpress-scripts-rearrangement': 'on',
+        'phastpress-scripts-defer': 'on',
+        'phastpress-scripts-proxy': 'off',
+        'phastpress-iframe-defer': 'on'
       }
     }
   },

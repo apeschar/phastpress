@@ -6,7 +6,7 @@
         <span v-t="'sections.plugin.title'"></span>
       </section-title>
 
-      <setting>
+      <setting v-model="enabled">
         <span v-t="'sections.plugin.enabled.name'"></span>
         <information>
           <b v-t="'common.tip'"></b>
@@ -17,7 +17,7 @@
         </information>
       </setting>
 
-      <setting>
+      <setting v-model="adminOnly">
         {{ $t('sections.plugin.admin-only.name')}}
         <information>
           <i v-t="'common.on'"></i> <span v-t="'sections.plugin.admin-only.description.on'"></span>
@@ -28,7 +28,7 @@
         </information>
       </setting>
 
-      <setting>
+      <setting v-model="pathinfoQueryFormat">
         <span v-t="'sections.plugin.pathinfo.name'"></span>
         <information>
           <i v-t="'common.on'"></i>
@@ -43,7 +43,7 @@
         </information>
       </setting>
 
-      <setting>
+      <setting v-model="footerLink">
         <span v-t="'sections.plugin.footer-link.name'"></span>
         <information>
           <span v-t="'sections.plugin.footer-link.description'"></span>
@@ -56,7 +56,7 @@
         <span v-t="'sections.images.title'"></span>
       </section-title>
 
-      <setting>
+      <setting v-model="imgOptimizationTags">
         <span v-t="'sections.images.tags.name'"></span>
         <information>
           <i18n path="sections.images.tags.description">
@@ -68,7 +68,7 @@
         </information>
       </setting>
 
-      <setting>
+      <setting v-model="imgOptimizationCss">
         <span v-t="'sections.images.css.name'"></span>
         <information>
           <div v-t="'sections.images.css.description.0'"></div>
@@ -76,7 +76,7 @@
         </information>
       </setting>
 
-      <setting>
+      <setting v-model="imgOptimizationApi">
         <span v-t="'sections.images.api.name'"></span>
         <information>
           <div v-t="'sections.images.api.description.0'"></div>
@@ -95,7 +95,7 @@
         <span v-t="'sections.html-filters.title'"></span>
       </section-title>
 
-      <setting>
+      <setting v-model="cssOptimization">
         <span v-t="'sections.html-filters.css.name'"></span>
         <information>
           <div v-t="'sections.html-filters.css.description.0'"></div>
@@ -104,21 +104,21 @@
         </information>
       </setting>
 
-      <setting>
+      <setting v-model="scriptsRearrangement">
         <span v-t="'sections.html-filters.move-js.name'"></span>
         <information>
           <span v-t="'sections.html-filters.move-js.description'"></span>
         </information>
       </setting>
 
-      <setting>
+      <setting v-model="scriptsDefer">
         <span v-t="'sections.html-filters.async-js.name'"></span>
         <information>
           <span v-t="'sections.html-filters.async-js.description'"></span>
         </information>
       </setting>
 
-      <setting>
+      <setting v-model="scriptsProxy">
         <span v-t="'sections.html-filters.minify-js.name'"></span>
         <information>
           <div v-t="'sections.html-filters.minify-js.description.0'"></div>
@@ -126,7 +126,7 @@
         </information>
       </setting>
 
-      <setting>
+      <setting v-model="iframeDefer">
         <span v-t="'sections.html-filters.iframe.name'"></span>
         <information>
           <span v-t="'sections.html-filters.iframe.description'"></span>
@@ -143,7 +143,16 @@ import Information from './Information'
 export default {
   name: 'Settings',
   components: {Information, Setting, SectionTitle},
-  props: ['strings']
+  props: ['config', 'strings'],
+  data () {
+    const data = {}
+    for (const x in this.config) {
+      const key = x.replace('phastpress-', '')
+        .replace(/-([a-z])/g, (match, p1) => p1.toUpperCase())
+      data[key] = this.config[x]
+    }
+    return data
+  }
 }
 </script>
 <style scoped>

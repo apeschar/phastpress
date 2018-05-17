@@ -4,7 +4,7 @@
       <slot></slot>
     </div>
     <div class="switch-holder">
-      <on-off-switch v-model="value" on-value="On" off-value="Off" />
+      <on-off-switch v-model="currentValue" on-value="on" off-value="off" />
     </div>
   </div>
 </template>
@@ -14,7 +14,17 @@ import OnOffSwitch from './OnOffSwitch'
 export default {
   name: 'Setting',
   components: {OnOffSwitch},
-  props: ['value']
+  props: ['value'],
+  data () {
+    return {
+      currentValue: this.value
+    }
+  },
+  watch: {
+    currentValue (v) {
+      this.$emit('input', v)
+    }
+  }
 }
 </script>
 
