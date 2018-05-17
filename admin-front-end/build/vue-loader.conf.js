@@ -15,6 +15,9 @@ loaders.i18n = '@kazupon/vue-i18n-loader'
 
 module.exports = {
   loaders,
+  preLoaders: {
+    i18n: 'yaml-loader'
+  },
   cssSourceMap: sourceMapEnabled,
   cacheBusting: config.dev.cacheBusting,
   transformToRequire: {
