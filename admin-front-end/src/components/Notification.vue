@@ -25,7 +25,7 @@ export default {
     display: flex
     align-items: center
     height: 60px
-    padding-left: 20px
+    padding: 0 16px 0 20px
     border-radius: 4px
     color: white
 
@@ -60,13 +60,14 @@ export default {
 
     &:after
       display: block
-      position: absolute
-      right: 16px
       content: '\00d7'
       font-size: 32px
       font-weight: bold
       opacity: 0.3
       color: black
+
+  .message
+    flex: 1
 
   .message-title
     text-transform: uppercase

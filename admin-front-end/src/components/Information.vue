@@ -21,6 +21,8 @@ export default {
 
 <style scoped lang="sass">
 
+  @import "global"
+
   $title-color: #82d6f8
   $border-color: #f4f4f4
   $content-color: #c2c2c2
@@ -55,7 +57,6 @@ export default {
     left: 14px
     margin-left: 15px
     z-index: 1000
-    box-sizing: border-box
     width: 329px
     padding: 12px 10px 15px 56px
     border: 1px solid $border-color
