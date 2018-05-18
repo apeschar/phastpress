@@ -66,6 +66,11 @@ function phastpress_render_bool_options($setting) {
 }
 
 function phastpress_render_settings() {
+    wp_enqueue_script('phastpress-app', 'http://localhost:8080/app.js');
+    echo '<div id="app"></div>';
+}
+
+function _phastpress_render_settings() {
     require_once __DIR__ . '/../vendor/autoload.php';
 
     wp_enqueue_style('phastpress-styles');
