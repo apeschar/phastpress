@@ -18,13 +18,16 @@
       </setting>
 
       <setting :disabled="disabled" :value="v('adminOnly')" @input="update('adminOnly', $event)">
-        {{ $t('sections.plugin.admin-only.name')}}
+        <span v-t="'sections.plugin.admin-only.name'"></span>
         <information>
-          <i v-t="'common.on'"></i> <span v-t="'sections.plugin.admin-only.description.on'"></span>
+          <i v-t="'common.on'"></i>
+          <span v-t="'sections.plugin.admin-only.description.on'"></span>
           <br>
-          <i v-t="'common.off'"></i> {{ $t('sections.plugin.admin-only.description.off')}}
+          <i v-t="'common.off'"></i>
+          <span v-t="'sections.plugin.admin-only.description.off'"></span>
           <br>
-          <b v-t="'common.tip'"></b> <span v-t="'sections.plugin.admin-only.description.tip'"></span>
+          <b v-t="'common.tip'"></b>
+          <span v-t="'sections.plugin.admin-only.description.tip'"></span>
         </information>
       </setting>
 
