@@ -11,8 +11,18 @@
         <information>
           <b v-t="'common.tip'"></b>
           <i18n path="sections.plugin.enabled.description.main">
-            <a :href="strings.urlWithoutPhast" place="without" v-t="'sections.plugin.enabled.description.without'"></a>
-            <a :href="strings.urlWithPhast" place="with" v-t="'sections.plugin.enabled.description.with'"></a>
+            <a
+                v-t="'sections.plugin.enabled.description.without'"
+                place="without"
+                :href="strings.urlWithoutPhast"
+                target="_blank"
+            ></a>
+            <a
+                v-t="'sections.plugin.enabled.description.with'"
+                place="with"
+                :href="strings.urlWithPhast"
+                target="_blank"
+            ></a>
           </i18n>
         </information>
       </setting>
@@ -64,6 +74,8 @@
         <information>
           <i18n path="sections.images.tags.description">
             <br place="newline">
+            <span place="width">{{ strings.maxImageWidth }}</span>
+            <span place="height">{{ strings.maxImageHeight }}</span>
             <code place="imgTag">&lt;img&gt;</code>
             <code place="widthAttr">width</code>
             <code place="heightAttr">height</code>
@@ -74,7 +86,10 @@
       <setting :disabled="disabled" :value="v('imgOptimizationCss')" @input="update('imgOptimizationCss', $event)">
         <span v-t="'sections.images.css.name'"></span>
         <information>
-          <div v-t="'sections.images.css.description.0'"></div>
+          <i18n path="sections.images.css.description.0" tag="div">
+            <span place="width">{{ strings.maxImageWidth }}</span>
+            <span place="height">{{ strings.maxImageHeight }}</span>
+          </i18n>
           <div v-t="'sections.images.css.description.1'"></div>
         </information>
       </setting>
@@ -86,7 +101,7 @@
           <div v-t="'sections.images.api.description.1'"></div>
           <div>
             <i18n path="sections.images.api.description.2">
-              <a :href="'mailto:' + strings.userEmail" place="email">{{ strings.userEmail }}</a>
+              <a :href="'mailto:' + strings.adminEmail" place="email">{{ strings.adminEmail }}</a>
             </i18n>
           </div>
         </information>
@@ -212,13 +227,13 @@ export default {
           name: 'Optimize images in tags'
           description: >
             Compress images with optimal settings. {newline}
-            Resize images to fit 3840x2160 pixels or to the appropriate size for
+            Resize images to fit {width}x{height} pixels or to the appropriate size for
             {imgTag} tags with {widthAttr} or {heightAttr}. {newline}
             Reload changed images while still leveraging browser caching.
         css:
           name: 'Optimize images in CSS'
           description:
-            - 'Compress images in stylesheets with optional settings and resizes the to fit 3840x2160 pixels.'
+            - 'Compress images in stylesheets with optional settings and resizes the to fit {width}x{height} pixels.'
             - 'Reload changed images while still leveraging browser caching.'
         api:
           name: 'Use the Phast Image Optimization API'

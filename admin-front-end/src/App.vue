@@ -53,9 +53,13 @@ export default {
     return {
       t: 'asd',
       settingsStrings: {
-        userEmail: 'the-user@phastpress.com',
-        urlWithPhast: 'url-with',
-        urlWithoutPhast: 'url-without'
+        'nonce': 'b6c4439a38',
+        'nonceName': '_wpnonce',
+        'adminEmail': 'admin@kiboit.com',
+        'urlWithPhast': 'https://developers.google.com/speed/pagespeed/insights/?url=http%3A%2F%2Fphastpress.test%3Fphast%3Dphast',
+        'urlWithoutPhast': 'https://developers.google.com/speed/pagespeed/insights/?url=http%3A%2F%2Fphastpress.test%3Fphast%3D-phast',
+        'maxImageWidth': 3840,
+        'maxImageHeight': 2160
       },
       config: {
         'phastpress-enabled': 'on',
