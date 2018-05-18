@@ -35,7 +35,7 @@
       This is success
     </notification>
     <br><br>
-    <settings :strings="settingsStrings" :config="config"></settings>
+    <settings :strings="settingsStrings" v-model="config"></settings>
   </div>
 </template>
 
@@ -71,6 +71,11 @@ export default {
         'phastpress-scripts-proxy': 'off',
         'phastpress-iframe-defer': 'on'
       }
+    }
+  },
+  watch: {
+    config (newConfig) {
+      console.log(newConfig)
     }
   },
   components: {
