@@ -19,6 +19,11 @@ add_action('wp_ajax_phastpress_save_config', function () {
     phastpress_save_config();
 });
 
+add_action('wp_ajax_phastpress_get_admin_panel_data', function () {
+    require_once __DIR__ . '/functions.php';
+    wp_send_json(phastpress_get_admin_panel_data());
+});
+
 add_action('admin_notices', function () {
     require_once __DIR__ . '/functions.php';
     phastpress_render_plugin_install_notice();
