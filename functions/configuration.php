@@ -9,7 +9,7 @@ function phastpress_get_default_config() {
         'img-optimization-css' => true,
         'img-optimization-api' => true,
         'css-optimization' => true,
-        'scripts-rearrangement' => true,
+        'scripts-rearrangement' => false,
         'scripts-defer' => true,
         'scripts-proxy' => true,
         'iframe-defer' => true,
