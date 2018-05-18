@@ -17,7 +17,7 @@
         </information>
       </setting>
 
-      <setting :value="v('adminOnly')" @input="update('adminOnly', $event)">
+      <setting :disabled="disabled" :value="v('adminOnly')" @input="update('adminOnly', $event)">
         {{ $t('sections.plugin.admin-only.name')}}
         <information>
           <i v-t="'common.on'"></i> <span v-t="'sections.plugin.admin-only.description.on'"></span>
@@ -28,7 +28,7 @@
         </information>
       </setting>
 
-      <setting :value="v('pathinfoQueryFormat')" @input="update('pathinfoQueryFormat', $event)">
+      <setting :disabled="disabled" :value="v('pathinfoQueryFormat')" @input="update('pathinfoQueryFormat', $event)">
         <span v-t="'sections.plugin.pathinfo.name'"></span>
         <information>
           <i v-t="'common.on'"></i>
@@ -43,7 +43,7 @@
         </information>
       </setting>
 
-      <setting :value="v('footerLink')" @input="update('footerLink', $event)">
+      <setting :disabled="disabled" :value="v('footerLink')" @input="update('footerLink', $event)">
         <span v-t="'sections.plugin.footer-link.name'"></span>
         <information>
           <span v-t="'sections.plugin.footer-link.description'"></span>
@@ -56,7 +56,7 @@
         <span v-t="'sections.images.title'"></span>
       </section-title>
 
-      <setting :value="v('imgOptimizationTags')" @input="update('imgOptimizationTags', $event)">
+      <setting :disabled="disabled" :value="v('imgOptimizationTags')" @input="update('imgOptimizationTags', $event)">
         <span v-t="'sections.images.tags.name'"></span>
         <information>
           <i18n path="sections.images.tags.description">
@@ -68,7 +68,7 @@
         </information>
       </setting>
 
-      <setting :value="v('imgOptimizationCss')" @input="update('imgOptimizationCss', $event)">
+      <setting :disabled="disabled" :value="v('imgOptimizationCss')" @input="update('imgOptimizationCss', $event)">
         <span v-t="'sections.images.css.name'"></span>
         <information>
           <div v-t="'sections.images.css.description.0'"></div>
@@ -76,7 +76,7 @@
         </information>
       </setting>
 
-      <setting :value="v('imgOptimizationApi')" @input="update('imgOptimizationApi', $event)">
+      <setting :disabled="disabled" :value="v('imgOptimizationApi')" @input="update('imgOptimizationApi', $event)">
         <span v-t="'sections.images.api.name'"></span>
         <information>
           <div v-t="'sections.images.api.description.0'"></div>
@@ -95,7 +95,7 @@
         <span v-t="'sections.html-filters.title'"></span>
       </section-title>
 
-      <setting :value="v('cssOptimization')" @input="update('cssOptimization', $event)">
+      <setting :disabled="disabled" :value="v('cssOptimization')" @input="update('cssOptimization', $event)">
         <span v-t="'sections.html-filters.css.name'"></span>
         <information>
           <div v-t="'sections.html-filters.css.description.0'"></div>
@@ -104,21 +104,21 @@
         </information>
       </setting>
 
-      <setting :value="v('scriptsRearrangement')" @input="update('scriptsRearrangement', $event)">
+      <setting :disabled="disabled" :value="v('scriptsRearrangement')" @input="update('scriptsRearrangement', $event)">
         <span v-t="'sections.html-filters.move-js.name'"></span>
         <information>
           <span v-t="'sections.html-filters.move-js.description'"></span>
         </information>
       </setting>
 
-      <setting :value="v('scriptsDefer')" @input="update('scriptsDefer', $event)">
+      <setting :disabled="disabled" :value="v('scriptsDefer')" @input="update('scriptsDefer', $event)">
         <span v-t="'sections.html-filters.async-js.name'"></span>
         <information>
           <span v-t="'sections.html-filters.async-js.description'"></span>
         </information>
       </setting>
 
-      <setting :value="v('scriptsProxy')" @input="update('scriptsProxy', $event)">
+      <setting :disabled="disabled" :value="v('scriptsProxy')" @input="update('scriptsProxy', $event)">
         <span v-t="'sections.html-filters.minify-js.name'"></span>
         <information>
           <div v-t="'sections.html-filters.minify-js.description.0'"></div>
@@ -126,7 +126,7 @@
         </information>
       </setting>
 
-      <setting :value="v('iframeDefer')" @input="update('iframeDefer', $event)">
+      <setting :disabled="disabled" :value="v('iframeDefer')" @input="update('iframeDefer', $event)">
         <span v-t="'sections.html-filters.iframe.name'"></span>
         <information>
           <span v-t="'sections.html-filters.iframe.description'"></span>
@@ -156,6 +156,12 @@ export default {
     },
     getConfigKey (key) {
       return 'phastpress-' + key.replace(/[A-Z]/g, m => '-' + m.toLowerCase())
+    }
+  },
+
+  computed: {
+    disabled () {
+      return this.value[this.getConfigKey('enabled')] === 'off'
     }
   }
 }

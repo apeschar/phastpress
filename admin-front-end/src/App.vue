@@ -76,6 +76,7 @@ export default {
   watch: {
     config (newConfig) {
       console.log(newConfig)
+      this.config = newConfig
     }
   },
   components: {
