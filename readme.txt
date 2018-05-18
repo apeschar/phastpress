@@ -34,6 +34,10 @@ Get the full power of Phast for your website by installing PhastPress now.
 
 == Changelog ==
 
+= 1.5.1 =
+
+* Disable scripts rearrangement by default.
+
 = 1.5.0 =
 
 [See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
