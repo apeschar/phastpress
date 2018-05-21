@@ -1,7 +1,7 @@
 <template>
   <div>
 
-    <div class="settings-section">
+    <div class="phastpress-settings-section">
       <section-title color="#00aeef">
         <span v-t="'sections.plugin.title'"></span>
       </section-title>
@@ -64,7 +64,7 @@
       </setting>
     </div>
 
-    <div class="settings-section">
+    <div class="phastpress-settings-section">
       <section-title color="#f26c4f">
         <span v-t="'sections.images.title'"></span>
       </section-title>
@@ -108,7 +108,7 @@
       </setting>
     </div>
 
-    <div class="settings-section">
+    <div class="phastpress-settings-section">
       <section-title color="#a287be">
         <span v-t="'sections.html-filters.title'"></span>
       </section-title>
@@ -185,7 +185,7 @@ export default {
 }
 </script>
 <style scoped>
-  .settings-section {
+  .phastpress-settings-section {
     margin-bottom: 72px;
   }
 </style>

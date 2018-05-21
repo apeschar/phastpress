@@ -1,10 +1,10 @@
 <template>
-  <div class="notification" :class="type">
-    <div class="message">
-      <span class="message-title">
+  <div class="phastpress-notification" :class="'phastpress-' + type">
+    <div class="phastpress-message">
+      <span class="phastpress-message-title">
         {{ $t(type ) }}:
       </span>
-      <span class="message-body">
+      <span class="phastpress-message-body">
         <slot></slot>
       </span>
     </div>
@@ -21,7 +21,7 @@ export default {
 <style scoped lang="sass">
   @import "global"
 
-  .notification
+  .phastpress-notification
     display: flex
     align-items: center
     height: 60px
@@ -41,19 +41,19 @@ export default {
       background-position: center
       opacity: 0.5
 
-    &.error
+    &.phastpress-error
       background-color: #f36523
       &:before
         background-image: url('../assets/error.png')
-    &.warning
+    &.phastpress-warning
       background-color: #2e3192
       &:before
         background-image: url('../assets/warning.png')
-    &.information
+    &.phastpress-information
       background-color: $blue
       &:before
         background-image: url('../assets/information.png')
-    &.success
+    &.phastpress-success
       background-color: #3ab54a
       &:before
         background-image: url('../assets/success.png')
@@ -66,10 +66,10 @@ export default {
       opacity: 0.3
       color: black
 
-  .message
+  .phastpress-message
     flex: 1
 
-  .message-title
+  .phastpress-message-title
     text-transform: uppercase
 </style>
 

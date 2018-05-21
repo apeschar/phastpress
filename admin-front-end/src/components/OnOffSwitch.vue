@@ -1,10 +1,15 @@
 <template>
-  <div class="on-off-switch" :class="{on: isOn, disabled}" @click="toggle()">
-    <div class="button"></div>
-    <div class="label label-off">
+  <div
+    class="phastpress-on-off-switch"
+    :class="{'phastpress-on': isOn,
+    'phastpress-disabled': disabled}"
+    @click="toggle()"
+  >
+    <div class="phastpress-button"></div>
+    <div class="phastpress-label phastpress-label-off">
       {{ offLabel || $t('off') }}
     </div>
-    <div class="label label-on">
+    <div class="phastpress-label phastpress-label-on">
       {{ onLabel || $t('on') }}
     </div>
   </div>
@@ -36,7 +41,7 @@ export default {
 <style scoped lang="sass">
   @import "global"
 
-  .on-off-switch
+  .phastpress-on-off-switch
     display: flex
     align-items: center
     justify-content: space-around
@@ -49,11 +54,11 @@ export default {
     background-color: #dddddd
     user-select: none
 
-  .label
+  .phastpress-label
     position: relative
     padding-top: 3px
 
-  .button
+  .phastpress-button
     position: absolute
     width: 50%
     height: 100%
@@ -62,7 +67,7 @@ export default {
     padding: 2px
     transition: left .25s
 
-  .button:after
+  .phastpress-button:after
     display: block
     content: " "
     width: 100%
@@ -71,23 +76,23 @@ export default {
     border: 1px solid #c3d7df
     border-radius: 4px
 
-  .disabled .button:after
+  .phastpress-disabled .phastpress-button:after
     background-color: #c0c0c0
     border-color: #c0c0c0
 
-  .on .button
+  .phastpress-on .phastpress-button
     left: 50%
 
-  .label-on
+  .phastpress-label-on
     color: #d3d3d3
 
-  .label-off
+  .phastpress-label-off
     color: white
 
-  .on .label-on
+  .phastpress-on .phastpress-label-on
     color: white
 
-  .on .label-off
+  .phastpress-on .phastpress-label-off
     color: #d3d3d3
 </style>
 

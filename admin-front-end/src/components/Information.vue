@@ -1,11 +1,11 @@
 <template>
-  <div class="information">
-    <sup class="icon"></sup>
-    <div class="block">
-      <div class="title">
+  <div class="phastpress-information">
+    <sup class="phastpress-icon"></sup>
+    <div class="phastpress-block">
+      <div class="phastpress-title">
         {{ title || $t('additional') }}
       </div>
-      <div class="content">
+      <div class="phastpress-content">
         <slot></slot>
       </div>
     </div>
@@ -29,29 +29,32 @@ export default {
 
   @mixin exclamation($size, $color)
     $border-size: 1px
+    $dimension: $size + $border-size * 2
     content: "\0021"
-    width: $size + $border-size * 2
-    height: $size + $border-size * 2
+    width: $dimension
+    height: $dimension
     border: $border-size solid $color
     border-radius: $size
+    font-size: $size
+    line-height: $size
     text-align: center
     color: $color
     font-weight: bold
 
-  .information
+  .phastpress-information
     display: inline-block
     position: relative
 
-  .information:hover .block
+  .phastpress-information:hover .phastpress-block
     display: block
 
-  .icon::before
+  .phastpress-icon::before
     @include exclamation(12px, $title-color)
     display: inline-block
     margin-left: 5px
     cursor: pointer
 
-  .block
+  .phastpress-block
     display: none
     position: absolute
     top: -17px
@@ -67,15 +70,14 @@ export default {
     font-size: 12px
     color: $content-color
 
-  .block::before
+  .phastpress-block::before
     @include exclamation(24px, #858585)
     display: block
     position: absolute
     top: 10px
     left: 20px
-    font-size: 24px
 
-  .block::after
+  .phastpress-block::after
     display: block
     position: absolute
     width: 15px
@@ -88,7 +90,7 @@ export default {
     border-bottom: 1px solid $border-color
     background: white
 
-  .title
+  .phastpress-title
     margin-bottom: 5px
     font-weight: bold
     color: $title-color
@@ -98,5 +100,5 @@ export default {
 
 <i18n>
   default:
-    additiona: 'Additional information'
+    additional: 'Additional information'
 </i18n>

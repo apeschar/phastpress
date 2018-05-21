@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="section-title" :style="{'border-left-color' : color}">
+    <div class="phastpress-section-title" :style="{'border-left-color' : color}">
       <slot></slot>
     </div>
   </div>
@@ -12,7 +12,7 @@ export default {
 }
 </script>
 <style scoped lang="sass">
-  .section-title
+  .phastpress-section-title
     margin-bottom: 10px
     height: 30px
     line-height: 30px

@@ -1,17 +1,15 @@
 <template>
-  <div class="setting">
-    <div class="title">
+  <div class="phastpress-setting">
+    <div class="phastpress-title">
       <slot></slot>
     </div>
-    <div class="switch-holder">
-      <on-off-switch
-          :value="value"
-          @input="$emit('input', $event)"
-          on-value="on"
-          off-value="off"
-          :disabled="disabled"
-      />
-    </div>
+    <on-off-switch
+      :value="value"
+      @input="$emit('input', $event)"
+      on-value="on"
+      off-value="off"
+      :disabled="disabled"
+    />
   </div>
 </template>
 
@@ -25,7 +23,7 @@ export default {
 </script>
 
 <style scoped lang="sass">
-  .setting
+  .phastpress-setting
     display: flex
     align-items: center
     justify-content: space-between
