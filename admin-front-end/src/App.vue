@@ -1,16 +1,15 @@
 <template>
-  <div id="app" v-if="settingsStrings && config">
-    <settings :strings="settingsStrings" v-model="config"></settings>
+  <div id="app" class="wrap">
+    <h1 v-t="'title'" class="wp-heading-inline"></h1>
+    <panel v-if="settingsStrings && config">
+      <settings :strings="settingsStrings" v-model="config"></settings>
+    </panel>
   </div>
 </template>
 
 <script>
-import OnOffSwitch from './components/OnOffSwitch'
-import Information from './components/Information'
-import SectionTitle from './components/SectionTitle'
-import Setting from './components/Setting'
-import Notification from './components/Notification'
 import Settings from './components/Settings'
+import Panel from './components/Panel'
 
 export default {
   name: 'App',
@@ -45,11 +44,12 @@ export default {
 
   components: {
     Settings,
-    Notification,
-    Setting,
-    OnOffSwitch,
-    Information,
-    SectionTitle
+    Panel
   }
 }
 </script>
+
+<i18n>
+  default:
+    title: 'PhastPress'
+</i18n>
