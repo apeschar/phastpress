@@ -12,10 +12,9 @@ export default class WordPressAPIClient {
       .then(response => {
         this._nonceName = response.data.nonceName
         this._nonce = response.data.nonce
-        return {
-          config: response.data.config,
-          settingsStrings: response.data.settingsStrings
-        }
+        delete response.data.nonce
+        delete response.data.nonceName
+        return response.data
       })
   }
 

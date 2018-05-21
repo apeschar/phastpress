@@ -28,6 +28,7 @@ export default {
     padding: 0 16px 0 20px
     border-radius: 4px
     color: white
+    font-weight: bold
 
     &:before
       display: block

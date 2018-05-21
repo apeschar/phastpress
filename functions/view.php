@@ -142,6 +142,22 @@ function phastpress_get_admin_panel_data() {
     $urlWithPhast    = add_query_arg('phast', 'phast',  site_url());
     $urlWithoutPhast = add_query_arg('phast', '-phast', site_url());
     $pageSpeedToolUrl = 'https://developers.google.com/speed/pagespeed/insights/?url=';
+
+    $errors = [];
+    if (!phastpress_has_cache_root()) {
+        $errors[] = [
+           'type' => 'no-cache-root',
+           'candidates' => phastpress_get_cache_root_candidates()
+        ];
+    }
+    if (!phastpress_has_service_config()) {
+        $errors[] = [
+            'type' => 'no-service-config',
+            'candidates' => phastpress_get_cache_root_candidates()
+        ];
+    }
+
+
     return [
         'config' => phastpress_get_config(),
         'settingsStrings' => [
@@ -153,6 +169,7 @@ function phastpress_get_admin_panel_data() {
             'maxImageHeight'
                 => $phastConfig['images']['filters'][\Kibo\Phast\Filters\Image\Resizer\Filter::class]['defaultMaxHeight']
         ],
+        'errors' => [],
         'nonce' => wp_create_nonce(PHASTPRESS_NONCE_NAME),
         'nonceName' => '_wpnonce',
     ];
