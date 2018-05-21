@@ -1,5 +1,5 @@
 <template>
-  <div id="app" class="wrap">
+  <div class="wrap">
     <h1 v-t="'title'" class="wp-heading-inline"></h1>
     <panel v-if="settingsStrings && config">
       <settings :strings="settingsStrings" v-model="config"></settings>
