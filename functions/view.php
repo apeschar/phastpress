@@ -158,6 +158,36 @@ function phastpress_get_admin_panel_data() {
     }
 
 
+    $warnings = [];
+    $api_client_warning = [];
+    $phast_config = phastpress_get_phast_user_config();
+    $diagnostics = new \Kibo\Phast\Diagnostics\SystemDiagnostics();
+    foreach ($diagnostics->run($phast_config) as $status) {
+        if ($status->isAvailable()) {
+            continue;
+        }
+        $package = $status->getPackage();
+        $type = $package->getType();
+        if ($type == 'Cache') {
+            $errors[] = [
+                'type' => 'cache',
+                'reason' => [$status->getReason()]
+            ];
+        } else if ($type == 'ImageFilter') {
+            $name = substr($package->getNamespace(), strrpos($package->getNamespace(), '\\') + 1);
+            if ($name === 'ImageAPIClient') {
+                $api_client_warning[] = 'PhastPress Image API error: ' . $status->getReason();
+            } else {
+                $warnings[] = $status->getReason();
+            }
+        }
+    }
+
+    $phastpress_config = phastpress_get_config();
+    if ($phastpress_config['img-optimization-api']) {
+        $warnings = $api_client_warning;
+    }
+
     return [
         'config' => phastpress_get_config(),
         'settingsStrings' => [
@@ -170,6 +200,7 @@ function phastpress_get_admin_panel_data() {
                 => $phastConfig['images']['filters'][\Kibo\Phast\Filters\Image\Resizer\Filter::class]['defaultMaxHeight']
         ],
         'errors' => [],
+        'warnings' => $warnings,
         'nonce' => wp_create_nonce(PHASTPRESS_NONCE_NAME),
         'nonceName' => '_wpnonce',
     ];

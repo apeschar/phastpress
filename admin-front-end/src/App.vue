@@ -1,11 +1,18 @@
 <template>
   <div class="wrap">
     <h1 v-t="'title'" class="wp-heading-inline"></h1>
-    <notification type="error" v-for="error in errors" :key="error.type" class="phastpress-notification">
-      <i18n :path="'errors.' + error.type">
+
+    <notification v-for="error in errors" :key="error.type" type="error" class="phastpress-notification">
+      <span v-if="error.type === 'cache'">{{ error.reason }}</span>
+      <i18n v-else :path="'errors.' + error.type">
         <span place="candidates">{{ error.candidates.join(', ') }}</span>
       </i18n>
     </notification>
+
+    <notification v-for="warning in warnings" :key="warning" type="warning" class="phastpress-notification">
+      {{ warning }}
+    </notification>
+
     <panel v-if="settingsStrings && config">
       <settings :strings="settingsStrings" v-model="config"></settings>
     </panel>
@@ -28,6 +35,7 @@ export default {
         this.settingsStrings = data.settingsStrings
         this.currentConfig = data.config
         this.errors = data.errors
+        this.warnings = data.warnings
       })
   },
 
