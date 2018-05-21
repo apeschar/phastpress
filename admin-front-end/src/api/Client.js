@@ -18,4 +18,15 @@ export default class WordPressAPIClient {
         }
       })
   }
+
+  saveConfig (config) {
+    const data = new FormData()
+    data.set('action', 'phastpress_save_config')
+    data.set(this._nonceName, this._nonce)
+    Object.keys(config).forEach(key => {
+      data.set('phastpress-' + key, config[key] ? 'on' : 'off')
+    })
+    return axios.post(this._adminUrl, data)
+      .then(response => response.data)
+  }
 }

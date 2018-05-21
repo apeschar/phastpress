@@ -179,7 +179,7 @@ export default {
 
   computed: {
     disabled () {
-      return this.value[this.getConfigKey('enabled')] === 'off'
+      return !this.value[this.getConfigKey('enabled')]
     }
   }
 }

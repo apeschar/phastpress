@@ -17,6 +17,7 @@ add_action('wp_ajax_phastpress_dismiss_notice', function () {
 add_action('wp_ajax_phastpress_save_config', function () {
     require_once __DIR__ . '/functions.php';
     phastpress_save_config();
+    wp_send_json(phastpress_get_config());
 });
 
 add_action('wp_ajax_phastpress_get_admin_panel_data', function () {

@@ -21,17 +21,28 @@ export default {
     this.client.getAdminPanelData()
       .then(data => {
         this.settingsStrings = data.settingsStrings
-        this.config = data.config
+        this.currentConfig = data.config
       })
   },
 
   data () {
     return {
-      t: 'asd',
       settingsStrings: null,
-      config: null
+      currentConfig: null
     }
   },
+
+  computed: {
+    config: {
+      get () {
+        return this.currentConfig
+      },
+      async set (newConfig) {
+        this.currentConfig = await this.client.saveConfig(newConfig)
+      }
+    }
+  },
+
   components: {
     Settings,
     Notification,
