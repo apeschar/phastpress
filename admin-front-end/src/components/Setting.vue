@@ -6,8 +6,8 @@
     <on-off-switch
       :value="value"
       @input="$emit('input', $event)"
-      on-value="on"
-      off-value="off"
+      :on-value="true"
+      :off-value="false"
       :disabled="disabled"
     />
   </div>

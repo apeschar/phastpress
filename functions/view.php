@@ -144,14 +144,16 @@ function phastpress_get_admin_panel_data() {
     $pageSpeedToolUrl = 'https://developers.google.com/speed/pagespeed/insights/?url=';
     return [
         'config' => phastpress_get_config(),
+        'settingsStrings' => [
+            'adminEmail' => get_bloginfo('admin_email'),
+            'urlWithPhast' => $pageSpeedToolUrl . rawurlencode($urlWithPhast),
+            'urlWithoutPhast' => $pageSpeedToolUrl . rawurlencode($urlWithoutPhast),
+            'maxImageWidth'
+                => $phastConfig['images']['filters'][\Kibo\Phast\Filters\Image\Resizer\Filter::class]['defaultMaxWidth'],
+            'maxImageHeight'
+                => $phastConfig['images']['filters'][\Kibo\Phast\Filters\Image\Resizer\Filter::class]['defaultMaxHeight']
+        ],
         'nonce' => wp_create_nonce(PHASTPRESS_NONCE_NAME),
         'nonceName' => '_wpnonce',
-        'adminEmail' => get_bloginfo('admin_email'),
-        'urlWithPhast' => $pageSpeedToolUrl . rawurlencode($urlWithPhast),
-        'urlWithoutPhast' => $pageSpeedToolUrl . rawurlencode($urlWithoutPhast),
-        'maxImageWidth'
-            => $phastConfig['images']['filters'][\Kibo\Phast\Filters\Image\Resizer\Filter::class]['defaultMaxWidth'],
-        'maxImageHeight'
-            => $phastConfig['images']['filters'][\Kibo\Phast\Filters\Image\Resizer\Filter::class]['defaultMaxHeight']
     ];
 }

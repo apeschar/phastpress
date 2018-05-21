@@ -173,7 +173,7 @@ export default {
       this.$emit('input', newConfig)
     },
     getConfigKey (key) {
-      return 'phastpress-' + key.replace(/[A-Z]/g, m => '-' + m.toLowerCase())
+      return key.replace(/[A-Z]/g, m => '-' + m.toLowerCase())
     }
   },
 
