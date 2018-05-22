@@ -2,6 +2,12 @@
   <div class="wrap">
     <h1 v-t="'title'" class="wp-heading-inline"></h1>
 
+    <notification v-if="requestError" type="error">
+      <i18n path="errors.network-error">
+        <span place="params">{{ requestError.toString() }}</span>
+      </i18n>
+    </notification>
+
     <template v-if="loaded">
       <notification v-for="error in errors" :key="error.type" type="error" class="phastpress-notification">
         <i18n :path="'errors.' + error.type">
@@ -30,17 +36,20 @@ export default {
 
   props: ['client'],
 
-  created () {
-    this.client.getAdminPanelData()
-      .then(data => {
-        this.loaded = true
-        this.setData(data)
-      })
+  async created () {
+    try {
+      const data = await this.client.getAdminPanelData()
+      this.loaded = true
+      this.setData(data)
+    } catch (e) {
+      this.requestError = e
+    }
   },
 
   data () {
     return {
       loaded: false,
+      requestError: false,
       settingsStrings: null,
       currentConfig: null,
       errors: [],
@@ -64,7 +73,11 @@ export default {
         return this.currentConfig
       },
       async set (newConfig) {
-        this.setData(await this.client.saveConfig(newConfig))
+        try {
+          this.setData(await this.client.saveConfig(newConfig))
+        } catch (e) {
+          this.requestError = e
+        }
       }
     },
 
@@ -98,6 +111,7 @@ export default {
     errors:
       'no-cache-root': 'PhastPress can not write to any cache directory! Please, make one of the following directories writable: {params}'
       'no-service-config': 'PhastPress failed to create a service configuration in any of the following directories: {params}'
+      'network-error': 'Failed to connect to WordPress server! Please, try again later! {params}'
     warnings:
       disabled: 'PhastPress optimizations are off!'
       'admin-only': >
