@@ -188,6 +188,14 @@ export default {
   .phastpress-settings-section {
     margin-bottom: 72px;
   }
+
+  .phastpress-settings-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .phastpress-setting {
+    margin-bottom: 23px
+   }
 </style>
 
 <i18n>
