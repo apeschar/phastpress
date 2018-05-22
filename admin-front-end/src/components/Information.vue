@@ -25,7 +25,6 @@ export default {
 
   $title-color: #82d6f8
   $border-color: #f4f4f4
-  $content-color: #c2c2c2
 
   @mixin exclamation($size, $color)
     $border-size: 1px
@@ -68,7 +67,6 @@ export default {
     background-color: white
     box-shadow: 5px 12px 24px -8px rgba(0, 0, 0, .2)
     font-size: 12px
-    color: $content-color
 
   .phastpress-block::before
     @include exclamation(24px, #858585)

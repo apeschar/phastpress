@@ -16,4 +16,5 @@ export default {
     border: 1px solid #e1e1e1
     border-radius: 4px
     background-color: white
+    color: #444444
 </style>
