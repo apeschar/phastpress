@@ -195,7 +195,16 @@ export default {
 
   .phastpress-setting {
     margin-bottom: 23px
-   }
+  }
+
+  code {
+    padding-right: 5px;
+    background: rgba(0, 0, 0, .2);
+    border: 1px solid rgba(0, 0, 0, .02);
+    border-radius: 2px;
+    font-size: 13px;
+    color: #f8f8f8;
+  }
 </style>
 
 <i18n>
