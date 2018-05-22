@@ -1,128 +1,15 @@
 <template>
   <div class="wrap">
     <h1 v-t="'title'" class="wp-heading-inline"></h1>
-
-    <notification
-      v-if="requestError"
-      type="error"
-      dismissible="true"
-      dismiss-timeout="10000"
-      @dismiss="requestError = false"
-    >
-      <i18n path="errors.network-error">
-        <span place="params">{{ requestError.toString() }}</span>
-      </i18n>
-    </notification>
-
-    <template v-if="loaded">
-      <!-- TODO: Figure out if we want those to be constantly shown -->
-      <notification v-for="error in errors" :key="error.type" type="error" class="phastpress-notification">
-        <i18n :path="'errors.' + error.type">
-          <span place="params">{{ error.params.join(', ') }}</span>
-        </i18n>
-      </notification>
-
-      <notification v-for="warning in warnings" :key="warning" type="warning" class="phastpress-notification">
-        {{ warning }}
-      </notification>
-
-      <panel>
-        <settings :strings="settingsStrings" v-model="config"></settings>
-      </panel>
-    </template>
+    <admin-panel :client="client"></admin-panel>
   </div>
 </template>
 
 <script>
-import Notification from './components/Notification'
-import Panel from './components/Panel'
-import Settings from './components/Settings'
-
+import AdminPanel from './components/AdminPanel'
 export default {
   name: 'App',
-
-  props: ['client'],
-
-  async created () {
-    try {
-      const data = await this.client.getAdminPanelData()
-      this.loaded = true
-      this.setData(data)
-    } catch (e) {
-      this.requestError = e
-    }
-  },
-
-  data () {
-    return {
-      loaded: false,
-      requestError: false,
-      settingsStrings: null,
-      currentConfig: null,
-      errors: [],
-      serverWarnings: []
-    }
-  },
-
-  methods: {
-    setData (data) {
-      this.settingsStrings = data.settingsStrings
-      this.currentConfig = data.config
-      this.errors = data.errors
-      this.serverWarnings = data.warnings
-    }
-  },
-
-  computed: {
-
-    config: {
-      get () {
-        return this.currentConfig
-      },
-      async set (newConfig) {
-        try {
-          this.setData(await this.client.saveConfig(newConfig))
-        } catch (e) {
-          this.requestError = e
-        }
-      }
-    },
-
-    warnings () {
-      if (!this.config.enabled) {
-        return [this.$t('warnings.disabled')].concat(this.serverWarnings)
-      }
-      if (this.config['admin-only']) {
-        return [this.$t('warnings.admin-only')].concat(this.serverWarnings)
-      }
-      return this.serverWarnings
-    }
-  },
-
-  components: {
-    Notification,
-    Settings,
-    Panel
-  }
+  components: {AdminPanel},
+  props: ['client']
 }
 </script>
-
-<style scoped lang="sass">
-  .phastpress-notification
-    margin-bottom: 12px
-</style>
-
-<i18n>
-  default:
-    title: PhastPress
-    errors:
-      'no-cache-root': 'PhastPress can not write to any cache directory! Please, make one of the following directories writable: {params}'
-      'no-service-config': 'PhastPress failed to create a service configuration in any of the following directories: {params}'
-      'network-error': 'Failed to connect to WordPress server! Please, try again later! {params}'
-    warnings:
-      disabled: 'PhastPress optimizations are off!'
-      'admin-only': >
-        PhastPress optimizations will be applied only for logged-in users with the "Administrator" privilege.
-        This is for previewing purposes.
-        Select the "On" setting for "PhastPress optimizations" below to activate for all users!
-</i18n>
