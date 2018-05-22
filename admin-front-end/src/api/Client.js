@@ -19,6 +19,7 @@ export default class WordPressAPIClient {
   }
 
   saveConfig (config) {
+    // TODO: Add some debouncing here
     const data = new FormData()
     data.set('action', 'phastpress_save_config')
     data.set(this._nonceName, this._nonce)
