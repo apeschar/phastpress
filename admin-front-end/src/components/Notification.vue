@@ -1,5 +1,5 @@
 <template>
-  <div class="phastpress-notification" :class="'phastpress-' + type">
+  <div class="phastpress-notification" :class="['phastpress-' + type, {'phastpress-dismissible' : dismissible}]">
     <div class="phastpress-message">
       <span class="phastpress-message-title">
         {{ $t(type ) }}:
@@ -8,13 +8,28 @@
         <slot></slot>
       </span>
     </div>
+    <div class="phastpress-close-btn" v-if="dismissible" @click="dismiss">&times;</div>
   </div>
 </template>
 
 <script>
 export default {
   name: 'Notification',
-  props: ['type']
+  props: ['type', 'dismissible', 'dismissTimeout'],
+
+  created () {
+    if (this.dismissTimeout) {
+      setTimeout(this.dismiss, this.dismissTimeout)
+    }
+  },
+
+  _dismissTimeoutHnd: false,
+  methods: {
+    dismiss () {
+      clearTimeout(this._dismissTimeoutHnd)
+      this.$emit('dismiss')
+    }
+  }
 }
 </script>
 
@@ -59,13 +74,12 @@ export default {
       &:before
         background-image: url('../assets/success.png')
 
-    &:after
-      display: block
-      content: '\00d7'
+    &.phastpress-dismissible .phastpress-close-btn
       font-size: 32px
       font-weight: bold
       opacity: 0.3
       color: black
+      cursor: pointer
 
   .phastpress-message
     flex: 1

@@ -2,7 +2,13 @@
   <div class="wrap">
     <h1 v-t="'title'" class="wp-heading-inline"></h1>
 
-    <notification v-if="requestError" type="error">
+    <notification
+      v-if="requestError"
+      type="error"
+      dismissible="true"
+      dismiss-timeout="10000"
+      @dismiss="requestError = false"
+    >
       <i18n path="errors.network-error">
         <span place="params">{{ requestError.toString() }}</span>
       </i18n>
