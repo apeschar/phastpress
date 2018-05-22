@@ -7,9 +7,17 @@
 
 <script>
 import AdminPanel from './components/AdminPanel'
+import WordPressAPIClient from './api/Client'
+
+// eslint-disable-next-line
+const client = new WordPressAPIClient(ajaxurl)
 export default {
-  name: 'App',
+  name: 'WordPressApp',
   components: {AdminPanel},
-  props: ['client']
+  data () {
+    return {
+      client: client
+    }
+  }
 }
 </script>

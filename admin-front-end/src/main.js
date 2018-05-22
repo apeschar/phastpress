@@ -2,11 +2,7 @@
 // (runtime-only or standalone) has been set in webpack.base.conf with an alias.
 import Vue from 'vue'
 import VueI18n from 'vue-i18n'
-import WordPressAPIClient from './api/Client'
-import App from './App'
-
-// eslint-disable-next-line
-const client = new WordPressAPIClient(ajaxurl)
+import App from './WordPressApp'
 
 Vue.use(VueI18n)
 Vue.config.productionTip = false
@@ -19,10 +15,5 @@ new Vue({
   }),
   el: '#app',
   components: { App },
-  template: '<App :client="client" />',
-  data () {
-    return {
-      client
-    }
-  }
+  template: '<App/>'
 })
