@@ -12,7 +12,8 @@
       </i18n>
     </notification>
 
-    <template v-if="loaded">
+    <low-php-version-notice v-if="lowPHPVersion" :php-version="lowPHPVersion" />
+    <template v-else-if="loaded">
       <!-- TODO: Figure out if we want those to be constantly shown -->
       <notification v-for="error in errors" :key="error.type" type="error">
         <i18n :path="'errors.' + error.type">
@@ -35,6 +36,7 @@
 import Notification from './Notification'
 import Panel from './Panel'
 import Settings from './Settings'
+import LowPhpVersionNotice from './LowPhpVersionNotice'
 
 export default {
   name: 'AdminPanel',
@@ -44,8 +46,12 @@ export default {
   async created () {
     try {
       const data = await this.client.getAdminPanelData()
-      this.loaded = true
-      this.setData(data)
+      if (data.error && data.error.type === 'low-php') {
+        this.lowPHPVersion = data.error.version
+      } else {
+        this.loaded = true
+        this.setData(data)
+      }
     } catch (e) {
       this.requestError = e
     }
@@ -53,6 +59,7 @@ export default {
 
   data () {
     return {
+      lowPHPVersion: false,
       loaded: false,
       requestError: false,
       settingsStrings: null,
@@ -98,6 +105,7 @@ export default {
   },
 
   components: {
+    LowPhpVersionNotice,
     Notification,
     Settings,
     Panel

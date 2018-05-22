@@ -65,11 +65,6 @@ function phastpress_render_bool_options($setting) {
     return phastpress_render_option($setting, true) . phastpress_render_option($setting, false);
 }
 
-function phastpress_render_settings() {
-    wp_enqueue_script('phastpress-app', 'http://localhost:8080/app.js');
-    echo '<div id="app"></div>';
-}
-
 function _phastpress_render_settings() {
     require_once __DIR__ . '/../vendor/autoload.php';
 
