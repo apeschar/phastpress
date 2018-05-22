@@ -31,19 +31,24 @@ export default {
 
   created () {
     this.client.getAdminPanelData()
-      .then(data => {
-        this.settingsStrings = data.settingsStrings
-        this.currentConfig = data.config
-        this.errors = data.errors
-        this.warnings = data.warnings
-      })
+      .then(this.setData)
   },
 
   data () {
     return {
       settingsStrings: null,
       currentConfig: null,
-      errors: []
+      errors: [],
+      warnings: []
+    }
+  },
+
+  methods: {
+    setData (data) {
+      this.settingsStrings = data.settingsStrings
+      this.currentConfig = data.config
+      this.errors = data.errors
+      this.warnings = data.warnings
     }
   },
 
@@ -53,7 +58,7 @@ export default {
         return this.currentConfig
       },
       async set (newConfig) {
-        this.currentConfig = await this.client.saveConfig(newConfig)
+        this.setData(await this.client.saveConfig(newConfig))
       }
     }
   },
