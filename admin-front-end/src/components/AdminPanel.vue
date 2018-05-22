@@ -112,7 +112,6 @@ export default {
 
 <i18n>
   default:
-    title: PhastPress
     errors:
       'no-cache-root': 'PhastPress can not write to any cache directory! Please, make one of the following directories writable: {params}'
       'no-service-config': 'PhastPress failed to create a service configuration in any of the following directories: {params}'

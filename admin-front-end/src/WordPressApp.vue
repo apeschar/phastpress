@@ -21,3 +21,8 @@ export default {
   }
 }
 </script>
+
+<i18n>
+  default:
+    title: 'PhastPress'
+</i18n>
