@@ -147,16 +147,15 @@ function phastpress_get_admin_panel_data() {
     if (!phastpress_has_cache_root()) {
         $errors[] = [
            'type' => 'no-cache-root',
-           'candidates' => phastpress_get_cache_root_candidates()
+           'params' => phastpress_get_cache_root_candidates()
         ];
     }
     if (!phastpress_has_service_config()) {
         $errors[] = [
             'type' => 'no-service-config',
-            'candidates' => phastpress_get_cache_root_candidates()
+            'params' => phastpress_get_cache_root_candidates()
         ];
     }
-
 
     $warnings = [];
     $api_client_warning = [];
@@ -171,7 +170,7 @@ function phastpress_get_admin_panel_data() {
         if ($type == 'Cache') {
             $errors[] = [
                 'type' => 'cache',
-                'reason' => [$status->getReason()]
+                'params' => [$status->getReason()]
             ];
         } else if ($type == 'ImageFilter') {
             $name = substr($package->getNamespace(), strrpos($package->getNamespace(), '\\') + 1);
@@ -199,7 +198,7 @@ function phastpress_get_admin_panel_data() {
             'maxImageHeight'
                 => $phastConfig['images']['filters'][\Kibo\Phast\Filters\Image\Resizer\Filter::class]['defaultMaxHeight']
         ],
-        'errors' => [],
+        'errors' => $errors,
         'warnings' => $warnings,
         'nonce' => wp_create_nonce(PHASTPRESS_NONCE_NAME),
         'nonceName' => '_wpnonce',

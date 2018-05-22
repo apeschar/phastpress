@@ -2,20 +2,21 @@
   <div class="wrap">
     <h1 v-t="'title'" class="wp-heading-inline"></h1>
 
-    <notification v-for="error in errors" :key="error.type" type="error" class="phastpress-notification">
-      <span v-if="error.type === 'cache'">{{ error.reason }}</span>
-      <i18n v-else :path="'errors.' + error.type">
-        <span place="candidates">{{ error.candidates.join(', ') }}</span>
-      </i18n>
-    </notification>
+    <template v-if="loaded">
+      <notification v-for="error in errors" :key="error.type" type="error" class="phastpress-notification">
+        <i18n :path="'errors.' + error.type">
+          <span place="params">{{ error.params.join(', ') }}</span>
+        </i18n>
+      </notification>
 
-    <notification v-for="warning in warnings" :key="warning" type="warning" class="phastpress-notification">
-      {{ warning }}
-    </notification>
+      <notification v-for="warning in warnings" :key="warning" type="warning" class="phastpress-notification">
+        {{ warning }}
+      </notification>
 
-    <panel v-if="settingsStrings && config">
-      <settings :strings="settingsStrings" v-model="config"></settings>
-    </panel>
+      <panel>
+        <settings :strings="settingsStrings" v-model="config"></settings>
+      </panel>
+    </template>
   </div>
 </template>
 
@@ -31,15 +32,19 @@ export default {
 
   created () {
     this.client.getAdminPanelData()
-      .then(this.setData)
+      .then(data => {
+        this.loaded = true
+        this.setData(data)
+      })
   },
 
   data () {
     return {
+      loaded: false,
       settingsStrings: null,
       currentConfig: null,
       errors: [],
-      warnings: []
+      serverWarnings: []
     }
   },
 
@@ -48,11 +53,12 @@ export default {
       this.settingsStrings = data.settingsStrings
       this.currentConfig = data.config
       this.errors = data.errors
-      this.warnings = data.warnings
+      this.serverWarnings = data.warnings
     }
   },
 
   computed: {
+
     config: {
       get () {
         return this.currentConfig
@@ -60,6 +66,16 @@ export default {
       async set (newConfig) {
         this.setData(await this.client.saveConfig(newConfig))
       }
+    },
+
+    warnings () {
+      if (!this.config.enabled) {
+        return [this.$t('warnings.disabled')].concat(this.serverWarnings)
+      }
+      if (this.config['admin-only']) {
+        return [this.$t('warnings.admin-only')].concat(this.serverWarnings)
+      }
+      return this.serverWarnings
     }
   },
 
@@ -80,6 +96,12 @@ export default {
   default:
     title: PhastPress
     errors:
-      'no-cache-root': 'PhastPress failed to create a service configuration in any of the following directories: {candidates}'
-      'no-service-config': 'PhastPress failed to create a service configuration in any of the following directories: {candidates}'
+      'no-cache-root': 'PhastPress can not write to any cache directory! Please, make one of the following directories writable: {params}'
+      'no-service-config': 'PhastPress failed to create a service configuration in any of the following directories: {params}'
+    warnings:
+      disabled: 'PhastPress optimizations are off!'
+      'admin-only': >
+        PhastPress optimizations will be applied only for logged-in users with the "Administrator" privilege.
+        This is for previewing purposes.
+        Select the "On" setting for "PhastPress optimizations" below to activate for all users!
 </i18n>
