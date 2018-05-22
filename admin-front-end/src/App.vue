@@ -15,6 +15,7 @@
     </notification>
 
     <template v-if="loaded">
+      <!-- TODO: Figure out if we want those to be constantly shown -->
       <notification v-for="error in errors" :key="error.type" type="error" class="phastpress-notification">
         <i18n :path="'errors.' + error.type">
           <span place="params">{{ error.params.join(', ') }}</span>
