@@ -37,17 +37,6 @@ add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links)
     return $links;
 });
 
-add_action('admin_menu', function () {
-    require_once __DIR__ . '/functions.php';
-    add_options_page(
-        __('PhastPress', 'phastpress'),
-        __('PhastPress', 'phastpress'),
-        'manage_options',
-        'phast-press',
-        'phastpress_render_settings'
-    );
-}, 0);
-
 add_action('admin_init', function () {
     wp_register_style('phastpress-styles', plugins_url('admin-style.css', __FILE__), [], '0.1');
 });
