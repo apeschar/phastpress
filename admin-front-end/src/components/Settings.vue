@@ -184,27 +184,24 @@ export default {
   }
 }
 </script>
-<style scoped>
-  .phastpress-settings-section {
-    margin-bottom: 72px;
-  }
+<style scoped lang="sass">
+  .phastpress-settings-section
+    margin-bottom: 72px
 
-  .phastpress-settings-section:last-child {
-    margin-bottom: 0;
-  }
+  .phastpress-settings-section:last-child
+    margin-bottom: 0
 
-  .phastpress-setting {
+  .phastpress-setting
     margin-bottom: 23px
-  }
 
-  code {
-    padding-right: 5px;
-    background: rgba(0, 0, 0, .2);
-    border: 1px solid rgba(0, 0, 0, .02);
-    border-radius: 2px;
-    font-size: 13px;
-    color: #f8f8f8;
-  }
+  code
+    padding-right: 5px
+    background: rgba(0, 0, 0, .2)
+    border: 1px solid rgba(0, 0, 0, .02)
+    border-radius: 2px
+    font-size: 13px
+    color: #f8f8f8
+
 </style>
 
 <i18n>
