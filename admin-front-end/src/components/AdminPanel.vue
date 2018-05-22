@@ -14,13 +14,13 @@
 
     <template v-if="loaded">
       <!-- TODO: Figure out if we want those to be constantly shown -->
-      <notification v-for="error in errors" :key="error.type" type="error" class="phastpress-notification">
+      <notification v-for="error in errors" :key="error.type" type="error">
         <i18n :path="'errors.' + error.type">
           <span place="params">{{ error.params.join(', ') }}</span>
         </i18n>
       </notification>
 
-      <notification v-for="warning in warnings" :key="warning" type="warning" class="phastpress-notification">
+      <notification v-for="warning in warnings" :key="warning" type="warning">
         {{ warning }}
       </notification>
 
