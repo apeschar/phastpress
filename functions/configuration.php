@@ -88,11 +88,6 @@ function phastpress_auto_configure_script() {
         . "})('$service_image_url', '$nonce')</script>";
 }
 
-function phastpress_get_plugin_version() {
-    $plugin_info = get_file_data(__DIR__ . '/../phastpress.php', ['Version' => 'Version']);
-    return $plugin_info['Version'];
-}
-
 function phastpress_generate_service_config() {
     $plugin_config = phastpress_get_config();
     $plugin_version = phastpress_get_plugin_version();

@@ -1,6 +1,9 @@
-.gitignore
 .distignore
+.gitignore
 composer.json
 composer.lock
+docker-compose.yml
 Makefile
+admin-front-end
 bin
+docker
