@@ -7,7 +7,9 @@ dist : dist/phastpress.zip
 clean :
 	rm -rf dist vendor
 
-publish : dist/phastpress.zip
+publish :
+	rm -rf dist
+	$(MAKE) dist
 	bin/publish
 
 
