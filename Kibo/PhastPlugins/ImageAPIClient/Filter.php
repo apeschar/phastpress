@@ -92,7 +92,7 @@ class Filter implements ImageFilter {
 
     private function getRequestToken() {
         $token_parts = [];
-        foreach (['host-name', 'request-uri', 'admin-email', 'plugin-version'] as $key) {
+        foreach (['host-name', 'request-uri', 'plugin-version'] as $key) {
             $token_parts[$key] = $this->config[$key];
         }
         return json_encode($token_parts);
