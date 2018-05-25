@@ -34,6 +34,10 @@ Get the full power of Phast for your website by installing PhastPress now.
 
 == Changelog ==
 
+= 1.5.1b =
+
+* The admin email is no longer sent to the image optimisation API.
+
 = 1.5.1a =
 
 [See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
