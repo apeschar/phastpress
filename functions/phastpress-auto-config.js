@@ -19,21 +19,5 @@ function configureRequestsFormat(withPathInfo) {
     data.append('_wpnonce', nonce);
     var configureRequest = new XMLHttpRequest();
     configureRequest.open('POST', ajaxurl);
-    configureRequest.onload = function () {
-        if (configureRequest.status >= 200 && configureRequest.status < 300) {
-            tryToSyncSettingsForm(withPathInfo);
-        }
-    };
     configureRequest.send(data);
-}
-
-function tryToSyncSettingsForm(withPathInfo) {
-    var inputOn = document.querySelector('input[name="phastpress-pathinfo-query-format"][value="on"]');
-    var inputOff = document.querySelector('input[name="phastpress-pathinfo-query-format"][value="off"]');
-    if (inputOn) {
-        inputOn.checked = withPathInfo;
-    }
-    if (inputOff) {
-        inputOff.checked = !withPathInfo;
-    }
 }
