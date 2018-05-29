@@ -88,9 +88,7 @@ return [
                     __(
                         'Optimize your images on our servers free of charge.<br>' .
                         'This will give you the best possible results without installing any software ' .
-                        'and will reduce the load on your hosting.<br>' .
-                        '<i>We will use your email address <a href="mailto: %1$s">%1$s</a> ' .
-                        'to keep you up to date about changes to the API.</i>',
+                        'and will reduce the load on your hosting.',
                         'phastpress'
                     ),
                     get_bloginfo('admin_email')
