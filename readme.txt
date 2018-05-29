@@ -34,6 +34,9 @@ Get the full power of Phast for your website by installing PhastPress now.
 
 == Changelog ==
 
+= Unreleased =
+* Revamp of the administrator panel
+
 = 1.5.2 =
 
 * Remove old notice about sending admin email.
