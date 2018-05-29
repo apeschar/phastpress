@@ -12,7 +12,7 @@ define('PHASTPRESS_IS_DEV', true);
 define('PHASTPRESS_PLUGIN_FILE', __FILE__);
 
 function phastpress_get_plugin_version() {
-    $plugin_info = get_file_data(PHASTPRESS_PLUGIN_FILE, ['Version' => 'Version']);
+    $plugin_info = get_file_data(PHASTPRESS_PLUGIN_FILE, array('Version' => 'Version'));
     return $plugin_info['Version'];
 }
 
