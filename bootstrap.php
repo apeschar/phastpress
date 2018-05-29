@@ -37,11 +37,6 @@ add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links)
     return $links;
 });
 
-add_action('admin_init', function () {
-    wp_register_style('phastpress-styles', plugins_url('admin-style.css', __FILE__), [], '0.1');
-});
-
-
 add_action('plugins_loaded', function () {
     require_once __DIR__ . '/functions.php';
     phastpress_deploy();
