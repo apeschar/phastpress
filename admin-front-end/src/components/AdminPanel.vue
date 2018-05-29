@@ -14,7 +14,6 @@
 
     <low-php-version-notice v-if="lowPHPVersion" :php-version="lowPHPVersion" />
     <template v-else-if="loaded">
-      <!-- TODO: Figure out if we want those to be constantly shown -->
       <notification v-for="error in errors" :key="error.type" type="error">
         <i18n :path="'errors.' + error.type">
           <span place="params">{{ error.params.join(', ') }}</span>
@@ -33,12 +32,12 @@
 </template>
 
 <script>
-import Notification from './Notification'
-import Panel from './Panel'
-import Settings from './Settings'
-import LowPhpVersionNotice from './LowPhpVersionNotice'
+  import Notification from './Notification'
+  import Panel from './Panel'
+  import Settings from './Settings'
+  import LowPhpVersionNotice from './LowPhpVersionNotice'
 
-export default {
+  export default {
   name: 'AdminPanel',
 
   props: ['client'],
