@@ -52,11 +52,6 @@ function phastpress_save_config() {
     phastpress_generate_service_config();
 }
 
-function phastpress_reset_config() {
-    check_admin_referer(PHASTPRESS_NONCE_NAME);
-    delete_option(PHASTPRESS_SETTINGS_OPTION);
-}
-
 function phastpress_auto_configure_script() {
     if (!get_option(PHASTPRESS_ACTIVATION_AUTO_CONFIGURATION_FLAG, false)) {
         return;
