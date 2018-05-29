@@ -8,11 +8,11 @@
     "packages": [
         {
             "name": "kiboit/phast",
-            "version": "1.5.1",
+            "version": "1.5.2",
             "source": {
                 "type": "git",
                 "url": "ssh://git@github.com/kiboit/phast",
-                "reference": "9172db6c4e63bc5d056cc83a5488b30af64e7459"
+                "reference": "0ad8ef01adcb08c262e22dd61579c20010698007"
             },
             "require": {
                 "mrclay/jsmin-php": "2.3.2",
@@ -41,7 +41,7 @@
                 "AGPL-3.0-or-later"
             ],
             "description": "A toolbox for optimizing web page performance",
-            "time": "2018-05-23T12:48:08+00:00"
+            "time": "2018-05-29T14:41:30+00:00"
         },
         {
             "name": "mrclay/jsmin-php",
