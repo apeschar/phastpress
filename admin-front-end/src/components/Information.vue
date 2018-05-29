@@ -60,7 +60,7 @@ export default {
     left: 14px
     margin-left: 15px
     z-index: 1000
-    width: 329px
+    width: 400px
     padding: 12px 10px 15px 56px
     border: 1px solid $border-color
     border-radius: 4px
