@@ -28,7 +28,6 @@ find -name .git\* -print0 | xargs -0 rm -rf
 xargs rm -rf < .distignore
 
 perl -p -i -e 's~\$VERSION\$~'"$version~g" phastpress.php
-perl -p -i -e "s/define\('PHASTPRESS_IS_DEV', true\);/define\('PHASTPRESS_IS_DEV', false\);/g" phastpress.php
 
 cd ..
 zip -r9 - phastpress > "$file~"
