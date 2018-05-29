@@ -32,12 +32,12 @@
 </template>
 
 <script>
-  import Notification from './Notification'
-  import Panel from './Panel'
-  import Settings from './Settings'
-  import LowPhpVersionNotice from './LowPhpVersionNotice'
+import Notification from './Notification'
+import Panel from './Panel'
+import Settings from './Settings'
+import LowPhpVersionNotice from './LowPhpVersionNotice'
 
-  export default {
+export default {
   name: 'AdminPanel',
 
   props: ['client'],
