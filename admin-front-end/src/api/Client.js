@@ -43,6 +43,9 @@ export default class WordPressAPIClient {
     this._nonceName = null
     this._nonce = null
     this._saveAggregator = new RequestsAggregator(this._doConfigSave.bind(this))
+
+    this.onsavestarted = () => {}
+    this.onsavefinished = () => {}
   }
 
   getAdminPanelData () {
@@ -67,6 +70,10 @@ export default class WordPressAPIClient {
     Object.keys(config).forEach(key => {
       data.set('phastpress-' + key, config[key] ? 'on' : 'off')
     })
+    this.onsavestarted()
     return axios.post(this._adminUrl, data)
+      .finally(() => {
+        this.onsavefinished()
+      })
   }
 }

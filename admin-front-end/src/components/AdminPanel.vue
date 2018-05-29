@@ -24,6 +24,8 @@
         {{ warning }}
       </notification>
 
+      <saving-status :client="client" />
+
       <panel>
         <settings :strings="settingsStrings" v-model="config"></settings>
       </panel>
@@ -36,6 +38,7 @@ import Notification from './Notification'
 import Panel from './Panel'
 import Settings from './Settings'
 import LowPhpVersionNotice from './LowPhpVersionNotice'
+import SavingStatus from './SavingStatus'
 
 export default {
   name: 'AdminPanel',
@@ -104,6 +107,7 @@ export default {
   },
 
   components: {
+    SavingStatus,
     LowPhpVersionNotice,
     Notification,
     Settings,
@@ -115,6 +119,9 @@ export default {
 <style scoped lang="sass">
   .phastpress-notification
     margin-bottom: 12px
+  .phastpress-saving-status
+    padding-right: 5px
+    text-align: right
 </style>
 
 <i18n>
