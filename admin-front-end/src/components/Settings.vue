@@ -97,11 +97,6 @@
         <information>
           <div v-t="'sections.images.api.description.0'"></div>
           <div v-t="'sections.images.api.description.1'"></div>
-          <div>
-            <i18n path="sections.images.api.description.2">
-              <a :href="'mailto:' + strings.adminEmail" place="email">{{ strings.adminEmail }}</a>
-            </i18n>
-          </div>
         </information>
       </setting>
     </div>
@@ -253,9 +248,6 @@ export default {
             - >
               This will give you the best possible results without installing any software
               and will reduce the load on your hosting.
-            - >
-               We will use your email address {email}
-               to keep you up to date about changes to the API.
       html-filters:
         title: 'HTML, CSS & JS'
         css:
