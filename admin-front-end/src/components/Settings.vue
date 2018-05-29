@@ -44,15 +44,13 @@
       <setting :disabled="disabled" :value="v('pathinfoQueryFormat')" @input="update('pathinfoQueryFormat', $event)">
         <span v-t="'sections.plugin.pathinfo.name'"></span>
         <information>
+          <span v-t="'sections.plugin.pathinfo.description.start'"></span>
+          <br>
           <i v-t="'common.on'"></i>
           <span v-t="'sections.plugin.pathinfo.description.on'"></span>
           <br>
           <i v-t="'common.off'"></i>
           <span v-t="'sections.plugin.pathinfo.description.off'"></span>
-          <br>
-          <i18n path="sections.plugin.pathinfo.description.more">
-            <i v-t="'sections.plugin.pathinfo.description.value'" place="value"></i>
-          </i18n>
         </information>
       </setting>
 
@@ -226,12 +224,11 @@ export default {
             off: 'All users will be served with optimized version'
             tip: 'Use to preview your site before launching the optimizations'
         pathinfo:
-          name: 'Use path info format for service queries'
+          name: 'Remove query string from processed resources'
           description:
-            on: 'use a more "fancy" format for queries for processed resources'
-            off: 'use the GET parameters for queries for processed resources'
-            more: 'This setting will be automatically set to {value} if available after you install PhastPress.'
-            value: 'On'
+            start: 'Make sure that processed resources don''t have query strings, for a higher score in GTmetrix.'
+            on: 'Use the path for requests for processed resources. This requires a server that supports "PATH_INFO".'
+            off: 'Use the GET parameters for requests for processed resources.'
         footer-link:
           name: 'Let the world know about PhastPress'
           description: 'Add a "Optimized by PhastPress" notice to the footer of your site and help spread the word.'
