@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.6.0
+Stable tag: 1.6.1
 Tested up to: 4.9.2
 License: AGPL-3.0
 Contributors: apeschar
@@ -34,6 +34,10 @@ Get the full power of Phast for your website by installing PhastPress now.
 3. Test your site. If you experience any issues, please [contact us on info@kiboit.com](mailto:info@kiboit.com) or post on [support forum](https://wordpress.org/support/plugin/phastpress).
 
 == Changelog ==
+
+= 1.6.1 =
+
+* Fix issue with CSS not respecting disabled path info setting.
 
 = 1.6.0 =
 
