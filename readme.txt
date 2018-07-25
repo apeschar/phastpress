@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.7.0
+Stable tag: 1.8.0
 Tested up to: 4.9.2
 License: AGPL-3.0
 Contributors: apeschar
@@ -14,7 +14,7 @@ PhastPress automatically optimizes your site for the best possible performance.
 
 PhastPress uses advanced techniques to manipulate your pages, scripts, stylesheets and images to significantly improve load times. It's designed to conform to Google PageSpeed Insights recommendations and can improve your site's score dramatically.
 
-PhastPress has the open source [Phast web page optimisation project](https://github.com/kiboit/phast) by [Kibo IT](https://kiboit.com/) at its core:
+PhastPress has the Phast web page optimisation engine by [Kibo IT](https://kiboit.com/) at its core:
 
 * Phast optimizes images using PNG quantization and JPEG recoding, optionally through a free API. Small images are inlined into your page to save HTTP requests.
 * Phast loads all scripts on your page asynchronously, while maintaining full compatibility with legacy scripts, due to our custom script loader. External scripts are proxied to extend their cache lifetime.
@@ -24,14 +24,28 @@ PhastPress has the open source [Phast web page optimisation project](https://git
 
 Get the full power of Phast for your website by installing PhastPress now.
 
-**Experience any issues?** Please [contact us on info@kiboit.com](mailto:info@kiboit.com) or post on [support forum](https://wordpress.org/support/plugin/phastpress).
+**Experience any issues?** Please [contact us on info@kiboit.com](mailto:info@kiboit.com) or post on the [support forum](https://wordpress.org/support/plugin/phastpress).
 
 
 == Installation ==
 
 1. Upload the PhastPress plugin to your site and activate it.
 2. Make sure that PhastPress is activated on the Settings page.
-3. Test your site. If you experience any issues, please [contact us on info@kiboit.com](mailto:info@kiboit.com) or post on [support forum](https://wordpress.org/support/plugin/phastpress).
+3. Test your site. If you experience any issues, please [contact us on info@kiboit.com](mailto:info@kiboit.com) or post on the [support forum](https://wordpress.org/support/plugin/phastpress).
+
+== Frequently Asked Questions ==
+
+= Is PhastPress a caching plugin? =
+
+No, PhastPress does not do caching. We recommend using [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) in combination with PhastPress to speed up your server response time (TTFB).
+
+= Is PhastPress compatible with WP Fastest Cache? =
+
+Yes, but non-caching optimizations must be **disabled**. Turn off the WP Fastest Cache options in [this screenshot](https://peschar.net/s/yQVWIuOuI4ThfRZfkKJa/).
+
+= Is PhastPress compatible with other caching plugins? =
+
+Yes. Some caching plugins include optimizations of JavaScript, CSS and/or images. We recommend turning off all optimizations to avoid conflicts with PhastPress.
 
 == Changelog ==
 
