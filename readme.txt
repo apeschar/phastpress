@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.8.1
+Stable tag: 1.8.2
 Tested up to: 4.9.2
 License: AGPL-3.0
 Contributors: apeschar
@@ -48,6 +48,25 @@ Yes, but non-caching optimizations must be **disabled**. Turn off the WP Fastest
 Yes. Some caching plugins include optimizations of JavaScript, CSS and/or images. We recommend turning off all optimizations to avoid conflicts with PhastPress.
 
 == Changelog ==
+
+= 1.8.2 =
+
+Phast was updated to version 1.9.1:
+
+* Async scripts are now not loaded before sync scripts that occur earlier in the document.
+
+= 1.8.1 =
+
+Phast was updated to version 1.9.0:
+
+* Scripts are now retrieved in a single request.
+* Non-existent filter classes are ignored, and an error is logged.
+* A 'dummy filename' such as `__p__.js` is appended to service requests to trick Cloudflare into caching those responses.
+* The maximum document size for filters to be applied was corrected to be 1 MiB, not 1 GiB
+
+= 1.8.0 =
+
+This release was built with a pre-release version of Phast 1.9.0 that caused incorrect triggering of the browser `load` event. Please upgrade to PhastPress 1.8.1.
 
 = 1.7.0 =
 
