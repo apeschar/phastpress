@@ -6,15 +6,25 @@ use Kibo\PhastPlugins\SDK\Configuration\KeyValueStore;
 
 class KeyValueStoreImplementation implements KeyValueStore {
 
-    public function get($key, $default = null) {
-        return json_encode(get_option($this->prefixKey($key), $default));
+    public function get($key) {
+        if (($value = get_option($this->prefixKey($key))) !== false) {
+            return $value;
+        }
+        if (($value = get_option($this->prefixLegacyKey($key))) !== false) {
+            return json_encode($value);
+        }
     }
 
     public function set($key, $value) {
-        update_option($this->prefixKey($key), json_decode($value, true));
+        update_option($this->prefixKey($key), $value);
+        delete_option($this->prefixLegacyKey($key));
     }
 
     private function prefixKey($key) {
+        return 'phastpress2-' . $key;
+    }
+
+    private function prefixLegacyKey($key) {
         return 'phastpress-' . $key;
     }
 
