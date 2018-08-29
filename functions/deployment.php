@@ -11,6 +11,11 @@ function phastpress_deploy() {
         return;
     }
 
+    // Elementor: Do not optimize previews, when loaded in an IFrame in the editor.
+    if (isset($_GET['elementor-preview'])) {
+        return;
+    }
+
     require_once __DIR__ . '/../sdk/vendor/autoload.php';
     $sdk = phastpress_get_plugin_sdk();
     $sdk->getPhastAPI()->deployOutputBufferForDocument();
