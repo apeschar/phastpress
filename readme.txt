@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.8.5
+Stable tag: 1.9.0
 Tested up to: 4.9.2
 License: AGPL-3.0
 Contributors: apeschar
@@ -35,7 +35,7 @@ Get the full power of Phast for your website by installing PhastPress now.
 
 == Frequently Asked Questions ==
 
-= Is PhastPress a caching plugin? =
+= Is PhastPress a caching plugin? Do you recommend another caching plugin? =
 
 No, PhastPress does not do caching. We recommend using [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) in combination with PhastPress to speed up your server response time (TTFB).
 
@@ -47,7 +47,28 @@ Yes, but non-caching optimizations must be **disabled**. Turn off the WP Fastest
 
 Yes. Some caching plugins include optimizations of JavaScript, CSS and/or images. We recommend turning off all optimizations to avoid conflicts with PhastPress.
 
+= Should I use other optimization plugins with PhastPress? =
+
+You do not need any other plugins, such as image optimization (e.g., Smush) or file minification (e.g., Autoptimize) after you install PhastPress, because PhastPress includes all necessary optimizations.
+
+We recommend using the simple combination of PhastPress and [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) only.
+
 == Changelog ==
+
+= 1.9.0 =
+
+* Removed script rearrangement setting.
+
+Phast was updated to version 1.11.0:
+
+* Proxy CSS for maxcdn.bootstrapcdn.com, idangero.us, *.github.io.
+* Proxy icon fonts and other resources from fonts.googleapis.com.
+* Improve log messages from image filter.
+* Do not proxy maps.googleapis.com, to fix NotLoadingAPIFromGoogleMapError.
+* Removed `src` attribute from scripts that are loaded through the bundler, so that old versions of Firefox do not make extraneous downloads.
+* Check that the bundler returns the right amount of responses.
+* Per-script debugging message when executing scripts.
+* Animated GIFs are no longer processed, so that animation is preserved.
 
 = 1.8.5 =
 
