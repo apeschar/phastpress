@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.9.0
+Stable tag: 1.10.0
 Tested up to: 4.9.2
 License: AGPL-3.0
 Contributors: apeschar
@@ -54,6 +54,14 @@ You do not need any other plugins, such as image optimization (e.g., Smush) or f
 We recommend using the simple combination of PhastPress and [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) only.
 
 == Changelog ==
+
+= 1.10.0 =
+
+* Use HTTPS for the API connection.
+
+Phast was updated to version 1.12.0:
+
+* Rewrite `data-lazy-src` and `data-lazy-srcset` on `img`, `source` tags for compatibility with lazy loading via [BJ Lazy Load](https://wordpress.org/plugins/bj-lazy-load/), possibly other plugins.
 
 = 1.9.0 =
 
