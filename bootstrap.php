@@ -39,6 +39,19 @@ add_action('admin_menu', function () {
     );
 });
 
+add_action('wp_head', function () {
+    $style = 'font-family:helvetica,sans-serif';
+    $args = [
+        "%cOptimized with %cPhastPress%c %s\nhttps://wordpress.org/plugins/phastpress/",
+        $style,
+        $style . ';font-weight:bold',
+        $style,
+        PHASTPRESS_VERSION
+    ];
+    echo '<script data-phast-no-defer>console.log(' .
+         implode(',', array_map('json_encode', $args)) .
+         ')</script>';
+});
 
 function phastpress_render_settings() {
     echo sprintf(
