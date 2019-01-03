@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.11.0
+Stable tag: 1.12
 Tested up to: 5.0
 License: AGPL-3.0
 Contributors: apeschar
@@ -54,6 +54,12 @@ You do not need any other plugins, such as image optimization (e.g., Smush) or f
 We recommend using the simple combination of PhastPress and [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) only.
 
 == Changelog ==
+
+= 1.12 =
+
+Phast was updated to version 1.14:
+
+* `document.write` now immediately inserts the HTML into the page. This fixes compatibility with Google AdSense.
 
 = 1.11.0 =
 
