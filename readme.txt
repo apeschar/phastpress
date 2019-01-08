@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.13
+Stable tag: 1.14
 Tested up to: 5.0
 License: AGPL-3.0
 Contributors: apeschar
@@ -35,6 +35,12 @@ Get the full power of Phast for your website by installing PhastPress now.
 
 == Frequently Asked Questions ==
 
+= Should I use other optimization plugins with PhastPress? =
+
+No. You do not need any other plugins, such as image optimization (e.g., Smush) or file minification (e.g., Autoptimize) after you install PhastPress, because PhastPress includes all necessary optimizations.
+
+We recommend using the simple combination of PhastPress and [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) only. This reduces the potential for plugin conflicts, and it is really all you need.
+
 = Is PhastPress a caching plugin? Do you recommend another caching plugin? =
 
 No, PhastPress does not do caching. We recommend using [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) in combination with PhastPress to speed up your server response time (TTFB).
@@ -47,13 +53,16 @@ Yes, but non-caching optimizations must be **disabled**. Turn off the WP Fastest
 
 Yes. Some caching plugins include optimizations of JavaScript, CSS and/or images. We recommend turning off all optimizations to avoid conflicts with PhastPress.
 
-= Should I use other optimization plugins with PhastPress? =
-
-You do not need any other plugins, such as image optimization (e.g., Smush) or file minification (e.g., Autoptimize) after you install PhastPress, because PhastPress includes all necessary optimizations.
-
-We recommend using the simple combination of PhastPress and [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) only.
-
 == Changelog ==
+
+= 1.14 =
+
+* Use the correct service URL when the site URL changes after activation.
+
+Phast was updated to version 1.16:
+
+* Encode bundler request query to avoid triggering adblockers.
+* Use a promise to delay bundler requests until the end of the event loop, rather than setTimeout.
 
 = 1.13 =
 
