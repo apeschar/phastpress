@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.14
+Stable tag: 1.15
 Tested up to: 5.0
 License: AGPL-3.0
 Contributors: apeschar
@@ -54,6 +54,10 @@ Yes, but non-caching optimizations must be **disabled**. Turn off the WP Fastest
 Yes. Some caching plugins include optimizations of JavaScript, CSS and/or images. We recommend turning off all optimizations to avoid conflicts with PhastPress.
 
 == Changelog ==
+
+= 1.15 =
+
+* Fix an issue whereby updating to 1.14 would reset the security token, invalidating links used in pages in a full-page cache. (To fix the issue, clear the cache of your full-page caching plugin.)
 
 = 1.14 =
 
