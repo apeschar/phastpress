@@ -3,12 +3,13 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.15
+Stable tag: 1.16
 Tested up to: 5.0
 License: AGPL-3.0
 Contributors: apeschar
 
 PhastPress automatically optimizes your site for the best possible performance.
+
 
 == Description ==
 
@@ -33,6 +34,7 @@ Get the full power of Phast for your website by installing PhastPress now.
 2. Make sure that PhastPress is activated on the Settings page.
 3. Test your site. If you experience any issues, please [contact us on info@kiboit.com](mailto:info@kiboit.com) or post on the [support forum](https://wordpress.org/support/plugin/phastpress).
 
+
 == Frequently Asked Questions ==
 
 = Should I use other optimization plugins with PhastPress? =
@@ -53,7 +55,20 @@ Yes, but non-caching optimizations must be **disabled**. Turn off the WP Fastest
 
 Yes. Some caching plugins include optimizations of JavaScript, CSS and/or images. We recommend turning off all optimizations to avoid conflicts with PhastPress.
 
+= Can I use a hook to disable PhastPress? =
+
+PhastPress is started during the `plugins_loaded` hook. Should you need to disable PhastPress on certain pages, you can use the following code to do so:
+
+    add_filter('phastpress_disable', '__return_true');
+
+Make sure that this code runs during `plugins_loaded` with a lower priority than the default (`10`), or earlier.
+
+
 == Changelog ==
+
+= 1.16 =
+
+* Add `phastpress_disable` hook.
 
 = 1.15 =
 

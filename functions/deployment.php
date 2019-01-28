@@ -16,6 +16,11 @@ function phastpress_deploy() {
         return;
     }
 
+    // Allow disabling PhastPress with hook.
+    if (apply_filters('phastpress_disable', false)) {
+        return;
+    }
+
     require_once __DIR__ . '/../sdk/vendor/autoload.php';
     $sdk = phastpress_get_plugin_sdk();
     $sdk->getPhastAPI()->deployOutputBufferForDocument();
