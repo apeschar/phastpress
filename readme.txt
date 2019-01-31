@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.16
+Stable tag: 1.17
 Tested up to: 5.0
 License: AGPL-3.0
 Contributors: apeschar
@@ -65,6 +65,12 @@ Make sure that this code runs during `plugins_loaded` with a lower priority than
 
 
 == Changelog ==
+
+= 1.17 =
+
+Phast was updated to version 1.17:
+
+* Restore `script` attributes in sorted order (that is, `src` before `type`) to stop Internet Explorer from running scripts twice when they have `src` and `type` set.
 
 = 1.16 =
 
