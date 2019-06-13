@@ -3,8 +3,8 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.17
-Tested up to: 5.0
+Stable tag: 1.18
+Tested up to: 5.2
 License: AGPL-3.0
 Contributors: apeschar
 
@@ -55,6 +55,12 @@ Yes, but non-caching optimizations must be **disabled**. Turn off the WP Fastest
 
 Yes. Some caching plugins include optimizations of JavaScript, CSS and/or images. We recommend turning off all optimizations to avoid conflicts with PhastPress.
 
+= PhastPress is enabled, but nothing happens =
+
+You might be using a plugin that compresses the page before PhastPress processes it.  When that happens, PhastPress cannot apply optimizations.
+
+For example, if you are using the [Far Future Expiry Header](https://wordpress.org/plugins/far-future-expiry-header/) plugin, disable the option "Enable Gzip Compression".
+
 = Can I use a hook to disable PhastPress? =
 
 PhastPress is started during the `plugins_loaded` hook. Should you need to disable PhastPress on certain pages, you can use the following code to do so:
@@ -65,6 +71,12 @@ Make sure that this code runs during `plugins_loaded` with a lower priority than
 
 
 == Changelog ==
+
+= 1.18 =
+
+Phast was updated to version 1.18:
+
+* Don't rewrite page-relative fragment image URLs like `fill: url(#destination)`.
 
 = 1.17 =
 
