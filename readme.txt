@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.18
+Stable tag: 1.19
 Tested up to: 5.2
 License: AGPL-3.0
 Contributors: apeschar
