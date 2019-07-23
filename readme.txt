@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.19
+Stable tag: 1.20
 Tested up to: 5.2
 License: AGPL-3.0
 Contributors: apeschar
@@ -71,6 +71,18 @@ Make sure that this code runs during `plugins_loaded` with a lower priority than
 
 
 == Changelog ==
+
+= 1.20 =
+
+* Fix compatibility issues by not prepending our autoloader.
+
+= 1.19 =
+
+Phast was updated to version 1.20:
+
+* Add *.typekit.net, stackpath.bootstrapcdn.com to CSS whitelist.
+* Don't apply rot13 on url-encoded characters.
+* Use valid value for script `type` to quiet W3C validator.
 
 = 1.18 =
 
