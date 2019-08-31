@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.20
+Stable tag: 1.21
 Tested up to: 5.2
 License: AGPL-3.0
 Contributors: apeschar
@@ -25,14 +25,14 @@ PhastPress has the Phast web page optimisation engine by [Kibo IT](https://kiboi
 
 Get the full power of Phast for your website by installing PhastPress now.
 
-**Experience any issues?** Please [contact us on info@kiboit.com](mailto:info@kiboit.com) or post on the [support forum](https://wordpress.org/support/plugin/phastpress).
+**Experience any issues?** Please [contact me (Albert) on albert@peschar.net](mailto:albert@peschar.net).
 
 
 == Installation ==
 
 1. Upload the PhastPress plugin to your site and activate it.
 2. Make sure that PhastPress is activated on the Settings page.
-3. Test your site. If you experience any issues, please [contact us on info@kiboit.com](mailto:info@kiboit.com) or post on the [support forum](https://wordpress.org/support/plugin/phastpress).
+3. Test your site. If you experience any issues, please [contact me (Albert) on albert@peschar.net](mailto:albert@peschar.net).
 
 
 == Frequently Asked Questions ==
@@ -71,6 +71,12 @@ Make sure that this code runs during `plugins_loaded` with a lower priority than
 
 
 == Changelog ==
+
+= 1.21 =
+
+Phast was updated to version 1.20:
+
+* Don't attempt to optimize CSS selectors containing parentheses, avoiding a bug removing applicable :not(.class) selectors.
 
 = 1.20 =
 
