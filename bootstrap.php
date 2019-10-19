@@ -1,7 +1,6 @@
 <?php
 
-require_once __DIR__ . '/functions/service.php';
-require_once __DIR__ . '/functions/deployment.php';
+require_once __DIR__ . '/autoload.php';
 
 add_action('wp_ajax_phastpress_ajax_dispatch', function () {
     wp_send_json(
@@ -12,7 +11,6 @@ add_action('wp_ajax_phastpress_ajax_dispatch', function () {
 add_action('admin_notices', function () {
     echo phastpress_get_plugin_sdk()->getInstallNotice()->render();
 });
-
 
 add_filter('plugin_action_links_' . plugin_basename(PHASTPRESS_PLUGIN_FILE), function ($links) {
     $link = '<a href="' . admin_url('options-general.php?page=phast-press') . '">'

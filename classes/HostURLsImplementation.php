@@ -26,12 +26,7 @@ class HostURLsImplementation implements HostURLs {
 
 
     public function getTestImageURL() {
-        return URL::fromString(
-            plugins_url(
-                'sdk/vendor/kiboit/phast/src/Filters/Image/CommonDiagnostics/kibo-logo.png',
-                PHASTPRESS_PLUGIN_FILE
-            )
-        );
+        return URL::fromString(plugins_url('logo.png', PHASTPRESS_PLUGIN_FILE));
     }
 
 }

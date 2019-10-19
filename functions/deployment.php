@@ -21,7 +21,6 @@ function phastpress_deploy() {
         return;
     }
 
-    require_once __DIR__ . '/../sdk/vendor/autoload.php';
     $sdk = phastpress_get_plugin_sdk();
     $sdk->getPhastAPI()->deployOutputBufferForDocument();
 

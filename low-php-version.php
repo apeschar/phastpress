@@ -1,21 +1,15 @@
 <?php
 
-add_action('admin_menu', 'phastpress_register_menu', 0);
+add_action('admin_notices', 'phastpress_php_version_notice');
 
-function phastpress_register_menu() {
-    add_options_page(
-        __('PhastPress', 'phastpress'),
-        __('PhastPress', 'phastpress'),
-        'manage_options',
-        'phast-press',
-        'phastpress_render_low_php'
-    );
-}
-
-function phastpress_render_low_php() {
-    echo sprintf(
-        '<div class="wrap"><h1 class="wp-heading-inline">%s</h1>%s</div>',
-        __('PhastPress', 'phastpress'),
-        Phast_Plugins_Bootstrap::renderLowPHPScreen()
-    );
+function phastpress_php_version_notice() {
+    ?>
+    <div class="error notice">
+        <p>
+            <b>Sorry, PhastPress won't work here.</b>
+            Like WordPress, PhastPress requires at least PHP version 5.6.20.
+            Get in touch with your hosting provider for an upgrade.
+        </p>
+    </div>
+    <?php
 }

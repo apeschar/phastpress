@@ -9,6 +9,8 @@ class CacheRootCandidatesProviderImplementation implements CacheRootCandidatesPr
 
     public function getCacheRootCandidates() {
         return [
+            WP_CONTENT_DIR . '/cache',
+            WP_CONTENT_DIR . '/uploads',
             __DIR__ . '/../cache',
             sys_get_temp_dir()
         ];

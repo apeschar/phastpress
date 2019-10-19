@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.21
+Stable tag: 1.22
 Tested up to: 5.2
 License: AGPL-3.0
 Contributors: apeschar
@@ -72,9 +72,23 @@ Make sure that this code runs during `plugins_loaded` with a lower priority than
 
 == Changelog ==
 
+= 1.22 =
+
+* Mitigate restrictive access rules for /wp-content by adding our own .htaccess for phast.php.
+* Try to put cache directory in wp-content/cache or wp-content/uploads before using the plugin directory.
+
+Phast was updated to version 1.22:
+
+* Remove empty media queries from optimize CSS.
+* Use token to refer to bundled resources, to shorten URL length.
+* Clean up server-side statistics.
+* Add HTML minification (whitespace removal).
+* Add inline JavaScript and JSON minification (whitespace removal).
+* Add a build system to generate a single PHP file with minified scripts.
+
 = 1.21 =
 
-Phast was updated to version 1.20:
+Phast was updated to version 1.21:
 
 * Don't attempt to optimize CSS selectors containing parentheses, avoiding a bug removing applicable :not(.class) selectors.
 
