@@ -11,8 +11,12 @@ function phastpress_deploy() {
         return;
     }
 
-    // Elementor: Do not optimize previews, when loaded in an IFrame in the editor.
-    if (isset($_GET['elementor-preview'])) {
+    // Do not optimize when using editor plug-ins.
+    if (// Elementor
+        isset($_GET['elementor-preview'])
+        // YellowPencil
+        || (defined('YP_VERSION') && isset($_GET['yellow_pencil_frame']))
+    ) {
         return;
     }
 

@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.22
+Stable tag: 1.23
 Tested up to: 5.2
 License: AGPL-3.0
 Contributors: apeschar
@@ -71,6 +71,10 @@ Make sure that this code runs during `plugins_loaded` with a lower priority than
 
 
 == Changelog ==
+
+= 1.23 =
+
+* Disable optimizations inside Yellow Pencil editor.
 
 = 1.22 =
 
