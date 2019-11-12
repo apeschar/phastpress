@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.23
+Stable tag: 1.24
 Tested up to: 5.2
 License: AGPL-3.0
 Contributors: apeschar
@@ -71,6 +71,12 @@ Make sure that this code runs during `plugins_loaded` with a lower priority than
 
 
 == Changelog ==
+
+= 1.24 =
+
+Phast was updated to version 1.23:
+
+* Make CSS filters configurable using switches.
 
 = 1.23 =
 
