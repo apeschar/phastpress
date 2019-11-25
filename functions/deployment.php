@@ -16,6 +16,8 @@ function phastpress_deploy() {
         isset($_GET['elementor-preview'])
         // YellowPencil
         || (defined('YP_VERSION') && isset($_GET['yellow_pencil_frame']))
+        // Divi Visual Builder
+        || (@$_GET['et_fb'] === '1' && @$_GET['PageSpeed'] === 'off')
     ) {
         return;
     }
