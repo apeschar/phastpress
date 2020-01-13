@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.25
+Stable tag: 1.26
 Tested up to: 5.3
 License: AGPL-3.0
 Contributors: apeschar
@@ -71,6 +71,10 @@ Make sure that this code runs during `plugins_loaded` with a lower priority than
 
 
 == Changelog ==
+
+= 1.26 =
+
+* Fix incompatibility with Thrive Architect.
 
 = 1.25 =
 

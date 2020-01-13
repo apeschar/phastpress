@@ -18,6 +18,8 @@ function phastpress_deploy() {
         || (defined('YP_VERSION') && isset($_GET['yellow_pencil_frame']))
         // Divi Visual Builder
         || (@$_GET['et_fb'] === '1' && @$_GET['PageSpeed'] === 'off')
+        // Trive Architect
+        || @$_GET['tve'] === 'true'
     ) {
         return;
     }
