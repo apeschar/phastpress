@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.26
+Stable tag: 1.27
 Tested up to: 5.3
 License: AGPL-3.0
 Contributors: apeschar
@@ -71,6 +71,10 @@ Make sure that this code runs during `plugins_loaded` with a lower priority than
 
 
 == Changelog ==
+
+= 1.27 =
+
+* Load configuration via `wp-load.php` instead of `wp-config.php`.
 
 = 1.26 =
 

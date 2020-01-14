@@ -18,7 +18,7 @@ class WordPress {
             'accepted_args' => 0,
         ];
         try {
-            require self::findWPConfig();
+            require self::findWPLoad();
         } catch (WordPressLoadedException $e) {
             return;
         } finally {
@@ -27,14 +27,14 @@ class WordPress {
         throw new \RuntimeException("WordPress loaded without triggering any hooks");
     }
 
-    private static function findWPConfig() {
+    private static function findWPLoad() {
         $startDir = dirname($_SERVER['SCRIPT_FILENAME']);
         if (!$startDir) {
             throw new \RuntimeException("Could not get directory from SCRIPT_FILENAME");
         }
         $dir = $startDir;
         while (true) {
-            $path = $dir . '/wp-config.php';
+            $path = $dir . '/wp-load.php';
             if (file_exists($path)) {
                 return $path;
             }
@@ -44,7 +44,7 @@ class WordPress {
             }
             $dir = $parent;
         }
-        throw new \RuntimeException("Could not find wp-config.php in $startDir " .
+        throw new \RuntimeException("Could not find wp-load.php in $startDir " .
                                     "or any of its parent directories");
     }
 
