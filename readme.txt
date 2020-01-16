@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.27
+Stable tag: 1.28
 Tested up to: 5.3
 License: AGPL-3.0
 Contributors: apeschar
@@ -69,8 +69,21 @@ PhastPress is started during the `plugins_loaded` hook. Should you need to disab
 
 Make sure that this code runs during `plugins_loaded` with a lower priority than the default (`10`), or earlier.
 
+= How and when does PhastPress clean the cache? =
+
+PhastPress uses filesize and modification time information to detect file changes, so clearing the cache is generally not needed.  When you change a script or CSS file, the change should be visible immediately after reloading.
+
+If you do want to clear the cache, you can delete all the data inside `wp-content/cache/phastpress` or `wp-content/plugins/phastpress/cache`.
+
 
 == Changelog ==
+
+= 1.28 =
+
+Phast was updated to version 1.24:
+
+* Send Content-Security-Policy and X-Content-Type-Options headers on resources
+  to speculatively prevent any XSS attacks via MIME sniffing.
 
 = 1.27 =
 
