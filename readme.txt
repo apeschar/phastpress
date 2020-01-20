@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.28
+Stable tag: 1.29
 Tested up to: 5.3
 License: AGPL-3.0
 Contributors: apeschar
@@ -75,8 +75,32 @@ PhastPress uses filesize and modification time information to detect file change
 
 If you do want to clear the cache, you can delete all the data inside `wp-content/cache/phastpress` or `wp-content/plugins/phastpress/cache`.
 
+= How do I exclude a specific script from optimization by PhastPress? =
+
+By default, PhastPress delays the load of all scripts until after the DOM has finished loading, so that the browser can render the page as quickly as possible.  If you wish to load specific scripts as soon as possible, such as Google Analytics, you may add the `data-phast-no-defer` attribute to the script.  It would be preferable to also mark external scripts as `async`, when possible.
+
+For example:
+
+    <script data-phast-no-defer>
+    // my script goes here
+    </script>
+
+Or:
+
+    <script async data-phast-no-defer src="http://url.to.my.script/"></script>
+
+This is applied automatically for the Google Analytics script inserted by Monsterinsights since PhastPress 1.29.
+
 
 == Changelog ==
+
+= 1.29 =
+
+* Don't delay Monsterinsights script so that Google Analytics works more reliably.
+
+Phast was updated to version 1.25:
+
+* Keep newlines when minifying HTML.
 
 = 1.28 =
 

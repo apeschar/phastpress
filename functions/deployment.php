@@ -29,6 +29,14 @@ function phastpress_deploy() {
         return;
     }
 
+    // Don't delay Monsterinsights analytics script.
+    add_filter('monsterinsights_tracking_analytics_script_attributes', function ($attrs) {
+        if (is_array($attrs)) {
+            $attrs['data-phast-no-defer'] = '';
+        }
+        return $attrs;
+    });
+
     $sdk = phastpress_get_plugin_sdk();
     $sdk->getPhastAPI()->deployOutputBufferForDocument();
 
