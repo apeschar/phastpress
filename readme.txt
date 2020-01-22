@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.30
+Stable tag: 1.31
 Tested up to: 5.3
 License: AGPL-3.0
 Contributors: apeschar
@@ -93,6 +93,12 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.31 =
+
+Phast was updated to version 1.26:
+
+* Keep `id` attributes on `style` elements. (This fixes compatibility with [css-element-queries](https://github.com/marcj/css-element-queries).)
 
 = 1.30 =
 
