@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.31
+Stable tag: 1.32
 Tested up to: 5.3
 License: AGPL-3.0
 Contributors: apeschar
@@ -93,6 +93,15 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.32 =
+
+Phast was updated to version 1.28:
+
+* Don't send WebP images via Cloudflare.  Cloudflare [does not support `Vary:
+  Accept`](https://serverfault.com/questions/780882/impossible-to-serve-webp-images-using-cloudflare), so sending WebP via Cloudflare can cause browsers that don't support
+  WebP to download the wrong image type.  [Use Cloudflare Polish
+  instead.](https://support.cloudflare.com/hc/en-us/articles/360000607372-Using-Cloudflare-Polish-to-compress-images)
 
 = 1.31 =
 
