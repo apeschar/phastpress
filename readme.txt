@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.33
+Stable tag: 1.34
 Tested up to: 5.3
 License: AGPL-3.0
 Contributors: apeschar
@@ -93,6 +93,11 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.34 =
+
+* Store service config in `service-config-*` files for AppArmor compatibility, if there's a rule that prevents writing `*.php` files.
+* Create index.html in cache directory to prevent path enumeration.
 
 = 1.33 =
 
