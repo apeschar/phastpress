@@ -1,9 +1,9 @@
 === PhastPress ===
 
-Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css
+Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.34
+Stable tag: 1.35
 Tested up to: 5.3
 License: AGPL-3.0
 Contributors: apeschar
@@ -13,7 +13,7 @@ PhastPress automatically optimizes your site for the best possible performance.
 
 == Description ==
 
-PhastPress uses advanced techniques to manipulate your pages, scripts, stylesheets and images to significantly improve load times. It's designed to conform to Google PageSpeed Insights recommendations and can improve your site's score dramatically.
+PhastPress uses advanced techniques to manipulate your pages, scripts, stylesheets and images to significantly improve load times. It's designed to conform to Google PageSpeed Insights and GTmetrix recommendations and can improve your site's score dramatically.
 
 PhastPress has the Phast web page optimisation engine by [Kibo IT](https://kiboit.com/) at its core:
 
@@ -50,6 +50,12 @@ No, PhastPress does not do caching. We recommend using [WP Super Cache](https://
 = Is PhastPress compatible with WP Fastest Cache? =
 
 Yes, but non-caching optimizations must be **disabled**. Turn off the WP Fastest Cache options in [this screenshot](https://peschar.net/s/yQVWIuOuI4ThfRZfkKJa/).
+
+= Is PhastPress compatible with W3 Total Cache? =
+
+Yes, but non-caching optimizations must be **disabled**.
+
+Specifically, the _Prevent caching of objects after settings change_ option causes problems.
 
 = Is PhastPress compatible with other caching plugins? =
 
@@ -93,6 +99,12 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.35 =
+
+Phast was updated to version 1.31:
+
+* Change CSS cache marker when dependencies (eg, images) change.  This prevents showing old images because CSS referencing an old optimized version is cached.
 
 = 1.34 =
 
