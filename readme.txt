@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.35
+Stable tag: 1.36
 Tested up to: 5.3
 License: AGPL-3.0
 Contributors: apeschar
@@ -99,6 +99,15 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.36 =
+
+Phast was updated to version 1.33:
+
+* Stop proxying dynamically inserted scripts after onload hits.
+* Combine the hash-based cache marker with the original modification time-based cache marker.
+* Remove comment tags (`<!-- ... -->`) from inline scripts.
+* Send `Content-Length` header for images.
 
 = 1.35 =
 
