@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.36
+Stable tag: 1.37
 Tested up to: 5.3
 License: AGPL-3.0
 Contributors: apeschar
@@ -99,6 +99,12 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.37 =
+
+* The `phastpress_disable` hook is now triggered during `template_redirect` instead of `plugins_loaded`, which allows you to use many more functions in your hook handlers.
+
+Phast was updated to version 1.34.
 
 = 1.36 =
 

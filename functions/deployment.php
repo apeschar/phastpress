@@ -24,11 +24,6 @@ function phastpress_deploy() {
         return;
     }
 
-    // Allow disabling PhastPress with hook.
-    if (apply_filters('phastpress_disable', false)) {
-        return;
-    }
-
     // Don't delay Monsterinsights analytics script.
     add_filter('monsterinsights_tracking_analytics_script_attributes', function ($attrs) {
         if (is_array($attrs)) {
@@ -58,7 +53,14 @@ function phastpress_deploy() {
     });
 
     $sdk = phastpress_get_plugin_sdk();
-    $sdk->getPhastAPI()->deployOutputBufferForDocument();
+    $handler = $sdk->getPhastAPI()->deployOutputBufferForDocument();
+
+    // Allow disabling PhastPress with hook.
+    add_filter('template_redirect', function () use ($handler) {
+        if (apply_filters('phastpress_disable', false)) {
+            $handler->cancel();
+        }
+    }, 100);
 
     $plugin_config = $sdk->getPluginConfiguration();
     $display_footer = $plugin_config->shouldDisplayFooter();
