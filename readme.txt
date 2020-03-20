@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.37
+Stable tag: 1.38
 Tested up to: 5.3
 License: AGPL-3.0
 Contributors: apeschar
@@ -69,11 +69,19 @@ For example, if you are using the [Far Future Expiry Header](https://wordpress.o
 
 = Can I use a hook to disable PhastPress? =
 
-PhastPress is started during the `plugins_loaded` hook. Should you need to disable PhastPress on certain pages, you can use the following code to do so:
+Should you need to disable PhastPress on certain pages, you can use the following code to do so:
 
     add_filter('phastpress_disable', '__return_true');
 
-Make sure that this code runs during `plugins_loaded` with a lower priority than the default (`10`), or earlier.
+Make sure that this code runs during `template_redirect` or earlier.
+
+= Can I use disable PhastPress on WooCommerce checkout and cart pages? =
+
+Add this code to your theme's functions.php, or to a new file in wp-content/mu-plugins:
+
+    add_filter('phastpress_disable', function ($disable) {
+        return $disable || is_cart() || is_checkout();
+    });
 
 = How and when does PhastPress clean the cache? =
 
@@ -99,6 +107,12 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.38 =
+
+Phast was updated to version 1.35:
+
+* Use all service parameters for hash-based cache marker.  This might fix some issues with stale stylesheets being used.
 
 = 1.37 =
 
