@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.42
+Stable tag: 1.43
 Tested up to: 5.3
 License: AGPL-3.0
 Contributors: apeschar
@@ -107,6 +107,14 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.43 =
+
+* Image optimization functionality works again.  You will have to re-enable it in the settings panel.
+
+Phast was updated to version 1.40:
+
+* Add s.pinimg.com, google-analytics.com/gtm/js to script proxy whitelist.
 
 = 1.42 =
 

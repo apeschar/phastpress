@@ -1,8 +1,11 @@
 <?php
 namespace Kibo\PhastPlugins\PhastPress;
 
-class WordPress {
+use Exception;
+use Requests;
+use RuntimeException;
 
+class WordPress {
     public static function loadConfig() {
         if (defined('ABSPATH')) {
             return;
@@ -24,13 +27,13 @@ class WordPress {
         } finally {
             $complete = true;
         }
-        throw new \RuntimeException("WordPress loaded without triggering any hooks");
+        throw new RuntimeException('WordPress loaded without triggering any hooks');
     }
 
     private static function findWPLoad() {
         $startDir = dirname($_SERVER['SCRIPT_FILENAME']);
         if (!$startDir) {
-            throw new \RuntimeException("Could not get directory from SCRIPT_FILENAME");
+            throw new RuntimeException('Could not get directory from SCRIPT_FILENAME');
         }
         $dir = $startDir;
         while (true) {
@@ -44,16 +47,19 @@ class WordPress {
             }
             $dir = $parent;
         }
-        throw new \RuntimeException("Could not find wp-load.php in $startDir " .
-                                    "or any of its parent directories");
+        throw new RuntimeException(
+            "Could not find wp-load.php in $startDir or any of its parent directories"
+        );
     }
 
     public static function loadRequests() {
-        if (!class_exists('Requests')) {
-            require ABSPATH . WPINC . '/http.php';
+        if (!class_exists(Requests::class)) {
+            require ABSPATH . WPINC . '/class-requests.php';
+            Requests::register_autoloader();
+            Requests::set_certificate_path(ABSPATH . WPINC . '/certificates/ca-bundle.crt');
         }
     }
-
 }
 
-class WordPressLoadedException extends \Exception {}
+class WordPressLoadedException extends Exception {
+}

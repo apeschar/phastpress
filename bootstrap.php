@@ -2,6 +2,22 @@
 
 require_once __DIR__ . '/autoload.php';
 
+add_action('plugins_loaded', function () {
+    if (!get_option('phastpress_1.43')) {
+        phastpress_get_plugin_sdk()
+            ->getPluginConfiguration()
+            ->update([
+                'img-optimization-tags' => false,
+                'img-optimization-css' => false,
+            ]);
+        update_option('phastpress_1.43', gmdate('Y-m-d\TH:i:s\Z'));
+    }
+});
+
+register_activation_hook(PHASTPRESS_PLUGIN_FILE, function () {
+    update_option('phastpress_1.43', gmdate('Y-m-d\TH:i:s\Z'));
+});
+
 add_action('wp_ajax_phastpress_ajax_dispatch', function () {
     wp_send_json(
         phastpress_get_plugin_sdk()->getAJAXRequestsDispatcher()->dispatch($_POST)
@@ -44,7 +60,7 @@ add_action('wp_head', function () {
         $style,
         $style . ';font-weight:bold',
         $style,
-        PHASTPRESS_VERSION
+        PHASTPRESS_VERSION,
     ];
     echo '<script data-phast-no-defer>console.log(' .
          implode(',', array_map('json_encode', $args)) .
