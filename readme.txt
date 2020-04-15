@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.44
+Stable tag: 1.45
 Tested up to: 5.3
 License: AGPL-3.0
 Contributors: apeschar
@@ -15,12 +15,23 @@ PhastPress automatically optimizes your site for the best possible performance.
 
 PhastPress uses advanced techniques to manipulate your pages, scripts, stylesheets and images to significantly improve load times. It's designed to conform to Google PageSpeed Insights and GTmetrix recommendations and can improve your site's score dramatically.
 
-PhastPress has the Phast web page optimisation engine by [Kibo IT](https://kiboit.com/) at its core:
+PhastPress' motto is _no configuration_.  Install, activate and go!
 
-* Phast optimizes images using PNG quantization and JPEG recoding, optionally through a free API. Small images are inlined into your page to save HTTP requests.
-* Phast loads all scripts on your page asynchronously, while maintaining full compatibility with legacy scripts, due to our custom script loader. External scripts are proxied to extend their cache lifetime.
-* Phast inlines critical CSS on the fly by comparing the rules in your stylesheets with the elements on your page. PhastPress also inlines Google Fonts CSS.
-* Phast bundles all CSS into a single file, which is loaded asynchronously.
+PhastPress has the Phast web page optimisation engine by [Albert Peschar](https://kiboit.com/) at its core.
+
+**Image optimization:**
+
+* Phast optimizes images using PNG quantization ([pngquant](https://pngquant.org/)) and JPEG recoding ([libjpeg-turbo](https://libjpeg-turbo.org/)).
+* Phast inlines small images (< 512 bytes) in the page.
+* Phast converts JPEG images into WebP for supporting browsers.
+
+**Asynchronous scripts and stylesheets:**
+
+* Phast loads all scripts on your page asynchronously and in a single request, while maintaining full compatibility with legacy scripts, due to our custom script loader.
+* Phast proxies external scripts to extend their cache lifetime.
+* Phast inlines critical CSS automatically by comparing the rules in your stylesheets with the elements on your page.
+* Phast loads non-critical CSS asynchronously and in a single request.
+* Phast inlines Google Fonts CSS.
 * Phast lazily loads IFrames to prioritize the main page load.
 
 Get the full power of Phast for your website by installing PhastPress now.
@@ -41,11 +52,11 @@ Get the full power of Phast for your website by installing PhastPress now.
 
 No. You do not need any other plugins, such as image optimization (e.g., Smush) or file minification (e.g., Autoptimize) after you install PhastPress, because PhastPress includes all necessary optimizations.
 
-We recommend using the simple combination of PhastPress and [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) only. This reduces the potential for plugin conflicts, and it is really all you need.
+I recommend using the simple combination of PhastPress and [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) only. This reduces the potential for plugin conflicts, and it is really all you need.
 
 = Is PhastPress a caching plugin? Do you recommend another caching plugin? =
 
-No, PhastPress does not do caching. We recommend using [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) in combination with PhastPress to speed up your server response time (TTFB).
+No, PhastPress does not do caching. I recommend using [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) in combination with PhastPress to speed up your server response time (TTFB).
 
 = Is PhastPress compatible with WP Fastest Cache? =
 
@@ -59,13 +70,23 @@ Specifically, the _Prevent caching of objects after settings change_ option caus
 
 = Is PhastPress compatible with other caching plugins? =
 
-Yes. Some caching plugins include optimizations of JavaScript, CSS and/or images. We recommend turning off all optimizations to avoid conflicts with PhastPress.
+Yes. Some caching plugins include optimizations of JavaScript, CSS and/or images. I recommend turning off all optimizations to avoid conflicts with PhastPress.
 
 = PhastPress is enabled, but nothing happens =
 
 You might be using a plugin that compresses the page before PhastPress processes it.  When that happens, PhastPress cannot apply optimizations.
 
 For example, if you are using the [Far Future Expiry Header](https://wordpress.org/plugins/far-future-expiry-header/) plugin, disable the option "Enable Gzip Compression".
+
+= Why does PhastPress not impact the "Fully Loaded Time" measured by GTmetrix? =
+
+The "Fully Loaded Time" in GTmetrix is the amount of time taken until all network activity ceases.  This measurement can be misleading because it does not take into account the order in which resources load.
+
+Normally, external resources such as scripts and stylesheets must be downloaded, parsed and executed before the page can be rendered.  PhastPress changes this sequence by including all necessary resources (that is, the critical CSS) in the page, and executing scripts asynchronously, so that they do not block the rendering of the page.
+
+This causes the page to be visible earlier in the browser, but does not change GTmetrix's fully loaded time.
+
+In order to see this effect, register and log in to GTmetrix and enable the "Video" option.  Then test your site (with Phast enabled), and use the "Compare" button to again test your site, but while appending "?phast=-phast" to the URL (eg, https://example.com/?phast=-phast).  When the comparison loads, select the "Filmstrips" tab and you'll see the difference.  The Phast-optimized version of your site should start rendering much earlier.
 
 = Can I use a hook to disable PhastPress? =
 
@@ -107,6 +128,12 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.45 =
+
+Phast was updated to version 1.42:
+
+* Speed up script load, and fix a bug with setTimeout functions running before the next script is loaded.
 
 = 1.44 =
 
