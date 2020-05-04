@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.46
+Stable tag: 1.47
 Tested up to: 5.4
 License: AGPL-3.0
 Contributors: apeschar
@@ -128,6 +128,13 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.47 - 2020-05-04 =
+
+Phast was updated to version 1.44:
+
+* Support `data-pagespeed-no-defer` and `data-cfasync="false"` attributes on scripts for disabling script deferral (in addition to `data-phast-no-defer`).
+* Leave `data-{phast,pagespeed}-no-defer` and `data-cfasync` attributes in place to aid debugging.
 
 = 1.46 - 2020-04-30 =
 
