@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.47
+Stable tag: 1.48
 Tested up to: 5.4
 License: AGPL-3.0
 Contributors: apeschar
@@ -128,6 +128,12 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.48 - 2020-05-13 =
+
+Phast was updated to version 1.45:
+
+* Use `font-display: block` for icon fonts (currently Font Awesome, GeneratePress and Dashicons).
 
 = 1.47 - 2020-05-04 =
 
