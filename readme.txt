@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.49
+Stable tag: 1.50
 Tested up to: 5.4
 License: AGPL-3.0
 Contributors: apeschar
@@ -53,6 +53,8 @@ Get the full power of Phast for your website by installing PhastPress now.
 No. You do not need any other plugins, such as image optimization (e.g., Smush) or file minification (e.g., Autoptimize) after you install PhastPress, because PhastPress includes all necessary optimizations.
 
 I recommend using the simple combination of PhastPress and [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) only. This reduces the potential for plugin conflicts, and it is really all you need.
+
+[Fast Velocity Minify](https://wordpress.org/plugins/fast-velocity-minify/) is not compatible with PhastPress, and causes PhastPress not to work. Please use either plugin, but not both.
 
 = Is PhastPress a caching plugin? Do you recommend another caching plugin? =
 
@@ -128,6 +130,12 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.50 - 2020-05-18 =
+
+Phast was updated to version 1.47:
+
+* Process image URLs in `data-src`, `data-srcset`, `data-wood-src` and `data-wood-srcset` attributes on `img` tags.
 
 = 1.49 - 2020-05-14 =
 
