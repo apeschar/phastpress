@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.50
+Stable tag: 1.51
 Tested up to: 5.4
 License: AGPL-3.0
 Contributors: apeschar
@@ -131,11 +131,15 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 == Changelog ==
 
-= 1.50 - 2020-05-18 =
+= 1.51 - 2020-05-19 =
 
 Phast was updated to version 1.47:
 
 * Process image URLs in `data-src`, `data-srcset`, `data-wood-src` and `data-wood-srcset` attributes on `img` tags.
+
+= 1.50 - 2020-05-18 =
+
+This release should have updated Phast to version 1.47, but didn't, by accident.
 
 = 1.49 - 2020-05-14 =
 
