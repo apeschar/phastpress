@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.52
+Stable tag: 1.53
 Tested up to: 5.4
 License: AGPL-3.0
 Contributors: apeschar
@@ -130,6 +130,12 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.53 - 2020-05-27 =
+
+Phast was updated to version 1.49:
+
+* Send uncompressed responses to Cloudflare.  Cloudflare will handle compression.
 
 = 1.52 - 2020-05-25 =
 
