@@ -16,10 +16,19 @@ function phastpress_deploy() {
         isset($_GET['elementor-preview'])
         // YellowPencil
         || (defined('YP_VERSION') && isset($_GET['yellow_pencil_frame']))
-        // Divi Visual Builder
-        || (@$_GET['et_fb'] === '1' && @$_GET['PageSpeed'] === 'off')
         // Thrive Architect
         || @$_GET['tve'] === 'true'
+        // Divi Visual Builder
+        || @$_GET['PageSpeed'] === 'off'
+        // Child Theme Configurator
+        || @$_GET['ModPagespeed'] === 'off'
+        // Nimble Page Builder
+        || (
+            defined('NIMBLE_VERSION') && (
+                !empty($_GET['customize_changeset_uuid'])
+                || !empty($_POST['customize_changeset_uuid'])
+            )
+        )
     ) {
         return;
     }

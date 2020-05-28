@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.53
+Stable tag: 1.54
 Tested up to: 5.4
 License: AGPL-3.0
 Contributors: apeschar
@@ -130,6 +130,10 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.54 - 2020-05-28 =
+
+* Improve compatibility with [Nimble Page Builder](https://wordpress.org/plugins/nimble-builder/) and [Child Theme Configurator](https://wordpress.org/plugins/child-theme-configurator/).
 
 = 1.53 - 2020-05-27 =
 
