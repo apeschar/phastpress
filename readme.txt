@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.55
+Stable tag: 1.56
 Tested up to: 5.4
 License: AGPL-3.0
 Contributors: apeschar
@@ -130,6 +130,15 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.56 - 2020-06-04 =
+
+Phast was updated to version 1.50:
+
+* Ignore `link` elements with empty `href`, or one that consists only of slashes.
+* Replace `</style` inside inlined stylesheets with `</ style` to prevent stylesheet content ending up inside the DOM.
+* Add `font-swap: block` for Ionicons.
+* Remove UTF-8 byte order mark from inlined stylesheets.
 
 = 1.55 - 2020-05-28 =
 
