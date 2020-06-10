@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.59
+Stable tag: 1.60
 Tested up to: 5.4
 License: AGPL-3.0
 Contributors: apeschar
@@ -130,6 +130,14 @@ This is applied automatically for the Google Analytics script inserted by Monste
 
 
 == Changelog ==
+
+= 1.60 - 2020-06-10 =
+
+Phast was updated to version 1.55:
+
+* Only rewrite image URLs in arbitrary attributes inside the `<body>` tag.
+* Don't optimize image URLs in attributes of `<meta>` tags.
+* When optimizing images, send the local PHP version to the API, to investigate whether PHP 5.6 support can be phased out.
 
 = 1.59 - 2020-06-09 =
 
