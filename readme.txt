@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.60
+Stable tag: 1.61
 Tested up to: 5.4
 License: AGPL-3.0
 Contributors: apeschar
@@ -74,6 +74,12 @@ Specifically, the _Prevent caching of objects after settings change_ option caus
 
 Yes. Some caching plugins include optimizations of JavaScript, CSS and/or images. I recommend turning off all optimizations to avoid conflicts with PhastPress.
 
+= Is PhastPress compatible with Asset CleanUp: Page Speed Booster? =
+
+Yes.  The core functionality of Asset CleanUp: Page Speed Booster complements PhastPress by removing unused JavaScript and CSS from the page.
+
+Do not use Asset CleanUp's features for optimizing CSS and JS.  These features can cause conflicts with PhastPress, and they are not needed, because PhastPress already does this.
+
 = PhastPress is enabled, but nothing happens =
 
 You might be using a plugin that compresses the page before PhastPress processes it.  When that happens, PhastPress cannot apply optimizations.
@@ -128,8 +134,27 @@ Or:
 
 This is applied automatically for the Google Analytics script inserted by Monsterinsights since PhastPress 1.29.
 
+= Does PhastPress collect data or use external services? =
+
+Images are optimized using a free API, provided by the creator of PhastPress.
+
+During image optimization, the following data is sent to the API:
+
+* the URL on which PhastPress is used
+* the version of the plugin
+* the PHP version (to track compatibility requirements)
+* the image itself
+
+Images are sent to the API only once. Processed images are stored locally, and not retained by the API.
+
+If image optimization is switched off, the API will not be used.
+
 
 == Changelog ==
+
+= 1.61 - 2020-06-17 =
+
+* Disable PhastPress during Asset Cleanup: Page Speed Booster analysis.
 
 = 1.60 - 2020-06-10 =
 

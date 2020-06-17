@@ -29,6 +29,11 @@ function phastpress_deploy() {
                 || !empty($_POST['customize_changeset_uuid'])
             )
         )
+        // Asset CleanUp: Page Speed Booster
+        || (
+            defined('WPACU_LOAD_ASSETS_REQ_KEY')
+            && !empty($_REQUEST[WPACU_LOAD_ASSETS_REQ_KEY])
+        )
     ) {
         return;
     }
