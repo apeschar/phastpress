@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.61
+Stable tag: 1.62
 Tested up to: 5.4
 License: AGPL-3.0
 Contributors: apeschar
@@ -151,6 +151,12 @@ If image optimization is switched off, the API will not be used.
 
 
 == Changelog ==
+
+= 1.62 - 2020-07-08 =
+
+Phast was updated to version 1.58:
+
+* Rewrite each URL in a CSS rule, not just the first one.
 
 = 1.61 - 2020-06-17 =
 
