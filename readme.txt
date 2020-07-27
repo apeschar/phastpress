@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.63
+Stable tag: 1.64
 Tested up to: 5.4
 License: AGPL-3.0
 Contributors: apeschar
@@ -151,6 +151,12 @@ If image optimization is switched off, the API will not be used.
 
 
 == Changelog ==
+
+= 1.64 - 2020-07-21 =
+
+Phast was updated to version 1.61.
+
+* Added an option to disable gzip compression of processed resources downloaded via `phast.php`. This might help to fix issues on hosts that compress already compressed responses.
 
 = 1.63 - 2020-07-21 =
 
