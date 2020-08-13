@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.65
+Stable tag: 1.66
 Tested up to: 5.5
 License: AGPL-3.0
 Contributors: apeschar
@@ -24,6 +24,7 @@ PhastPress has the Phast web page optimisation engine by [Albert Peschar](https:
 * Phast optimizes images using PNG quantization ([pngquant](https://pngquant.org/)) and JPEG recoding ([libjpeg-turbo](https://libjpeg-turbo.org/)).
 * Phast inlines small images (< 512 bytes) in the page.
 * Phast converts JPEG images into WebP for supporting browsers.
+* Phast enables [native lazy loading](https://web.dev/native-lazy-loading/) to speed up page loading and save bandwidth.
 
 **Asynchronous scripts and stylesheets:**
 
@@ -151,6 +152,12 @@ If image optimization is switched off, the API will not be used.
 
 
 == Changelog ==
+
+= 1.66 - 2020-08-13 =
+
+Phast was updated to version 1.63.
+
+* Images in AMP documents are now optimized. No other optimizations are performed in AMP documents.
 
 = 1.65 - 2020-08-11 =
 
