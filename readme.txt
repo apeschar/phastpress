@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.66
+Stable tag: 1.67
 Tested up to: 5.5
 License: AGPL-3.0
 Contributors: apeschar
@@ -152,6 +152,13 @@ If image optimization is switched off, the API will not be used.
 
 
 == Changelog ==
+
+= 1.67 - 2020-08-18 =
+
+Phast was updated to version 1.64.
+
+* Preserve control characters in strings in minified JavaScript.
+* Use JSON_INVALID_UTF8_IGNORE on PHP 7.2+ instead of regexp-based invalid UTF-8 character removal.
 
 = 1.66 - 2020-08-13 =
 
