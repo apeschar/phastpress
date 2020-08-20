@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.67
+Stable tag: 1.68
 Tested up to: 5.5
 License: AGPL-3.0
 Contributors: apeschar
@@ -152,6 +152,14 @@ If image optimization is switched off, the API will not be used.
 
 
 == Changelog ==
+
+= 1.68 - 2020-08-20 =
+
+Phast was updated to version 1.65.
+
+* Use path info URLs for bundler and dynamically inserted scripts.
+* Don't whitelist local URLs but check that the referenced files exist.
+* Support [BunnyCDN](https://wordpress.org/plugins/bunnycdn/) by optimizing resources on the CDN domain and loading processed resources via the CDN domain.
 
 = 1.67 - 2020-08-18 =
 

@@ -36,6 +36,7 @@ add_filter('plugin_action_links_' . plugin_basename(PHASTPRESS_PLUGIN_FILE), fun
 });
 
 add_action('plugins_loaded', function () {
+    \Kibo\PhastPlugins\PhastPress\CDN::installHook();
     phastpress_deploy();
 });
 
