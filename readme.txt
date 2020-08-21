@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.68
+Stable tag: 1.69
 Tested up to: 5.5
 License: AGPL-3.0
 Contributors: apeschar
@@ -152,6 +152,13 @@ If image optimization is switched off, the API will not be used.
 
 
 == Changelog ==
+
+= 1.69 - 2020-08-21 =
+
+Phast was updated to version 1.66.
+
+* Convert `<link onload="media='all'">` to `<link media="all">` before inlining.
+* Elide `media` attribute on generated `style` tags if it is `all`.
 
 = 1.68 - 2020-08-20 =
 
