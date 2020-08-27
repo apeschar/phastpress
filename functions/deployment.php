@@ -17,11 +17,11 @@ function phastpress_deploy() {
         // YellowPencil
         || (defined('YP_VERSION') && isset($_GET['yellow_pencil_frame']))
         // Thrive Architect
-        || @$_GET['tve'] === 'true'
+        || (isset($_GET['tve']) && $_GET['tve'] === 'true')
         // Divi Visual Builder
-        || @$_GET['PageSpeed'] === 'off'
+        || (isset($_GET['PageSpeed']) && $_GET['PageSpeed'] === 'off')
         // Child Theme Configurator
-        || @$_GET['ModPagespeed'] === 'off'
+        || (isset($_GET['ModPagespeed']) && $_GET['ModPagespeed'] === 'off')
         // Nimble Page Builder
         || (
             defined('NIMBLE_VERSION') && (

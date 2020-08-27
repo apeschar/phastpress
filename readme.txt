@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.72
+Stable tag: 1.73
 Tested up to: 5.5
 License: AGPL-3.0
 Contributors: apeschar
@@ -152,6 +152,10 @@ If image optimization is switched off, the API will not be used.
 
 
 == Changelog ==
+
+= 1.73 - 2020-08-27 =
+
+* Don't use error suppression when checking query parameters, instead use isset. This prevents notices from appearing in some error logging plugins, even though they are suppressed.
 
 = 1.72 - 2020-08-26 =
 
