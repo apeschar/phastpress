@@ -80,6 +80,15 @@ function phastpress_deploy() {
         wp_scripts()->add_data('google_gtagjs', 'phast_no_defer', true);
     });
 
+    // Don't delay GA Google Analytics script.
+    add_filter('ga_google_analytics_script_atts_ext', function ($atts) {
+        return $atts . ' data-phast-no-defer';
+    });
+
+    add_filter('ga_google_analytics_script_atts', function ($atts) {
+        return $atts . ' data-phast-no-defer';
+    });
+
     $sdk = phastpress_get_plugin_sdk();
     $handler = $sdk->getPhastAPI()->deployOutputBufferForDocument();
 
