@@ -38,6 +38,15 @@ function phastpress_deploy() {
         return;
     }
 
+    // Support phast_no_defer script attribute.
+    add_filter('script_loader_tag', function ($tag, $handle) {
+        if (!wp_scripts()->get_data($handle, 'phast_no_defer')) {
+            return $tag;
+        }
+
+        return preg_replace('~<script\b~i', '$0 data-phast-no-defer', $tag);
+    }, 10, 2);
+
     // Don't delay Monsterinsights analytics script.
     add_filter('monsterinsights_tracking_analytics_script_attributes', function ($attrs) {
         if (is_array($attrs)) {
@@ -64,6 +73,11 @@ function phastpress_deploy() {
         ob_start(function ($chunk) {
             return preg_replace('~(<script\b)([^>]*>\s*(/\*.*?\*/)?\s*var\s+SlimStatParams\s*=)~', '$1 data-phast-no-defer$2', $chunk);
         }, 8192);
+    });
+
+    // Don't delay Google Site Kit Analytics.
+    add_filter('wp_print_scripts', function () {
+        wp_scripts()->add_data('google_gtagjs', 'phast_no_defer', true);
     });
 
     $sdk = phastpress_get_plugin_sdk();

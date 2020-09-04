@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.74
+Stable tag: 1.75
 Tested up to: 5.5
 License: AGPL-3.0
 Contributors: apeschar
@@ -133,7 +133,21 @@ Or:
 
     <script async data-phast-no-defer src="http://url.to.my.script/"></script>
 
-This is applied automatically for the Google Analytics script inserted by Monsterinsights since PhastPress 1.29.
+If you (or a plugin) are using `wp_enqueue_script` to add the script to the page, you can use the `phast_no_defer` data key to stop PhastPress from processing the script:
+
+    wp_script_add_data('my_script_name', 'phast_no_defer', true);
+
+Make sure this is run after registering the script.  If you are trying to apply this to a script loaded by a plugin, you could use the `wp_print_scripts` hook:
+
+    add_filter('wp_print_scripts', function () {
+        wp_script_add_data('my_script_name', 'phast_no_defer', true);
+    });
+
+This is applied automatically for these scripts:
+
+* Google Analytics script inserted by Monsterinsights since PhastPress 1.29.
+* Tracking script inserted by Slimstat Analytics since PhastPress 1.30.
+* Google Analytics script inserted by Google Site Kit since PhastPress 1.75.
 
 = Does PhastPress collect data or use external services? =
 
@@ -152,6 +166,11 @@ If image optimization is switched off, the API will not be used.
 
 
 == Changelog ==
+
+= 1.75 - 2020-09-04 =
+
+* Don't defer Google Site Kit Analytics script.
+* Add support for phast_no_defer script attribute.
 
 = 1.74 - 2020-08-30 =
 
