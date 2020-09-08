@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.76
+Stable tag: 1.77
 Tested up to: 5.5
 License: AGPL-3.0
 Contributors: apeschar
@@ -166,6 +166,14 @@ If image optimization is switched off, the API will not be used.
 
 
 == Changelog ==
+
+= 1.77 - 2020-09-08 =
+
+* Exclude cache from All-in-One WP Migration backups.
+
+Phast was updated to version 1.71.
+
+* Only process JPEG, GIF and PNG images. (Fix regression in 1.65.)
 
 = 1.76 - 2020-09-04 =
 

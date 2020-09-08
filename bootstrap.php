@@ -79,3 +79,13 @@ function phastpress_render_settings() {
         phastpress_get_plugin_sdk()->getAdminPanel()->render()
     );
 }
+
+add_action('ai1wm_exclude_content_from_export', function ($filters) {
+    if (!is_array($filters)) {
+        return $filters;
+    }
+    foreach (phastpress_get_plugin_sdk()->getCacheRootManager()->getAllCacheRoots() as $dir) {
+        $filters[] = $dir;
+    }
+    return $filters;
+});
