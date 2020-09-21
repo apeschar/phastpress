@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.78
+Stable tag: 1.79
 Tested up to: 5.5
 License: AGPL-3.0
 Contributors: apeschar
@@ -166,6 +166,10 @@ If image optimization is switched off, the API will not be used.
 
 
 == Changelog ==
+
+= 1.79 - 2020-09-21 =
+
+* Don't defer [AdThrive Ads](https://wordpress.org/plugins/adthrive-ads/) scripts.
 
 = 1.78 - 2020-09-09 =
 

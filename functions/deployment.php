@@ -1,5 +1,7 @@
 <?php
 
+use Kibo\PhastPlugins\PhastPress\Compat;
+
 function phastpress_deploy() {
     // We have to deploy on plugins_loaded action so we get wp_get_current_user() to be defined.
     if (is_admin()) {
@@ -47,47 +49,15 @@ function phastpress_deploy() {
         return preg_replace('~<script\b~i', '$0 data-phast-no-defer', $tag);
     }, 10, 2);
 
-    // Don't delay Monsterinsights analytics script.
-    add_filter('monsterinsights_tracking_analytics_script_attributes', function ($attrs) {
-        if (is_array($attrs)) {
-            $attrs['data-phast-no-defer'] = '';
-        }
-        return $attrs;
-    });
-
-    // Don't delay Slimstat Analytics.
-    add_filter('wp_print_scripts', function () {
-        if (!wp_script_is('wp_slimstat')) {
-            return;
-        }
-
-        // Don't defer the tracker script.
-        add_filter('script_loader_tag', function ($tag, $handle, $src) {
-            if ($handle !== 'wp_slimstat') {
-                return $tag;
-            }
-            return preg_replace('~<script\b~', '$0 data-phast-no-defer async', $tag);
-        }, 10, 3);
-
-        // Don't defer the inline parameters script.
-        ob_start(function ($chunk) {
-            return preg_replace('~(<script\b)([^>]*>\s*(/\*.*?\*/)?\s*var\s+SlimStatParams\s*=)~', '$1 data-phast-no-defer$2', $chunk);
-        }, 8192);
-    });
-
-    // Don't delay Google Site Kit Analytics.
-    add_filter('wp_print_scripts', function () {
-        wp_scripts()->add_data('google_gtagjs', 'phast_no_defer', true);
-    });
-
-    // Don't delay GA Google Analytics script.
-    add_filter('ga_google_analytics_script_atts_ext', function ($atts) {
-        return $atts . ' data-phast-no-defer';
-    });
-
-    add_filter('ga_google_analytics_script_atts', function ($atts) {
-        return $atts . ' data-phast-no-defer';
-    });
+    foreach ([
+        Compat\MonsterInsights::class,
+        Compat\Slimstat::class,
+        Compat\GoogleSiteKit::class,
+        Compat\GAGoogleAnalytics::class,
+        Compat\AdThrive::class,
+    ] as $class) {
+        (new $class())->setup();
+    }
 
     $sdk = phastpress_get_plugin_sdk();
     $handler = $sdk->getPhastAPI()->deployOutputBufferForDocument();
