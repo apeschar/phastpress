@@ -1,5 +1,9 @@
 <?php
 
+if (!defined('PHASTPRESS_VERSION')) {
+    exit;
+}
+
 require_once __DIR__ . '/autoload.php';
 
 add_action('plugins_loaded', function () {

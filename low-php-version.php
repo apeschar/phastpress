@@ -1,5 +1,9 @@
 <?php
 
+if (!defined('PHASTPRESS_VERSION')) {
+    exit;
+}
+
 add_action('admin_notices', 'phastpress_php_version_notice');
 
 function phastpress_php_version_notice() {
