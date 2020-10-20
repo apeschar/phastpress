@@ -49,6 +49,17 @@ function phastpress_deploy() {
         return preg_replace('~<script\b~i', '$0 data-phast-no-defer', $tag);
     }, 10, 2);
 
+    add_filter('wp_print_scripts', function () {
+        foreach (wp_scripts()->registered as $handle => $item) {
+            if (empty($item->extra['phast_no_defer'])
+                || empty($item->extra['data'])
+            ) {
+                continue;
+            }
+            $item->extra['data'] = "'phast-no-defer';\n" . $item->extra['data'];
+        }
+    });
+
     foreach ([
         Compat\MonsterInsights::class,
         Compat\Slimstat::class,
