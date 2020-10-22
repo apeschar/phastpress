@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.82
+Stable tag: 1.83
 Tested up to: 5.5
 License: AGPL-3.0
 Contributors: apeschar
@@ -57,23 +57,21 @@ I recommend using the simple combination of PhastPress and [WP Super Cache](http
 
 [Fast Velocity Minify](https://wordpress.org/plugins/fast-velocity-minify/) is not compatible with PhastPress, and causes PhastPress not to work. Please use either plugin, but not both.
 
-= Is PhastPress a caching plugin? Do you recommend another caching plugin? =
+= What about caching and compatibility with caching plugins? =
 
-No, PhastPress does not do caching. I recommend using [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) in combination with PhastPress to speed up your server response time (TTFB).
+Caching means saving the HTML from the first visit to a page for later visits, so it does not have to be generated each time. Caching also helps performance with PhastPress, because the page needs to be optimized only once. It is recommendable to use a caching plugin with PhastPress.
 
-= Is PhastPress compatible with WP Fastest Cache? =
+PhastPress is not a caching plugin. I recommend using [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) in combination with PhastPress to speed up your server response time (TTFB).
 
-Yes, but non-caching optimizations must be **disabled**. Turn off the WP Fastest Cache options in [this screenshot](https://peschar.net/s/yQVWIuOuI4ThfRZfkKJa/).
+In case you are using another caching plugin, please read the notes below:
 
-= Is PhastPress compatible with W3 Total Cache? =
+**WP Fastest Cache**: Compatible with PhastPress, but non-caching optimizations must be **disabled**. Turn off the WP Fastest Cache options in [this screenshot](https://peschar.net/s/yQVWIuOuI4ThfRZfkKJa/).
 
-Yes, but non-caching optimizations must be **disabled**.
+**W3 Total Cache**: Compatible with PhastPress, but non-caching optimizations must be **disabled**. Specifically, the _Prevent caching of objects after settings change_ option causes problems.
 
-Specifically, the _Prevent caching of objects after settings change_ option causes problems.
+**Cache Enabler** (by KeyCDN): Not compatible with PhastPress. Cached pages will not be optimized.
 
-= Is PhastPress compatible with other caching plugins? =
-
-Yes. Some caching plugins include optimizations of JavaScript, CSS and/or images. I recommend turning off all optimizations to avoid conflicts with PhastPress.
+Generally, PhastPress should be compatible with other caching plugins as well. Some caching plugins include optimizations of JavaScript, CSS and/or images. I recommend turning off all optimizations to avoid conflicts with PhastPress.
 
 = Is PhastPress compatible with Asset CleanUp: Page Speed Booster? =
 
@@ -167,6 +165,12 @@ If image optimization is switched off, the API will not be used.
 
 
 == Changelog ==
+
+= 1.83 - 2020-10-22 =
+
+Phast was updated to version 1.75:
+
+* Insert path separators (`/`) into bundler URLs in order to avoid Apache's 255 character filename limit.
 
 = 1.82 - 2020-10-20 =
 
