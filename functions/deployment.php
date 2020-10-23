@@ -36,6 +36,12 @@ function phastpress_deploy() {
             defined('WPACU_LOAD_ASSETS_REQ_KEY')
             && !empty($_REQUEST[WPACU_LOAD_ASSETS_REQ_KEY])
         )
+        // WPBakery
+        || (
+            defined('WPB_VC_VERSION')
+            && isset($_GET['vc_editable'])
+            && $_GET['vc_editable'] === 'true'
+        )
     ) {
         return;
     }
