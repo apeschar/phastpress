@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.84
+Stable tag: 1.85
 Tested up to: 5.5
 License: AGPL-3.0
 Contributors: apeschar
@@ -165,6 +165,12 @@ If image optimization is switched off, the API will not be used.
 
 
 == Changelog ==
+
+= 1.85 - 2020-10-23 =
+
+Phast was updated to version 1.77:
+
+* Insert `<meta charset=utf-8>` tag right after `<head>` and remove existing `<meta charset>` tags.  This fixes an issue where the `<meta charset>` tag appears more than 512 bytes into the document, causing encoding issues.
 
 = 1.84 - 2020-10-23 =
 
