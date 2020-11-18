@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.87
+Stable tag: 1.88
 Tested up to: 5.5
 License: AGPL-3.0
 Contributors: apeschar
@@ -141,6 +141,8 @@ Make sure this is run after registering the script.  If you are trying to apply 
         wp_script_add_data('my_script_name', 'phast_no_defer', true);
     });
 
+If you use the HTML source code to find the script name, note that `-js` and `-js-extra` are _not_ part of the name.  For example, for a script like `<script id="jquery-core-js">` in the source code, the script name is `jquery-core`, and that is what you should pass to `wp_script_add_data`.
+
 This is applied automatically for these scripts:
 
 * Google Analytics script inserted by Monsterinsights since PhastPress 1.29.
@@ -163,8 +165,31 @@ Images are sent to the API only once. Processed images are stored locally, and n
 
 If image optimization is switched off, the API will not be used.
 
+= I get an error saying "Headers already sent". How do I fix this? =
+
+Your theme or a plugin is trying to send HTTP headers after the page has started rendering and bytes have been sent to the browser.  This is wrong, but it works when PHP output buffering is enabled.
+
+PhastPress always sends output as soon as possible, to reduce the time to first byte.  That means this problem cannot be fixed without slowing down sites without buggy themes/plugins.
+
+To fix the problem on your site, the following code needs to be run in order to enable output buffering:
+
+`<?php
+add_action('template_redirect', function () {
+    ob_start();
+});`
+
+You can add this code to your theme's `functions.php`, or create a file `output-buffer.php` in `wp-content/mu-plugins` with the above code.  You may have to create this directory first.
+
+Alternatively, [download `output-buffer.zip`](https://peschar.net/files/output-buffer.zip) and extract the contents into your web folder.  You should end up with a file named `output-buffer.php` in `wp-content/mu-plugins`.
 
 == Changelog ==
+
+= 1.88 - 2020-11-18 =
+
+Phast was updated to version 1.79:
+
+* Support `document.currentScript` in optimized scripts. (This fixed compatibility with [PDF Embedder](https://wordpress.org/plugins/pdf-embedder/).)
+* Prevent (suppressed) notice from `ob_end_clean`.
 
 = 1.87 - 2020-10-28 =
 
