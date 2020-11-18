@@ -41,7 +41,17 @@ add_filter('plugin_action_links_' . plugin_basename(PHASTPRESS_PLUGIN_FILE), fun
 
 add_action('plugins_loaded', function () {
     \Kibo\PhastPlugins\PhastPress\CDN::installHook();
-    phastpress_deploy();
+
+    if (($priority = has_filter('init', 'wp_cache_late_loader')) !== false) {
+        add_action('init', 'phastpress_deploy', $priority + 1);
+        add_action('wp_head', function () {
+            phastpress_console_log(
+                'PhastPress deployed via init hook for WP Super Cache late init compat'
+            );
+        });
+    } else {
+        phastpress_deploy();
+    }
 });
 
 add_action('admin_print_scripts', function () {
@@ -60,17 +70,20 @@ add_action('admin_menu', function () {
 
 add_action('wp_head', function () {
     $style = 'font-family:helvetica,sans-serif';
-    $args = [
+    phastpress_console_log(
         "%cOptimized with %cPhastPress%c %s\nhttps://wordpress.org/plugins/phastpress/",
         $style,
         $style . ';font-weight:bold',
         $style,
-        PHASTPRESS_VERSION,
-    ];
+        PHASTPRESS_VERSION
+    );
+});
+
+function phastpress_console_log(...$args) {
     echo '<script data-phast-no-defer>console.log(' .
          implode(',', array_map('json_encode', $args)) .
          ')</script>';
-});
+}
 
 function phastpress_render_settings() {
     echo sprintf(
