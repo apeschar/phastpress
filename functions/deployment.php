@@ -80,7 +80,7 @@ function phastpress_deploy() {
     $handler = $sdk->getPhastAPI()->deployOutputBufferForDocument();
 
     // Allow disabling PhastPress with hook.
-    add_filter('template_redirect', function () use ($handler) {
+    add_action('template_redirect', function () use ($handler) {
         if (apply_filters('phastpress_disable', false)) {
             $handler->cancel();
         }

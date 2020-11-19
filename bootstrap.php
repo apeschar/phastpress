@@ -1,5 +1,8 @@
 <?php
 
+use Kibo\PhastPlugins\PhastPress\CDN;
+use Kibo\PhastPlugins\PhastPress\Compat;
+
 if (!defined('PHASTPRESS_VERSION')) {
     exit;
 }
@@ -40,15 +43,16 @@ add_filter('plugin_action_links_' . plugin_basename(PHASTPRESS_PLUGIN_FILE), fun
 });
 
 add_action('plugins_loaded', function () {
-    \Kibo\PhastPlugins\PhastPress\CDN::installHook();
+    CDN::installHook();
+    Compat\Log::setup();
 
     if (($priority = has_filter('init', 'wp_cache_late_loader')) !== false) {
         add_action('init', 'phastpress_deploy', $priority + 1);
-        add_action('wp_head', function () {
-            phastpress_console_log(
-                'PhastPress deployed via init hook for WP Super Cache late init compat'
-            );
-        });
+        Compat\Log::add(
+            'wp-super-cache',
+            'deploying PhastPress via init hook to support WP Super Cache late init'
+        );
+        (new Compat\NextGenGallery())->setup($priority + 1);
     } else {
         phastpress_deploy();
     }

@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.89
+Stable tag: 1.90
 Tested up to: 5.5
 License: AGPL-3.0
 Contributors: apeschar
@@ -183,6 +183,10 @@ You can add this code to your theme's `functions.php`, or create a file `output-
 Alternatively, [download `output-buffer.zip`](https://peschar.net/files/output-buffer.zip) and extract the contents into your web folder.  You should end up with a file named `output-buffer.php` in `wp-content/mu-plugins`.
 
 == Changelog ==
+
+= 1.90 - 2020-11-19 =
+
+* Delay [NextGEN Gallery](https://wordpress.org/plugins/nextgen-gallery/) resource manager output buffer hook until after PhastPress deployment if WP Super Cache late init is enabled. This fixes an issue where footer scripts would disappear when NextGEN Gallery and WP Super Cache late init were used at the same time.
 
 = 1.89 - 2020-11-18 =
 
