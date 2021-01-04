@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.92
+Stable tag: 1.93
 Tested up to: 5.6
 License: AGPL-3.0
 Contributors: apeschar
@@ -137,7 +137,7 @@ If you (or a plugin) are using `wp_enqueue_script` to add the script to the page
 
 Make sure this is run after registering the script.  If you are trying to apply this to a script loaded by a plugin, you could use the `wp_print_scripts` hook:
 
-    add_filter('wp_print_scripts', function () {
+    add_action('wp_print_scripts', function () {
         wp_script_add_data('my_script_name', 'phast_no_defer', true);
     });
 
@@ -184,11 +184,21 @@ Alternatively, [download `output-buffer.zip`](https://peschar.net/files/output-b
 
 == Changelog ==
 
+= 1.93 - 2021-01-04 =
+
+Phast was updated to version 1.83:
+
+* Make sure setTimeout chains in DOMContentLoaded are completely executed before the load event is triggered. This fixes some uses of jQuery's ready event.
+
 = 1.92 - 2020-12-16 =
+
+Phast was updated to version 1.81:
 
 * Use Base64-based path info for server-generated URLs.
 
 = 1.91 - 2020-12-16 =
+
+Phast was updated to version 1.80:
 
 * Encode characters that cannot occur in URLs. This fixes canonical URLs for optimized images if those URLs contained special characters.
 
