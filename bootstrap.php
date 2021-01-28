@@ -53,6 +53,14 @@ add_action('plugins_loaded', function () {
             'deploying PhastPress via init hook to support WP Super Cache late init'
         );
         (new Compat\NextGenGallery())->setup($priority + 1);
+    } elseif (class_exists(\LiteSpeed\Core::class)
+              && ($priority = (new Compat\LiteSpeedCache())->getHookPriority()) !== null
+    ) {
+        add_action('after_setup_theme', 'phastpress_deploy', $priority + 1);
+        Compat\Log::add(
+            'litespeed-cache',
+            'deploying PhastPress via after_setup_theme hook to support LiteSpeed Cache'
+        );
     } else {
         phastpress_deploy();
     }
