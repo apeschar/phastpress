@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.95
+Stable tag: 1.96
 Tested up to: 5.6
 License: AGPL-3.0
 Contributors: apeschar
@@ -184,9 +184,15 @@ Alternatively, [download `output-buffer.zip`](https://peschar.net/files/output-b
 
 == Changelog ==
 
+= 1.96 - 2021-01-28 =
+
+Phast was updated to version 1.85:
+
+* Raise maximum page size to 2 MiB.
+
 = 1.95 - 2021-01-28 =
 
-* Add compatibilitiy for LiteSpeed Cache. PhastPress optimizations would not work before this.
+* Add compatibility for LiteSpeed Cache. PhastPress optimizations would not work before this.
 
 = 1.94 - 2021-01-18 =
 
