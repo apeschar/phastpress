@@ -21,7 +21,7 @@ class Log {
         $o .= 'console.group("[PhastPress] Plugin compatibility");';
         foreach (self::$messages as $plugin => $messages) {
             foreach ($messages as $message) {
-                $o .= 'console.log(' . json_encode("{$plugin}: {$message}") . ');';
+                $o .= 'console.log(' . json_encode($plugin ? "{$plugin}: {$message}" : $message) . ');';
             }
         }
         $o .= 'console.groupEnd();';

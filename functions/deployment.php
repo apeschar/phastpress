@@ -42,7 +42,14 @@ function phastpress_deploy() {
             && isset($_GET['vc_editable'])
             && $_GET['vc_editable'] === 'true'
         )
+        // Oxygen
+        || (
+            defined('CT_VERSION')
+            && isset($_GET['ct_builder'])
+            && $_GET['ct_builder'] === 'true'
+        )
     ) {
+        Compat\Log::add(null, 'Disabling PhastPress during visual editing');
         return;
     }
 
