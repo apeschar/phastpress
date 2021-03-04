@@ -2,6 +2,7 @@
 namespace Kibo\PhastPlugins\PhastPress;
 
 require_once __DIR__ . '/sdk/phast.php';
+require_once __DIR__ . '/functions/api.php';
 require_once __DIR__ . '/functions/deployment.php';
 require_once __DIR__ . '/functions/service.php';
 
