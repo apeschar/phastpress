@@ -4,6 +4,7 @@ namespace Kibo\PhastPlugins\PhastPress\Compat;
 class Ajax {
     const ACTIONS = [
         'yith_load_product_quick_view',
+        'flatsome_quickview',
     ];
 
     public function setup() {
