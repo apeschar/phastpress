@@ -7,16 +7,25 @@ class Ajax {
     ];
 
     public function setup() {
-        if (basename($_SERVER['SCRIPT_FILENAME']) !== 'admin-ajax.php') {
-            return;
+        if ((
+            defined('DOING_AJAX')
+            && DOING_AJAX
+            && defined('WP_ADMIN')
+            && WP_ADMIN
+            && isset($_REQUEST['action'])
+            && in_array($_REQUEST['action'], self::ACTIONS, true)
+        ) || (
+            isset($_GET['wc-ajax'])
+            && in_array($_GET['wc-ajax'], self::ACTIONS, true)
+            && class_exists(\WC_AJAX::class)
+        )) {
+            add_action('init', function () {
+                phastpress_get_plugin_sdk()->getPhastAPI()->deployOutputBufferForSnippets();
+            });
+
+            return true;
         }
 
-        if (!isset($_REQUEST['action']) || !in_array($_REQUEST['action'], self::ACTIONS, true)) {
-            return;
-        }
-
-        add_action('admin_init', function () {
-            phastpress_get_plugin_sdk()->getPhastAPI()->deployOutputBufferForSnippets();
-        });
+        return false;
     }
 }

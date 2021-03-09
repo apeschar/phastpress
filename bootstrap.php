@@ -45,7 +45,10 @@ add_filter('plugin_action_links_' . plugin_basename(PHASTPRESS_PLUGIN_FILE), fun
 add_action('plugins_loaded', function () {
     CDN::installHook();
     Compat\Log::setup();
-    (new Compat\Ajax())->setup();
+
+    if ((new Compat\Ajax())->setup()) {
+        return;
+    }
 
     if (($priority = has_filter('init', 'wp_cache_late_loader')) !== false) {
         add_action('init', 'phastpress_deploy', $priority + 1);
