@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.109
+Stable tag: 1.110
 Tested up to: 5.6
 License: AGPL-3.0
 Contributors: apeschar
@@ -184,14 +184,17 @@ Alternatively, [download `output-buffer.zip`](https://peschar.net/files/output-b
 
 == Changelog ==
 
+= 1.110 - 2021-03-11 =
+
+Phast was updated to version 1.96:
+
+* Don't emulate `document.currentScript` for scripts that are executed normally. This prevents some scripts from seeing the wrong `currentScript` accidentally.
+
 = 1.109 - 2021-03-09 =
 
 Phast was updated to version 1.95:
 
-* Do not rewrite `<img>` element `src` when it has a `rev-slidebg` class and
-  points to `transparent.png`. This is because [Revolution
-  Slider](https://www.sliderrevolution.com/)'s JavaScript depends on the image
-  filename for its logic.
+* Do not rewrite `<img>` element `src` when it has a `rev-slidebg` class and points to `transparent.png`. This is because [Revolution Slider](https://www.sliderrevolution.com/)'s JavaScript depends on the image filename for its logic.
 
 = 1.108 - 2021-03-09 =
 
