@@ -9,6 +9,12 @@ if (!defined('PHASTPRESS_VERSION')) {
 
 require_once __DIR__ . '/autoload.php';
 
+/* BEGIN UPDATER */
+if (file_exists(__DIR__ . '/classes/Updater.php')) {
+    Kibo\PhastPlugins\PhastPress\Updater::setup();
+}
+/* END UPDATER */
+
 add_action('plugins_loaded', function () {
     if (!get_option('phastpress_1.43')) {
         phastpress_get_plugin_sdk()

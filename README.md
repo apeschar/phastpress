@@ -1,17 +1,16 @@
-=== PhastPress ===
+# PhastPress
 
-Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
-Requires at least: 4.4
-Requires PHP: 5.6
-Stable tag: 1.112
-Tested up to: 5.7
-License: AGPL-3.0
-Contributors: apeschar
+**Tags:** pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix \
+**Requires at least:** 4.4 \
+**Requires PHP:** 5.6 \
+**Stable tag:** 1.112 \
+**Tested up to:** 5.7 \
+**License:** AGPL-3.0 \
+**Contributors:** apeschar
 
 PhastPress automatically optimizes your site for the best possible performance.
 
-
-== Description ==
+## Description
 
 PhastPress uses advanced techniques to manipulate your pages, scripts, stylesheets and images to significantly improve load times. It's designed to conform to Google PageSpeed Insights and GTmetrix recommendations and can improve your site's score dramatically.
 
@@ -39,17 +38,15 @@ Get the full power of Phast for your website by installing PhastPress now.
 
 **Experience any issues?** Please [contact me (Albert) on albert@peschar.net](mailto:albert@peschar.net).
 
-
-== Installation ==
+## Installation
 
 1. Upload the PhastPress plugin to your site and activate it.
 2. Make sure that PhastPress is activated on the Settings page.
 3. Test your site. If you experience any issues, please [contact me (Albert) on albert@peschar.net](mailto:albert@peschar.net).
 
+## Frequently Asked Questions
 
-== Frequently Asked Questions ==
-
-= Should I use other optimization plugins with PhastPress? =
+### Should I use other optimization plugins with PhastPress?
 
 No. You do not need any other plugins, such as image optimization (e.g., Smush) or file minification (e.g., Autoptimize) after you install PhastPress, because PhastPress includes all necessary optimizations.
 
@@ -57,7 +54,7 @@ I recommend using the simple combination of PhastPress and [WP Super Cache](http
 
 [Fast Velocity Minify](https://wordpress.org/plugins/fast-velocity-minify/) is not compatible with PhastPress, and causes PhastPress not to work. Please use either plugin, but not both.
 
-= What about caching and compatibility with caching plugins? =
+### What about caching and compatibility with caching plugins?
 
 Caching means saving the HTML from the first visit to a page for later visits, so it does not have to be generated each time. Caching also helps performance with PhastPress, because the page needs to be optimized only once. It is recommendable to use a caching plugin with PhastPress.
 
@@ -73,19 +70,19 @@ In case you are using another caching plugin, please read the notes below:
 
 Generally, PhastPress should be compatible with other caching plugins as well. Some caching plugins include optimizations of JavaScript, CSS and/or images. I recommend turning off all optimizations to avoid conflicts with PhastPress.
 
-= Is PhastPress compatible with Asset CleanUp: Page Speed Booster? =
+### Is PhastPress compatible with Asset CleanUp: Page Speed Booster?
 
 Yes.  The core functionality of Asset CleanUp: Page Speed Booster complements PhastPress by removing unused JavaScript and CSS from the page.
 
 Do not use Asset CleanUp's features for optimizing CSS and JS.  These features can cause conflicts with PhastPress, and they are not needed, because PhastPress already does this.
 
-= PhastPress is enabled, but nothing happens =
+### PhastPress is enabled, but nothing happens
 
 You might be using a plugin that compresses the page before PhastPress processes it.  When that happens, PhastPress cannot apply optimizations.
 
 For example, if you are using the [Far Future Expiry Header](https://wordpress.org/plugins/far-future-expiry-header/) plugin, disable the option "Enable Gzip Compression".
 
-= Why does PhastPress not impact the "Fully Loaded Time" measured by GTmetrix? =
+### Why does PhastPress not impact the "Fully Loaded Time" measured by GTmetrix?
 
 The "Fully Loaded Time" in GTmetrix is the amount of time taken until all network activity ceases.  This measurement can be misleading because it does not take into account the order in which resources load.
 
@@ -93,9 +90,13 @@ Normally, external resources such as scripts and stylesheets must be downloaded,
 
 This causes the page to be visible earlier in the browser, but does not change GTmetrix's fully loaded time.
 
-In order to see this effect, register and log in to GTmetrix and enable the "Video" option.  Then test your site (with Phast enabled), and use the "Compare" button to again test your site, but while appending "?phast=-phast" to the URL (eg, https://example.com/?phast=-phast).  When the comparison loads, select the "Filmstrips" tab and you'll see the difference.  The Phast-optimized version of your site should start rendering much earlier.
+In order to see this effect, register and log in to GTmetrix and enable the "Video" option.  Then test your site (with Phast enabled), and use the "Compare" button to again test your site, but while appending "?phast=-phast" to the URL (eg, https://example.com/?phast
 
-= Can I use a hook to disable PhastPress? =
+### -phast).  When the comparison loads, select the "Filmstrips" tab and you'll see the difference.  The Phast-optimized version of your site should start rendering much earlier.
+
+
+
+### Can I use a hook to disable PhastPress?
 
 Should you need to disable PhastPress on certain pages, you can use the following code to do so:
 
@@ -103,7 +104,7 @@ Should you need to disable PhastPress on certain pages, you can use the followin
 
 Make sure that this code runs during `template_redirect` or earlier.
 
-= Can I use disable PhastPress on WooCommerce checkout and cart pages? =
+### Can I use disable PhastPress on WooCommerce checkout and cart pages?
 
 Add this code to your theme's functions.php, or to a new file in wp-content/mu-plugins:
 
@@ -111,13 +112,13 @@ Add this code to your theme's functions.php, or to a new file in wp-content/mu-p
         return $disable || is_cart() || is_checkout();
     });
 
-= How and when does PhastPress clean the cache? =
+### How and when does PhastPress clean the cache?
 
 PhastPress uses filesize and modification time information to detect file changes, so clearing the cache is generally not needed.  When you change a script or CSS file, the change should be visible immediately after reloading.
 
 If you do want to clear the cache, you can delete all the data inside `wp-content/cache/phastpress` or `wp-content/plugins/phastpress/cache`.
 
-= How do I exclude a specific script from optimization? =
+### How do I exclude a specific script from optimization?
 
 By default, PhastPress delays the load of all scripts until after the DOM has finished loading, so that the browser can render the page as quickly as possible.  If you wish to load specific scripts as soon as possible, such as Google Analytics, you may add the `data-phast-no-defer` attribute to the script.  It would be preferable to also mark external scripts as `async`, when possible.
 
@@ -129,7 +130,9 @@ For example:
 
 Or:
 
-    <script async data-phast-no-defer src="http://url.to.my.script/"></script>
+    <script async data-phast-no-defer src
+
+### "http://url.to.my.script/"></script>
 
 If you (or a plugin) are using `wp_enqueue_script` to add the script to the page, you can use the `phast_no_defer` data key to stop PhastPress from processing the script:
 
@@ -141,7 +144,9 @@ Make sure this is run after registering the script.  If you are trying to apply 
         wp_script_add_data('my_script_name', 'phast_no_defer', true);
     });
 
-If you use the HTML source code to find the script name, note that `-js` and `-js-extra` are _not_ part of the name.  For example, for a script like `<script id="jquery-core-js">` in the source code, the script name is `jquery-core`, and that is what you should pass to `wp_script_add_data`.
+If you use the HTML source code to find the script name, note that `-js` and `-js-extra` are _not_ part of the name.  For example, for a script like `<script id
+
+### "jquery-core-js">` in the source code, the script name is `jquery-core`, and that is what you should pass to `wp_script_add_data`.
 
 This is applied automatically for these scripts:
 
@@ -150,7 +155,7 @@ This is applied automatically for these scripts:
 * Google Analytics script inserted by Google Site Kit since PhastPress 1.75.
 * Google Analytics script inserted by GA Google Analytics since PhastPress 1.76.
 
-= Does PhastPress collect data or use external services? =
+### Does PhastPress collect data or use external services?
 
 Images are optimized using a free API, provided by the creator of PhastPress.
 
@@ -165,7 +170,7 @@ Images are sent to the API only once. Processed images are stored locally, and n
 
 If image optimization is switched off, the API will not be used.
 
-= I get an error saying "Headers already sent". How do I fix this? =
+### I get an error saying "Headers already sent". How do I fix this?
 
 Your theme or a plugin is trying to send HTTP headers after the page has started rendering and bytes have been sent to the browser.  This is wrong, but it works when PHP output buffering is enabled.
 
@@ -182,37 +187,37 @@ You can add this code to your theme's `functions.php`, or create a file `output-
 
 Alternatively, [download `output-buffer.zip`](https://peschar.net/files/output-buffer.zip) and extract the contents into your web folder.  You should end up with a file named `output-buffer.php` in `wp-content/mu-plugins`.
 
-== Changelog ==
+## Changelog
 
-= 1.111 - 2021-03-17 =
+### 1.111 - 2021-03-17
 
 Phast was updated to version 1.111:
 
 * Fix [open redirect](https://cwe.mitre.org/data/definitions/601.html) on `phast.php`. This would allow a malicious person to redirect someone to a third-party site via `phast.php` by sending them a link. This can enable phishing attacks if the user is mislead by the hostname of the initial URL. It does not compromise the security of your site itself.
 
-= 1.110 - 2021-03-11 =
+### 1.110 - 2021-03-11
 
 Phast was updated to version 1.96:
 
 * Don't emulate `document.currentScript` for scripts that are executed normally. This prevents some scripts from seeing the wrong `currentScript` accidentally.
 
-= 1.109 - 2021-03-09 =
+### 1.109 - 2021-03-09
 
 Phast was updated to version 1.95:
 
 * Do not rewrite `<img>` element `src` when it has a `rev-slidebg` class and points to `transparent.png`. This is because [Revolution Slider](https://www.sliderrevolution.com/)'s JavaScript depends on the image filename for its logic.
 
-= 1.108 - 2021-03-09 =
+### 1.108 - 2021-03-09
 
 * Optimize AJAX responses generated by the quick view functionality in [Flatsome](https://themeforest.net/item/flatsome-multipurpose-responsive-woocommerce-theme/5484319) theme.
 
-= 1.107 - 2021-03-09 =
+### 1.107 - 2021-03-09
 
 * Optimize AJAX responses generated by [YITH WooCommerce Quick View Pro](https://plugins.yithemes.com/yith-woocommerce-quick-view/).
 
 Phast was updated to version 1.94 to support this improvement.
 
-= 1.106 - 2021-03-08 =
+### 1.106 - 2021-03-08
 
 * Optimize AJAX responses generated by [YITH WooCommerce Quick View](https://wordpress.org/plugins/yith-woocommerce-quick-view/).
 
@@ -220,26 +225,26 @@ Phast was updated to version 1.93:
 
 * Don't optimize snippets if they look like JSON objects, ie, start with `{"`.
 
-= 1.105 - 2021-03-08 =
+### 1.105 - 2021-03-08
 
 Phast was updated to version 1.92:
 
 * Support whitespace in `url()` in CSS.  Eg, `url( 'file.jpg' )` is not
   processed correctly.
 
-= 1.104 - 2021-03-04 =
+### 1.104 - 2021-03-04
 
 Phast was updated to version 1.91:
 
 * Make message about inability to override `document.readyState` a warning rather than an error, to avoid spurious complaints from PageSpeed Insights.
 
-= 1.103 - 2021-03-04 =
+### 1.103 - 2021-03-04
 
 Phast was updated to version 1.90:
 
 * Correctly support additional arguments when using setTimeout. This fixes a regression in version 1.83.
 
-= 1.102 - 2021-03-04 =
+### 1.102 - 2021-03-04
 
 * Add `phastpress_optimize_snippet` function to allow arbitrary HTML to be optimized.
 
@@ -247,133 +252,137 @@ Phast was updated to version 1.89:
 
 * Ensure error pages are always interpreted as UTF-8.
 
-= 1.101 - 2021-02-26 =
+### 1.101 - 2021-02-26
 
 Phast was updated to version 1.88:
 
 * Simplify `PATH_INFO` calculation if the environment variable is missing. This is now determined by splitting the path component of `REQUEST_URI` on `.php/`.
 * Improve error messages, hopefully aiding troubleshooting when `phast.php` isn't doing it's job.
 
-= 1.100 - 2021-02-18 =
+### 1.100 - 2021-02-18
 
 * Handle multisite installations in subdirectories.
 
-= 1.99 - 2021-02-05 =
+### 1.99 - 2021-02-05
 
 Phast was updated to version 1.87:
 
 * Fix handling of closing parenthesis and string literal separated by newline in JSMin.
 
-= 1.98 - 2021-02-02 =
+### 1.98 - 2021-02-02
 
 * Disable PhastPress while editing with [Oxygen Builder](https://oxygenbuilder.com/).
 
-= 1.97 - 2021-02-01 =
+### 1.97 - 2021-02-01
 
 Phast was updated to version 1.86:
 
 * Use `text/plain` MIME type for the bundled CSS and JS responses. This helps apply automatic response compression in some server configurations (specifically o2switch).
 
-= 1.96 - 2021-01-28 =
+### 1.96 - 2021-01-28
 
 Phast was updated to version 1.85:
 
 * Raise maximum page size to 2 MiB.
 
-= 1.95 - 2021-01-28 =
+### 1.95 - 2021-01-28
 
 * Add compatibility for LiteSpeed Cache. PhastPress optimizations would not work before this.
 
-= 1.94 - 2021-01-18 =
+### 1.94 - 2021-01-18
 
 Phast was updated to version 1.84:
 
 * Detect WOFF2 support using a feature test, instead of relying on the user agent. This fixes Google Fonts on iOS 9 and earlier.
 
-= 1.93 - 2021-01-04 =
+### 1.93 - 2021-01-04
 
 Phast was updated to version 1.83:
 
 * Make sure setTimeout chains in DOMContentLoaded are completely executed before the load event is triggered. This fixes some uses of jQuery's ready event.
 
-= 1.92 - 2020-12-16 =
+### 1.92 - 2020-12-16
 
 Phast was updated to version 1.81:
 
 * Use Base64-based path info for server-generated URLs.
 
-= 1.91 - 2020-12-16 =
+### 1.91 - 2020-12-16
 
 Phast was updated to version 1.80:
 
 * Encode characters that cannot occur in URLs. This fixes canonical URLs for optimized images if those URLs contained special characters.
 
-= 1.90 - 2020-11-19 =
+### 1.90 - 2020-11-19
 
 * Delay [NextGEN Gallery](https://wordpress.org/plugins/nextgen-gallery/) resource manager output buffer hook until after PhastPress deployment if WP Super Cache late init is enabled. This fixes an issue where footer scripts would disappear when NextGEN Gallery and WP Super Cache late init were used at the same time.
 
-= 1.89 - 2020-11-18 =
+### 1.89 - 2020-11-18
 
 * Delay deployment until `init` hook if [WP Super Cache](https://wordpress.org/plugins/wp-super-cache/) late init is enabled. This fixes PhastPress optimizations being done on every load in WP Super Cache's Simple mode, and not being done at all in Expert mode.
 
-= 1.88 - 2020-11-18 =
+### 1.88 - 2020-11-18
 
 Phast was updated to version 1.79:
 
 * Support `document.currentScript` in optimized scripts. (This fixed compatibility with [PDF Embedder](https://wordpress.org/plugins/pdf-embedder/).)
 * Prevent (suppressed) notice from `ob_end_clean`.
 
-= 1.87 - 2020-10-28 =
+### 1.87 - 2020-10-28
 
 Phast was updated to version 1.78:
 
 * Handle `<!doctype html ...>` declarations correctly, and don't insert `<meta charset>` before them. (This broke pages using old XHTML doctypes.)
 
-= 1.86 - 2020-10-23 =
+### 1.86 - 2020-10-23
 
 * Disable PhastPress when editing with WPBakery.
 
-= 1.85 - 2020-10-23 =
+### 1.85 - 2020-10-23
 
 Phast was updated to version 1.77:
 
-* Insert `<meta charset=utf-8>` tag right after `<head>` and remove existing `<meta charset>` tags.  This fixes an issue where the `<meta charset>` tag appears more than 512 bytes into the document, causing encoding issues.
+* Insert `<meta charset
 
-= 1.84 - 2020-10-23 =
+### utf-8>` tag right after `<head>` and remove existing `<meta charset>` tags.  This fixes an issue where the `<meta charset>` tag appears more than 512 bytes into the document, causing encoding issues.
+
+
+
+### 1.84 - 2020-10-23
 
 Phast was updated to version 1.76:
 
 * Stop proxying external scripts like Google Analytics. This feature had no performance benefit, and its only purpose was to improve scores in old versions of PageSpeed Insights.
 
-= 1.83 - 2020-10-22 =
+### 1.83 - 2020-10-22
 
 Phast was updated to version 1.75:
 
 * Insert path separators (`/`) into bundler URLs in order to avoid Apache's 255 character filename limit.
 
-= 1.82 - 2020-10-20 =
+### 1.82 - 2020-10-20
 
 Phast was updated to version 1.74:
 
 * Ignore calls to `document.write` from `async` or `defer` scripts, in line with normal browser behaviour.
 
-= 1.81 - 2020-10-20 =
+### 1.81 - 2020-10-20
 
 * Apply `phast_no_defer` script attribute to scripts generated by `wp_localize_script`.
 
-= 1.80 - 2020-10-05 =
+### 1.80 - 2020-10-05
 
 * Prevent direct access to `bootstrap.php`, `low-php-version.php` and files in `classes` directory. This is not a security risk, but could generate errors.
 
-= 1.79 - 2020-09-21 =
+### 1.79 - 2020-09-21
 
 * Don't defer [AdThrive Ads](https://wordpress.org/plugins/adthrive-ads/) scripts.
 
-= 1.78 - 2020-09-09 =
+### 1.78 - 2020-09-09
 
 * Don't resize images based on `width`/`height` attributes on `img` tags.
 
-= 1.77 - 2020-09-08 =
+### 1.77 - 2020-09-08
 
 * Exclude cache from All-in-One WP Migration backups.
 
@@ -381,51 +390,54 @@ Phast was updated to version 1.71.
 
 * Only process JPEG, GIF and PNG images. (Fix regression in 1.65.)
 
-= 1.76 - 2020-09-04 =
+### 1.76 - 2020-09-04
 
 * Don't defer GA Google Analytics scripts.
 
-= 1.75 - 2020-09-04 =
+### 1.75 - 2020-09-04
 
 * Don't defer Google Site Kit Analytics script.
 * Add support for phast_no_defer script attribute.
 
-= 1.74 - 2020-08-30 =
+### 1.74 - 2020-08-30
 
 Phast was updated to version 1.70.
 
 * Add Last-Modified header to service response.
 
-= 1.73 - 2020-08-27 =
+### 1.73 - 2020-08-27
 
 * Don't use error suppression when checking query parameters, instead use isset. This prevents notices from appearing in some error logging plugins, even though they are suppressed.
 
-= 1.72 - 2020-08-26 =
+### 1.72 - 2020-08-26
 
 Phast was updated to version 1.69.
 
 * Fix CSS proxy URL generation not to include `__p__` filename twice.
 
-= 1.71 - 2020-08-25 =
+### 1.71 - 2020-08-25
 
 Phast was updated to version 1.68.
 
 * Support URLs generated via Retina.js (when path info is enabled).
 
-= 1.70 - 2020-08-21 =
+### 1.70 - 2020-08-21
 
 Phast was updated to version 1.67.
 
 * Fix IE 11 stylesheet fallbacks.
 
-= 1.69 - 2020-08-21 =
+### 1.69 - 2020-08-21
 
 Phast was updated to version 1.66.
 
-* Convert `<link onload="media='all'">` to `<link media="all">` before inlining.
+* Convert `<link onload="media='all'">` to `<link media
+
+### "all">` before inlining.
+
 * Elide `media` attribute on generated `style` tags if it is `all`.
 
-= 1.68 - 2020-08-20 =
+### 1.68 - 2020-08-20
 
 Phast was updated to version 1.65.
 
@@ -433,49 +445,53 @@ Phast was updated to version 1.65.
 * Don't whitelist local URLs but check that the referenced files exist.
 * Support [BunnyCDN](https://wordpress.org/plugins/bunnycdn/) by optimizing resources on the CDN domain and loading processed resources via the CDN domain.
 
-= 1.67 - 2020-08-18 =
+### 1.67 - 2020-08-18
 
 Phast was updated to version 1.64.
 
 * Preserve control characters in strings in minified JavaScript.
 * Use JSON_INVALID_UTF8_IGNORE on PHP 7.2+ instead of regexp-based invalid UTF-8 character removal.
 
-= 1.66 - 2020-08-13 =
+### 1.66 - 2020-08-13
 
 Phast was updated to version 1.63.
 
 * Images in AMP documents are now optimized. No other optimizations are performed in AMP documents.
 
-= 1.65 - 2020-08-11 =
+### 1.65 - 2020-08-11
 
 Phast was updated to version 1.62.
 
-* Add an option to lazy load images using native lazy loading (`loading=lazy` attribute). This is enabled by default.
+* Add an option to lazy load images using native lazy loading (`loading
 
-= 1.64 - 2020-07-21 =
+### lazy` attribute). This is enabled by default.
+
+
+
+### 1.64 - 2020-07-21
 
 Phast was updated to version 1.61.
 
 * Added an option to disable gzip compression of processed resources downloaded via `phast.php`. This might help to fix issues on hosts that compress already compressed responses.
 
-= 1.63 - 2020-07-21 =
+### 1.63 - 2020-07-21
 
 Phast was updated to version 1.60:
 
 * Ensure that requestAnimationFrame callbacks run before onload event.
 * Don't rewrite anchor URLs (like `#whatever`) in CSS.
 
-= 1.62 - 2020-07-08 =
+### 1.62 - 2020-07-08
 
 Phast was updated to version 1.58:
 
 * Rewrite each URL in a CSS rule, not just the first one.
 
-= 1.61 - 2020-06-17 =
+### 1.61 - 2020-06-17
 
 * Disable PhastPress during Asset Cleanup: Page Speed Booster analysis.
 
-= 1.60 - 2020-06-10 =
+### 1.60 - 2020-06-10
 
 Phast was updated to version 1.55:
 
@@ -483,26 +499,26 @@ Phast was updated to version 1.55:
 * Don't optimize image URLs in attributes of `<meta>` tags.
 * When optimizing images, send the local PHP version to the API, to investigate whether PHP 5.6 support can be phased out.
 
-= 1.59 - 2020-06-09 =
+### 1.59 - 2020-06-09
 
 Phast was updated to version 1.54:
 
 * Fix writing existing read-only cache files (on Windows).
 
-= 1.58 - 2020-06-09 =
+### 1.58 - 2020-06-09
 
 Phast was updated to version 1.53:
 
 * Fix caching on Windows by not setting read-only permissions on cache files.
 * Add a checksum to cache files to prevent accidental modifications causing trouble.
 
-= 1.57 - 2020-06-05 =
+### 1.57 - 2020-06-05
 
 Phast was updated to version 1.51:
 
 * Rewrite image URLs in any attribute, as long as the URL points to a local file and ends with an image extension.
 
-= 1.56 - 2020-06-04 =
+### 1.56 - 2020-06-04
 
 Phast was updated to version 1.50:
 
@@ -511,74 +527,77 @@ Phast was updated to version 1.50:
 * Add `font-swap: block` for Ionicons.
 * Remove UTF-8 byte order mark from inlined stylesheets.
 
-= 1.55 - 2020-05-28 =
+### 1.55 - 2020-05-28
 
 * Fix release.
 
-= 1.54 - 2020-05-28 =
+### 1.54 - 2020-05-28
 
 * Improve compatibility with [Nimble Page Builder](https://wordpress.org/plugins/nimble-builder/) and [Child Theme Configurator](https://wordpress.org/plugins/child-theme-configurator/).
 
-= 1.53 - 2020-05-27 =
+### 1.53 - 2020-05-27
 
 Phast was updated to version 1.49:
 
 * Send uncompressed responses to Cloudflare.  Cloudflare will handle compression.
 
-= 1.52 - 2020-05-25 =
+### 1.52 - 2020-05-25
 
 Phast was updated to version 1.48:
 
 * Stop excessive error messages when IndexedDB is unavailable.
 
-= 1.51 - 2020-05-19 =
+### 1.51 - 2020-05-19
 
 Phast was updated to version 1.47:
 
 * Process image URLs in `data-src`, `data-srcset`, `data-wood-src` and `data-wood-srcset` attributes on `img` tags.
 
-= 1.50 - 2020-05-18 =
+### 1.50 - 2020-05-18
 
 This release should have updated Phast to version 1.47, but didn't, by accident.
 
-= 1.49 - 2020-05-14 =
+### 1.49 - 2020-05-14
 
 Phast was updated to version 1.46:
 
 * Whitelist `cdnjs.cloudflare.com` for CSS processing.
 
-= 1.48 - 2020-05-13 =
+### 1.48 - 2020-05-13
 
 Phast was updated to version 1.45:
 
 * Use `font-display: block` for icon fonts (currently Font Awesome, GeneratePress and Dashicons).
 
-= 1.47 - 2020-05-04 =
+### 1.47 - 2020-05-04
 
 Phast was updated to version 1.44:
 
-* Support `data-pagespeed-no-defer` and `data-cfasync="false"` attributes on scripts for disabling script deferral (in addition to `data-phast-no-defer`).
+* Support `data-pagespeed-no-defer` and `data-cfasync
+
+### "false"` attributes on scripts for disabling script deferral (in addition to `data-phast-no-defer`).
+
 * Leave `data-{phast,pagespeed}-no-defer` and `data-cfasync` attributes in place to aid debugging.
 
-= 1.46 - 2020-04-30 =
+### 1.46 - 2020-04-30
 
 Phast was updated to version 1.43:
 
 * Base64 encode the config JSON passed to the frontend, to stop Gtranslate or other tools from mangling the service URL that is contained in it.
 
-= 1.45 - 2020-04-15 =
+### 1.45 - 2020-04-15
 
 Phast was updated to version 1.42:
 
 * Speed up script load, and fix a bug with setTimeout functions running before the next script is loaded.
 
-= 1.44 =
+### 1.44
 
 Phast was updated to version 1.41:
 
 * Support compressed external resources (ie, proxied styles and scripts).
 
-= 1.43 =
+### 1.43
 
 * Image optimization functionality works again.  You will have to re-enable it in the settings panel.
 
@@ -586,43 +605,43 @@ Phast was updated to version 1.40:
 
 * Add s.pinimg.com, google-analytics.com/gtm/js to script proxy whitelist.
 
-= 1.42 =
+### 1.42
 
 Phast was updated to version 1.39:
 
 * Remove blob script only after load.  This fixes issues with scripts sometimes not running in Safari.
 
-= 1.41 =
+### 1.41
 
 Phast was updated to version 1.38:
 
 * Fixed a regression causing external scripts to be executed out of order.
 
-= 1.40 =
+### 1.40
 
 Phast was updated to version 1.37:
 
 * Execute scripts by inserting a `<script>` tag with a blob URL, instead of using global eval, so that global variables defined in strict-mode scripts are globally visible.
 
-= 1.39 =
+### 1.39
 
 Phast was updated to version 1.36:
 
 * Clean any existing output buffer, instead of flushing it, before starting Phast output buffer.
 
-= 1.38 =
+### 1.38
 
 Phast was updated to version 1.35:
 
 * Use all service parameters for hash-based cache marker.  This might fix some issues with stale stylesheets being used.
 
-= 1.37 =
+### 1.37
 
 * The `phastpress_disable` hook is now triggered during `template_redirect` instead of `plugins_loaded`, which allows you to use many more functions in your hook handlers.
 
 Phast was updated to version 1.34.
 
-= 1.36 =
+### 1.36
 
 Phast was updated to version 1.33:
 
@@ -631,25 +650,29 @@ Phast was updated to version 1.33:
 * Remove comment tags (`<!-- ... -->`) from inline scripts.
 * Send `Content-Length` header for images.
 
-= 1.35 =
+### 1.35
 
 Phast was updated to version 1.31:
 
 * Change CSS cache marker when dependencies (eg, images) change.  This prevents showing old images because CSS referencing an old optimized version is cached.
 
-= 1.34 =
+### 1.34
 
 * Store service config in `service-config-*` files for AppArmor compatibility, if there's a rule that prevents writing `*.php` files.
 * Create index.html in cache directory to prevent path enumeration.
 
-= 1.33 =
+### 1.33
 
 Phast was updated to version 1.29:
 
 * Trick mod_security into accepting script proxy requests by replacing
-  `src=http://...` with `src=hxxp://...`.
+  `src=http://...` with `src
 
-= 1.32 =
+### hxxp://...`.
+
+
+
+### 1.32
 
 Phast was updated to version 1.28:
 
@@ -658,17 +681,17 @@ Phast was updated to version 1.28:
   WebP to download the wrong image type.  [Use Cloudflare Polish
   instead.](https://support.cloudflare.com/hc/en-us/articles/360000607372-Using-Cloudflare-Polish-to-compress-images)
 
-= 1.31 =
+### 1.31
 
 Phast was updated to version 1.26:
 
 * Keep `id` attributes on `style` elements. (This fixes compatibility with [css-element-queries](https://github.com/marcj/css-element-queries).)
 
-= 1.30 =
+### 1.30
 
 * Don't delay SlimStats script.
 
-= 1.29 =
+### 1.29
 
 * Don't delay Monsterinsights script so that Google Analytics works more reliably.
 
@@ -676,37 +699,37 @@ Phast was updated to version 1.25:
 
 * Keep newlines when minifying HTML.
 
-= 1.28 =
+### 1.28
 
 Phast was updated to version 1.24:
 
 * Send Content-Security-Policy and X-Content-Type-Options headers on resources
   to speculatively prevent any XSS attacks via MIME sniffing.
 
-= 1.27 =
+### 1.27
 
 * Load configuration via `wp-load.php` instead of `wp-config.php`.
 
-= 1.26 =
+### 1.26
 
 * Fix incompatibility with Thrive Architect.
 
-= 1.25 =
+### 1.25
 
 * Test with WordPress 5.3.
 * Fix incompatibility with Divi Visual Builder.
 
-= 1.24 =
+### 1.24
 
 Phast was updated to version 1.23:
 
 * Make CSS filters configurable using switches.
 
-= 1.23 =
+### 1.23
 
 * Disable optimizations inside Yellow Pencil editor.
 
-= 1.22 =
+### 1.22
 
 * Mitigate restrictive access rules for /wp-content by adding our own .htaccess for phast.php.
 * Try to put cache directory in wp-content/cache or wp-content/uploads before using the plugin directory.
@@ -720,17 +743,17 @@ Phast was updated to version 1.22:
 * Add inline JavaScript and JSON minification (whitespace removal).
 * Add a build system to generate a single PHP file with minified scripts.
 
-= 1.21 =
+### 1.21
 
 Phast was updated to version 1.21:
 
 * Don't attempt to optimize CSS selectors containing parentheses, avoiding a bug removing applicable :not(.class) selectors.
 
-= 1.20 =
+### 1.20
 
 * Fix compatibility issues by not prepending our autoloader.
 
-= 1.19 =
+### 1.19
 
 Phast was updated to version 1.20:
 
@@ -738,27 +761,27 @@ Phast was updated to version 1.20:
 * Don't apply rot13 on url-encoded characters.
 * Use valid value for script `type` to quiet W3C validator.
 
-= 1.18 =
+### 1.18
 
 Phast was updated to version 1.18:
 
 * Don't rewrite page-relative fragment image URLs like `fill: url(#destination)`.
 
-= 1.17 =
+### 1.17
 
 Phast was updated to version 1.17:
 
 * Restore `script` attributes in sorted order (that is, `src` before `type`) to stop Internet Explorer from running scripts twice when they have `src` and `type` set.
 
-= 1.16 =
+### 1.16
 
 * Add `phastpress_disable` hook.
 
-= 1.15 =
+### 1.15
 
 * Fix an issue whereby updating to 1.14 would reset the security token, invalidating links used in pages in a full-page cache. (To fix the issue, clear the cache of your full-page caching plugin.)
 
-= 1.14 =
+### 1.14
 
 * Use the correct service URL when the site URL changes after activation.
 
@@ -767,42 +790,42 @@ Phast was updated to version 1.16:
 * Encode bundler request query to avoid triggering adblockers.
 * Use a promise to delay bundler requests until the end of the event loop, rather than setTimeout.
 
-= 1.13 =
+### 1.13
 
 Phast was updated to version 1.15:
 
 * Scripts can now be loaded via `document.write`. This restores normal browser behaviour.
 
-= 1.12 =
+### 1.12
 
 Phast was updated to version 1.14:
 
 * `document.write` now immediately inserts the HTML into the page. This fixes compatibility with Google AdSense.
 
-= 1.11.0 =
+### 1.11.0
 
 Phast was updated to version 1.13.1:
 
 * Remove query strings from URLs to stylesheets and scripts loaded from the local server. It is redundant, since we add the modification time to the URL ourselves.
 
-= 1.10.3 =
+### 1.10.3
 
 * Add version information to console log.
 * Fix notice regarding undefined variable in settings panel.
 
-= 1.10.2 =
+### 1.10.2
 
 Phast was updated to version 1.12.2:
 
 * Increase timeouts for API connection.
 
-= 1.10.1 =
+### 1.10.1
 
 Phast was updated to version 1.12.1:
 
 * Don't use IndexedDB-backed cache on Safari.
 
-= 1.10.0 =
+### 1.10.0
 
 * Use HTTPS for the API connection.
 
@@ -810,7 +833,7 @@ Phast was updated to version 1.12.0:
 
 * Rewrite `data-lazy-src` and `data-lazy-srcset` on `img`, `source` tags for compatibility with lazy loading via [BJ Lazy Load](https://wordpress.org/plugins/bj-lazy-load/), possibly other plugins.
 
-= 1.9.0 =
+### 1.9.0
 
 * Removed script rearrangement setting.
 
@@ -825,11 +848,11 @@ Phast was updated to version 1.11.0:
 * Per-script debugging message when executing scripts.
 * Animated GIFs are no longer processed, so that animation is preserved.
 
-= 1.8.5 =
+### 1.8.5
 
 * Disable PhastPress for Elementor previews (edit mode).
 
-= 1.8.4 =
+### 1.8.4
 
 * Fix installation notice dismissal.
 
@@ -837,19 +860,19 @@ Phast was updated to version 1.9.3:
 
 * `<!--` comments in inline scripts are removed only at the beginning.
 
-= 1.8.3 =
+### 1.8.3
 
 Phast was updated to version 1.9.2:
 
 * Empty scripts are cached correctly.
 
-= 1.8.2 =
+### 1.8.2
 
 Phast was updated to version 1.9.1:
 
 * Async scripts are now not loaded before sync scripts that occur earlier in the document.
 
-= 1.8.1 =
+### 1.8.1
 
 Phast was updated to version 1.9.0:
 
@@ -858,58 +881,58 @@ Phast was updated to version 1.9.0:
 * A 'dummy filename' such as `__p__.js` is appended to service requests to trick Cloudflare into caching those responses.
 * The maximum document size for filters to be applied was corrected to be 1 MiB, not 1 GiB
 
-= 1.8.0 =
+### 1.8.0
 
 This release was built with a pre-release version of Phast 1.9.0 that caused incorrect triggering of the browser `load` event. Please upgrade to PhastPress 1.8.1.
 
-= 1.7.0 =
+### 1.7.0
 
 * Update Phast to version 1.8.0.
 
-= 1.6.2 =
+### 1.6.2
 
 * Do not regenerate the service request token on every configuration change or plugin update.
 
-= 1.6.1 =
+### 1.6.1
 
 * Fix issue with CSS not respecting disabled path info setting.
 
-= 1.6.0 =
+### 1.6.0
 
 * Update Phast to commit 9e1471a.
 * Fix MyParcel (and possibly other plugins) compatibility by not optimizing any pages but WordPress' index.php.
 
-= 1.5.3 =
+### 1.5.3
 
 * Revamped the settings panel.
 
-= 1.5.2 =
+### 1.5.2
 
 * Remove old notice about sending admin email.
 
 [See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
 
-= 1.5.1b =
+### 1.5.1b
 
 * The admin email is no longer sent to the image optimisation API.
 
-= 1.5.1a =
+### 1.5.1a
 
 * Update to Phast 1.5.1.
 
 [See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
 
-= 1.5.1 =
+### 1.5.1
 
 * Disable scripts rearrangement by default.
 
 This version was based on Phast 1.5.0.
 
-= 1.5.0 =
+### 1.5.0
 
 [See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
 
-= 1.4.0 =
+### 1.4.0
 
 * Add automatically configured option to use query strings rather than path info for service requests.
 * Automatically enable PhastPress if everything seems fine.
@@ -917,27 +940,27 @@ This version was based on Phast 1.5.0.
 
 [See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
 
-= 1.3.2 =
+### 1.3.2
 
 * PhastPress is now automatically enabled on installation.
 * The image optimisation API is now automatically enabled on installation.
 
 [See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
 
-= 1.3.1 =
+### 1.3.1
 
 [See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
 
-= 1.3.0 =
+### 1.3.0
 
 * PhastPress now works on Windows.
 
 [See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
 
-= 1.2.0 =
+### 1.2.0
 
 [See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
 
-= 1.1.0 =
+### 1.1.0
 
 [See Phast change log](https://github.com/kiboit/phast/blob/master/CHANGELOG.md)
