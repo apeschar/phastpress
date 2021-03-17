@@ -1,14 +1,15 @@
 # PhastPress
 
-**Tags:** pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix \
-**Requires at least:** 4.4 \
-**Requires PHP:** 5.6 \
-**Stable tag:** 1.113 \
-**Tested up to:** 5.7 \
-**License:** AGPL-3.0 \
-**Contributors:** apeschar
+**Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix\
+**Requires at least**: 4.4\
+**Requires PHP**: 5.6\
+**Stable tag**: 1.113\
+**Tested up to**: 5.7\
+**License**: AGPL-3.0\
+**Contributors**: apeschar
 
 PhastPress automatically optimizes your site for the best possible performance.
+
 
 ## Description
 
@@ -38,11 +39,13 @@ Get the full power of Phast for your website by installing PhastPress now.
 
 **Experience any issues?** Please [contact me (Albert) on albert@peschar.net](mailto:albert@peschar.net).
 
+
 ## Installation
 
 1. Upload the PhastPress plugin to your site and activate it.
 2. Make sure that PhastPress is activated on the Settings page.
 3. Test your site. If you experience any issues, please [contact me (Albert) on albert@peschar.net](mailto:albert@peschar.net).
+
 
 ## Frequently Asked Questions
 
@@ -90,11 +93,7 @@ Normally, external resources such as scripts and stylesheets must be downloaded,
 
 This causes the page to be visible earlier in the browser, but does not change GTmetrix's fully loaded time.
 
-In order to see this effect, register and log in to GTmetrix and enable the "Video" option.  Then test your site (with Phast enabled), and use the "Compare" button to again test your site, but while appending "?phast=-phast" to the URL (eg, https://example.com/?phast
-
-### -phast).  When the comparison loads, select the "Filmstrips" tab and you'll see the difference.  The Phast-optimized version of your site should start rendering much earlier.
-
-
+In order to see this effect, register and log in to GTmetrix and enable the "Video" option.  Then test your site (with Phast enabled), and use the "Compare" button to again test your site, but while appending "?phast=-phast" to the URL (eg, https://example.com/?phast=-phast).  When the comparison loads, select the "Filmstrips" tab and you'll see the difference.  The Phast-optimized version of your site should start rendering much earlier.
 
 ### Can I use a hook to disable PhastPress?
 
@@ -130,9 +129,7 @@ For example:
 
 Or:
 
-    <script async data-phast-no-defer src
-
-### "http://url.to.my.script/"></script>
+    <script async data-phast-no-defer src="http://url.to.my.script/"></script>
 
 If you (or a plugin) are using `wp_enqueue_script` to add the script to the page, you can use the `phast_no_defer` data key to stop PhastPress from processing the script:
 
@@ -144,9 +141,7 @@ Make sure this is run after registering the script.  If you are trying to apply 
         wp_script_add_data('my_script_name', 'phast_no_defer', true);
     });
 
-If you use the HTML source code to find the script name, note that `-js` and `-js-extra` are _not_ part of the name.  For example, for a script like `<script id
-
-### "jquery-core-js">` in the source code, the script name is `jquery-core`, and that is what you should pass to `wp_script_add_data`.
+If you use the HTML source code to find the script name, note that `-js` and `-js-extra` are _not_ part of the name.  For example, for a script like `<script id="jquery-core-js">` in the source code, the script name is `jquery-core`, and that is what you should pass to `wp_script_add_data`.
 
 This is applied automatically for these scripts:
 
@@ -342,11 +337,7 @@ Phast was updated to version 1.78:
 
 Phast was updated to version 1.77:
 
-* Insert `<meta charset
-
-### utf-8>` tag right after `<head>` and remove existing `<meta charset>` tags.  This fixes an issue where the `<meta charset>` tag appears more than 512 bytes into the document, causing encoding issues.
-
-
+* Insert `<meta charset=utf-8>` tag right after `<head>` and remove existing `<meta charset>` tags.  This fixes an issue where the `<meta charset>` tag appears more than 512 bytes into the document, causing encoding issues.
 
 ### 1.84 - 2020-10-23
 
@@ -431,10 +422,7 @@ Phast was updated to version 1.67.
 
 Phast was updated to version 1.66.
 
-* Convert `<link onload="media='all'">` to `<link media
-
-### "all">` before inlining.
-
+* Convert `<link onload="media='all'">` to `<link media="all">` before inlining.
 * Elide `media` attribute on generated `style` tags if it is `all`.
 
 ### 1.68 - 2020-08-20
@@ -462,11 +450,7 @@ Phast was updated to version 1.63.
 
 Phast was updated to version 1.62.
 
-* Add an option to lazy load images using native lazy loading (`loading
-
-### lazy` attribute). This is enabled by default.
-
-
+* Add an option to lazy load images using native lazy loading (`loading=lazy` attribute). This is enabled by default.
 
 ### 1.64 - 2020-07-21
 
@@ -573,10 +557,7 @@ Phast was updated to version 1.45:
 
 Phast was updated to version 1.44:
 
-* Support `data-pagespeed-no-defer` and `data-cfasync
-
-### "false"` attributes on scripts for disabling script deferral (in addition to `data-phast-no-defer`).
-
+* Support `data-pagespeed-no-defer` and `data-cfasync="false"` attributes on scripts for disabling script deferral (in addition to `data-phast-no-defer`).
 * Leave `data-{phast,pagespeed}-no-defer` and `data-cfasync` attributes in place to aid debugging.
 
 ### 1.46 - 2020-04-30
@@ -666,11 +647,7 @@ Phast was updated to version 1.31:
 Phast was updated to version 1.29:
 
 * Trick mod_security into accepting script proxy requests by replacing
-  `src=http://...` with `src
-
-### hxxp://...`.
-
-
+  `src=http://...` with `src=hxxp://...`.
 
 ### 1.32
 
