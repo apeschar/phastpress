@@ -7399,7 +7399,7 @@ class SDK extends \Kibo\PhastPlugins\SDK\ServiceSDK
     }
     private function getServiceConfigurationGenerator()
     {
-        return new \Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationGenerator($this->getPHPFilesServiceConfigurationRepository(), $this->getEnvironmentIdentifier(), $this->getPluginVersion(), $this->host->getHostURLs());
+        return new \Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationGenerator($this->getPHPFilesServiceConfigurationRepository(), $this->getEnvironmentIdentifier(), $this->getPluginVersion(), $this->host);
     }
     public function updatePreviewCookie($enable = true)
     {
@@ -7893,11 +7893,17 @@ class ServiceConfigurationGenerator
      * @var string
      */
     private $cdnHost;
-    public function __construct(\Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationRepository $repository, \Kibo\PhastPlugins\SDK\Configuration\EnvironmentIdentifier $environmentIdentifier, $pluginVersion, \Kibo\PhastPlugins\SDK\HostURLs $hostUrls)
+    /**
+     * @var ?string
+     */
+    private $securityTokenRoot;
+    public function __construct(\Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationRepository $repository, \Kibo\PhastPlugins\SDK\Configuration\EnvironmentIdentifier $environmentIdentifier, $pluginVersion, \Kibo\PhastPlugins\SDK\PluginHost $host)
     {
         $this->repository = $repository;
         $this->environmentIdentifier = $environmentIdentifier;
         $this->pluginVersion = $pluginVersion;
+        $this->securityTokenRoot = $host->getSecurityTokenRoot();
+        $hostUrls = $host->getHostUrls();
         $this->servicesUrl = $hostUrls->getServicesURL();
         $this->cdnServicesUrl = $hostUrls->getCDNURL($hostUrls->getServicesURL());
         $this->cdnHost = $hostUrls->getCDNURL($hostUrls->getSiteURL())->getHost();
@@ -7919,7 +7925,7 @@ class ServiceConfigurationGenerator
         $previousConfig = $this->repository->get();
         $plugin_config = $pluginConfig->get();
         $plugin_version = $this->pluginVersion;
-        $config = ['plugin_version' => $plugin_version, 'servicesUrl' => $this->getServicesURLString($pluginConfig), 'securityToken' => empty($previousConfig['securityToken']) ? \Kibo\Phast\Security\ServiceSignature::generateToken() : $previousConfig['securityToken'], 'images' => ['filters' => [\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class => ['enabled' => $plugin_config['img-optimization-api'], 'plugin-version' => $plugin_version]]], 'styles' => ['filters' => [\Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['enabled' => $plugin_config['img-optimization-css']]]], 'serviceRequestFormat' => $plugin_config['pathinfo-query-format'] ? \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH : \Kibo\Phast\Services\ServiceRequest::FORMAT_QUERY, 'compressServiceResponse' => isset($plugin_config['compress-service-response']) ? !!$plugin_config['compress-service-response'] : true, 'cdnHost' => $this->cdnHost];
+        $config = ['plugin_version' => $plugin_version, 'servicesUrl' => $this->getServicesURLString($pluginConfig), 'securityToken' => $this->getSecurityToken($previousConfig), 'images' => ['filters' => [\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class => ['enabled' => $plugin_config['img-optimization-api'], 'plugin-version' => $plugin_version]]], 'styles' => ['filters' => [\Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['enabled' => $plugin_config['img-optimization-css']]]], 'serviceRequestFormat' => $plugin_config['pathinfo-query-format'] ? \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH : \Kibo\Phast\Services\ServiceRequest::FORMAT_QUERY, 'compressServiceResponse' => isset($plugin_config['compress-service-response']) ? !!$plugin_config['compress-service-response'] : true, 'cdnHost' => $this->cdnHost];
         if (isset($previousConfig['alternativeServicesUrls'])) {
             $config['alternativeServicesUrls'] = $previousConfig['alternativeServicesUrls'];
         } else {
@@ -7930,6 +7936,16 @@ class ServiceConfigurationGenerator
         $config['alternativeServicesUrls'][$id] = $this->getServicesURLString($pluginConfig);
         $config['alternativeServicesUrls'] = array_slice($config['alternativeServicesUrls'], -1000);
         return $this->repository->store($config);
+    }
+    private function getSecurityToken($previousConfig)
+    {
+        if (!empty($previousConfig['securityToken'])) {
+            return $previousConfig['securityToken'];
+        }
+        if (!empty($this->securityTokenRoot)) {
+            return base64_encode(hash_hmac('sha224', 'Phast security token', $this->securityTokenRoot, true));
+        }
+        return \Kibo\Phast\Security\ServiceSignature::generateToken();
     }
     private function getServicesURLString(\Kibo\PhastPlugins\SDK\Configuration\PluginConfiguration $pluginConfig)
     {
@@ -9895,6 +9911,10 @@ interface PluginHost extends \Kibo\PhastPlugins\SDK\ServiceHost
      * @return string
      */
     public function getLocale();
+    /**
+     * @return ?string
+     */
+    public function getSecurityTokenRoot();
 }
 namespace Kibo\Phast\Filters\JavaScript\Minification;
 

@@ -17,7 +17,7 @@ class PluginHostImplementation extends ServiceSDKImplementation implements Plugi
     }
 
     public function getPluginHostVersion() {
-        $plugin_info = get_file_data(PHASTPRESS_PLUGIN_FILE, array('Version' => 'Version'));
+        $plugin_info = get_file_data(PHASTPRESS_PLUGIN_FILE, ['Version' => 'Version']);
         return $plugin_info['Version'];
     }
 
@@ -43,5 +43,12 @@ class PluginHostImplementation extends ServiceSDKImplementation implements Plugi
 
     public function getPhastUser() {
         return new PhastUserImplementation();
+    }
+
+    public function getSecurityTokenRoot() {
+        if (defined('AUTH_KEY')) {
+            return AUTH_KEY;
+        }
+        return null;
     }
 }

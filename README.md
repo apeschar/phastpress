@@ -3,7 +3,7 @@
 **Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix\
 **Requires at least**: 4.4\
 **Requires PHP**: 5.6\
-**Stable tag**: 1.113\
+**Stable tag**: 1.114\
 **Tested up to**: 5.7\
 **License**: AGPL-3.0\
 **Contributors**: apeschar
@@ -183,6 +183,14 @@ You can add this code to your theme's `functions.php`, or create a file `output-
 Alternatively, [download `output-buffer.zip`](https://peschar.net/files/output-buffer.zip) and extract the contents into your web folder.  You should end up with a file named `output-buffer.php` in `wp-content/mu-plugins`.
 
 ## Changelog
+
+### 1.114 - 2021-03-17
+
+* Deterministically generate security key based on WordPress secret keys. This avoids URLs changing when the cache is emptied.
+
+### 1.112 - 2021-03-17
+
+* Bump WordPress compatibility to 5.7.
 
 ### 1.111 - 2021-03-17
 
