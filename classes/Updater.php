@@ -5,9 +5,10 @@ use RuntimeException;
 use WP_Error;
 
 class Updater {
-    const LATEST_RELEASE_URL = 'https://api.github.com/repos/apeschar/phastpress/releases/latest';
-
-    const GITHUB_TOKEN = '4706aa95ad7c4936f16874f3e209b58b5f0df7f5';
+    const LATEST_RELEASE_URLS = [
+        'https://api.github.com/repos/apeschar/phastpress/releases/latest',
+        'https://apeschar.github.io/phastpress/latest.json',
+    ];
 
     const VERSION_PATTERN = '~^\d+(\.\d+){1,2}$~';
 
@@ -74,13 +75,18 @@ class Updater {
         return $result;
     }
 
-    private function getLatestRelease($useToken = false) {
-        $response = wp_remote_get(
-            self::LATEST_RELEASE_URL,
-            [
-                'headers' => $useToken ? ['Authorization' => 'token ' . self::GITHUB_TOKEN] : [],
-            ]
-        );
+    private function getLatestRelease() {
+        foreach (self::LATEST_RELEASE_URLS as $url) {
+            try {
+                return $this->getLatestReleaseFromUrl($url);
+            } catch (UpdaterException $e) {
+            }
+        }
+        throw $e;
+    }
+
+    private function getLatestReleaseFromUrl($url) {
+        $response = wp_remote_get($url);
 
         if ($response instanceof WP_Error) {
             throw new UpdaterException(sprintf(
