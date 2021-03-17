@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.110
+Stable tag: 1.111
 Tested up to: 5.6
 License: AGPL-3.0
 Contributors: apeschar
@@ -183,6 +183,12 @@ You can add this code to your theme's `functions.php`, or create a file `output-
 Alternatively, [download `output-buffer.zip`](https://peschar.net/files/output-buffer.zip) and extract the contents into your web folder.  You should end up with a file named `output-buffer.php` in `wp-content/mu-plugins`.
 
 == Changelog ==
+
+= 1.111 - 2021-03-17 =
+
+Phast was updated to version 1.111:
+
+* Fix [open redirect](https://cwe.mitre.org/data/definitions/601.html) on `phast.php`. This would allow a malicious person to redirect someone to a third-party site via `phast.php` by sending them a link. This can enable phishing attacks if the user is mislead by the hostname of the initial URL. It does not compromise the security of your site itself.
 
 = 1.110 - 2021-03-11 =
 
