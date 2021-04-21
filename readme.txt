@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.115
+Stable tag: 1.116
 Tested up to: 5.7
 License: AGPL-3.0
 Contributors: apeschar
@@ -184,7 +184,13 @@ Alternatively, [download `output-buffer.zip`](https://peschar.net/files/output-b
 
 == Changelog ==
 
+= 1.116 - 2021-04-21 =
+
+* Update settings labels about IFrame lazy loading.
+
 = 1.115 - 2021-04-21 =
+
+Update Phast to version: 1.98:
 
 * Use [native IFrame lazy loading](https://web.dev/iframe-lazy-loading/).
 
@@ -198,7 +204,7 @@ Alternatively, [download `output-buffer.zip`](https://peschar.net/files/output-b
 
 = 1.111 - 2021-03-17 =
 
-Phast was updated to version 1.111:
+Phast was updated to version 1.97:
 
 * Fix [open redirect](https://cwe.mitre.org/data/definitions/601.html) on `phast.php`. This would allow a malicious person to redirect someone to a third-party site via `phast.php` by sending them a link. This can enable phishing attacks if the user is mislead by the hostname of the initial URL. It does not compromise the security of your site itself.
 
