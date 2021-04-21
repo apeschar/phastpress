@@ -2861,33 +2861,16 @@ namespace Kibo\Phast\Filters\HTML\DelayedIFrameLoading;
 class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
 {
     use \Kibo\Phast\Logging\LoggingTrait;
-    protected $addScript = false;
-    private $ignoredUrlPattern = '~
-        ^about: |
-        ^data:
-    ~ix';
     protected function isTagOfInterest(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
     {
         return $tag->getTagName() == 'iframe' && $tag->hasAttribute('src');
     }
-    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $iframe)
+    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
     {
-        $src = trim($iframe->getAttribute('src'));
-        if (preg_match($this->ignoredUrlPattern, $src)) {
-            (yield $iframe);
-            return;
+        if (!$tag->hasAttribute('loading')) {
+            $tag->setAttribute('loading', 'lazy');
         }
-        $this->logger()->info('Delaying iframe {src}', ['src' => $src]);
-        $iframe->setAttribute('data-phast-src', $src);
-        $iframe->setAttribute('src', 'about:blank');
-        $this->addScript = true;
-        (yield $iframe);
-    }
-    protected function afterLoop()
-    {
-        if ($this->addScript) {
-            $this->context->addPhastJavaScript(\Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/DelayedIFrameLoading/iframe-loader.js', "window.addEventListener(\"load\",function(){window.setTimeout(loadIframes,30)});function loadIframes(){phast.forEachSelectedElement(\"iframe[data-phast-src]\",function(a){var b=a.getAttribute(\"data-phast-src\");a.removeAttribute(\"data-phast-src\");if(a.getAttribute(\"src\")===\"about:blank\"){a.setAttribute(\"src\",b)}})}\n"));
-        }
+        (yield $tag);
     }
 }
 namespace Kibo\Phast\Filters\HTML\Diagnostics;
