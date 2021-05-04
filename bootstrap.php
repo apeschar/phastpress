@@ -37,7 +37,7 @@ add_action('wp_ajax_phastpress_ajax_dispatch', function () {
     );
 });
 
-add_action('admin_notices', function () {
+add_action('admin_footer', function () {
     echo phastpress_get_plugin_sdk()->getInstallNotice()->render();
 });
 

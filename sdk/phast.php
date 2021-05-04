@@ -2077,12 +2077,18 @@ class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
      */
     private $compiler;
     /**
+     * @var ?string
+     */
+    private $cspNonce;
+    /**
      * Filter constructor.
      * @param PhastJavaScriptCompiler $compiler
+     * @param ?string $cspNonce
      */
-    public function __construct(\Kibo\Phast\Filters\HTML\PhastScriptsCompiler\PhastJavaScriptCompiler $compiler)
+    public function __construct(\Kibo\Phast\Filters\HTML\PhastScriptsCompiler\PhastJavaScriptCompiler $compiler, $cspNonce)
     {
         $this->compiler = $compiler;
+        $this->cspNonce = $cspNonce;
     }
     public function transformElements(\Traversable $elements, \Kibo\Phast\Filters\HTML\HTMLPageContext $context)
     {
@@ -2125,6 +2131,9 @@ class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
         }, $scripts);
         $script = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag('script');
         $script->setAttribute('data-phast-compiled-js-names', join(',', $names));
+        if ($this->cspNonce !== null) {
+            $script->setAttribute('nonce', $this->cspNonce);
+        }
         $compiled = $this->compiler->compileScriptsWithConfig($scripts);
         $script->setTextContent($compiled);
         return $script;
@@ -2463,7 +2472,11 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
      * @var string[]
      */
     private $cacheMarkers = array();
-    public function __construct(\Kibo\Phast\Security\ServiceSignature $signature, \Kibo\Phast\ValueObjects\URL $baseURL, array $config, \Kibo\Phast\Retrievers\Retriever $localRetriever, \Kibo\Phast\Retrievers\Retriever $retriever, \Kibo\Phast\Filters\HTML\CSSInlining\OptimizerFactory $optimizerFactory, \Kibo\Phast\Services\ServiceFilter $cssFilter, \Kibo\Phast\Services\Bundler\TokenRefMaker $tokenRefMaker)
+    /**
+     * @var string
+     */
+    private $cspNonce;
+    public function __construct(\Kibo\Phast\Security\ServiceSignature $signature, \Kibo\Phast\ValueObjects\URL $baseURL, array $config, \Kibo\Phast\Retrievers\Retriever $localRetriever, \Kibo\Phast\Retrievers\Retriever $retriever, \Kibo\Phast\Filters\HTML\CSSInlining\OptimizerFactory $optimizerFactory, \Kibo\Phast\Services\ServiceFilter $cssFilter, \Kibo\Phast\Services\Bundler\TokenRefMaker $tokenRefMaker, $cspNonce)
     {
         $this->signature = $signature;
         $this->baseURL = $baseURL;
@@ -2474,6 +2487,7 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
         $this->optimizerFactory = $optimizerFactory;
         $this->cssFilter = $cssFilter;
         $this->tokenRefMaker = $tokenRefMaker;
+        $this->cspNonce = $cspNonce;
         foreach ($config['whitelist'] as $key => $value) {
             if (!is_array($value)) {
                 $this->whitelist[$value] = ['ieCompatible' => true];
@@ -2651,6 +2665,9 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
         if ($optimized) {
             $style->setAttribute('data-phast-original-src', $url->toString());
             $style->setAttribute('data-phast-params', $this->makeServiceParams($url, $stripImports));
+        }
+        if ($this->cspNonce) {
+            $style->setAttribute('nonce', $this->cspNonce);
         }
         $content = preg_replace('~(</)(style)~i', '$1 $2', $content);
         $style->setTextContent($content);
@@ -9010,7 +9027,7 @@ class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
     {
         $cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'phast-scripts');
         $compiler = new \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\PhastJavaScriptCompiler($cache, $config['servicesUrl'], $config['serviceRequestFormat']);
-        return new \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter($compiler);
+        return new \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter($compiler, $config['cspNonce']);
     }
 }
 namespace Kibo\Phast\Filters\HTML\ScriptsProxyService;
@@ -9040,7 +9057,7 @@ class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
         if (!isset($config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class]['serviceUrl'])) {
             $config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class]['serviceUrl'] = $config['servicesUrl'];
         }
-        return new \Kibo\Phast\Filters\HTML\CSSInlining\Filter((new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config), \Kibo\Phast\ValueObjects\URL::fromString($config['documents']['baseUrl']), $config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class], $localRetriever, $retriever, new \Kibo\Phast\Filters\HTML\CSSInlining\OptimizerFactory($config), (new \Kibo\Phast\Filters\CSS\Composite\Factory())->make($config), (new \Kibo\Phast\Services\Bundler\TokenRefMakerFactory())->make($config));
+        return new \Kibo\Phast\Filters\HTML\CSSInlining\Filter((new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config), \Kibo\Phast\ValueObjects\URL::fromString($config['documents']['baseUrl']), $config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class], $localRetriever, $retriever, new \Kibo\Phast\Filters\HTML\CSSInlining\OptimizerFactory($config), (new \Kibo\Phast\Filters\CSS\Composite\Factory())->make($config), (new \Kibo\Phast\Services\Bundler\TokenRefMakerFactory())->make($config), $config['cspNonce']);
     }
 }
 namespace Kibo\Phast\Filters\HTML\Diagnostics;
