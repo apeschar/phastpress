@@ -1,571 +1,5 @@
 <?php
 
-namespace Kibo\Phast\HTTP;
-
-class Response
-{
-    /**
-     * @var int
-     */
-    private $code = 200;
-    /**
-     * @var array
-     */
-    private $headers = array();
-    /**
-     * @var string|iterable
-     */
-    private $content;
-    /**
-     * @return int
-     */
-    public function getCode()
-    {
-        return $this->code;
-    }
-    /**
-     * @param int $code
-     */
-    public function setCode($code)
-    {
-        $this->code = $code;
-    }
-    /**
-     * @return array
-     */
-    public function getHeaders()
-    {
-        return $this->headers;
-    }
-    /**
-     * @param string $name
-     * @return string|null
-     */
-    public function getHeader($name)
-    {
-        foreach ($this->headers as $k => $v) {
-            if (strcasecmp($name, $k) === 0) {
-                return $v;
-            }
-        }
-        return null;
-    }
-    public function setHeaders(array $headers)
-    {
-        $this->headers = $headers;
-    }
-    /**
-     * @param $name
-     * @param $value
-     */
-    public function setHeader($name, $value)
-    {
-        $this->headers[$name] = $value;
-    }
-    /**
-     * @return string|iterable
-     */
-    public function getContent()
-    {
-        return $this->content;
-    }
-    /**
-     * @param string|iterable $content
-     */
-    public function setContent($content)
-    {
-        $this->content = $content;
-    }
-    public function isCompressible()
-    {
-        return strpos($this->getHeader('Content-Type'), 'image/') === false;
-    }
-}
-namespace Kibo\Phast\HTTP;
-
-interface Client
-{
-    /**
-     * Retrieve a URL using the GET HTTP method
-     *
-     * @param URL $url
-     * @param array $headers - headers to send in headerName => headerValue format
-     * @return Response
-     * @throws \Exception
-     */
-    public function get(\Kibo\Phast\ValueObjects\URL $url, array $headers = array());
-    /**
-     * Send data to a URL using the POST HTTP method
-     *
-     * @param URL $url
-     * @param array|string $data - if array, it will be encoded as form data, if string - will be sent as is
-     * @param array $headers - headers to send in headerName => headerValue format
-     * @return Response
-     * @throws \Exception
-     */
-    public function post(\Kibo\Phast\ValueObjects\URL $url, $data, array $headers = array());
-}
-namespace Kibo\Phast\HTTP;
-
-class CURLClient implements \Kibo\Phast\HTTP\Client
-{
-    public function get(\Kibo\Phast\ValueObjects\URL $url, array $headers = array())
-    {
-        $this->checkCURL();
-        return $this->request($url, $headers);
-    }
-    public function post(\Kibo\Phast\ValueObjects\URL $url, $data, array $headers = array())
-    {
-        $this->checkCURL();
-        return $this->request($url, $headers, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $data]);
-    }
-    private function checkCURL()
-    {
-        if (!function_exists('curl_init')) {
-            throw new \Kibo\Phast\HTTP\Exceptions\NetworkError('cURL is not installed');
-        }
-    }
-    private function request(\Kibo\Phast\ValueObjects\URL $url, array $headers = array(), array $opts = array())
-    {
-        $response = new \Kibo\Phast\HTTP\Response();
-        $readHeader = function ($_, $headerLine) use($response) {
-            if (strpos($headerLine, 'HTTP/') === 0) {
-                $response->setHeaders([]);
-            } else {
-                list($name, $value) = explode(':', $headerLine, 2);
-                if (trim($name) !== '') {
-                    $response->setHeader($name, trim($value));
-                }
-            }
-            return strlen($headerLine);
-        };
-        $ch = curl_init((string) $url);
-        curl_setopt_array($ch, $opts + [CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => $this->makeHeaders($headers), CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 5, CURLOPT_HEADERFUNCTION => $readHeader, CURLOPT_CAINFO => __DIR__ . '/cacert.pem', CURLOPT_ENCODING => '']);
-        $responseText = @curl_exec($ch);
-        if ($responseText === false) {
-            throw new \Kibo\Phast\HTTP\Exceptions\NetworkError(curl_error($ch), curl_errno($ch));
-        }
-        $info = curl_getinfo($ch);
-        if (!preg_match('/^2/', $info['http_code'])) {
-            throw new \Kibo\Phast\HTTP\Exceptions\HTTPError($info['http_code']);
-        }
-        $response->setCode($info['http_code']);
-        $response->setContent($responseText);
-        return $response;
-    }
-    private function makeHeaders(array $headers)
-    {
-        $result = [];
-        foreach ($headers as $k => $v) {
-            $result[] = "{$k}: {$v}";
-        }
-        return $result;
-    }
-}
-namespace Kibo\Phast\HTTP;
-
-class Request
-{
-    /**
-     * @var array
-     */
-    private $env;
-    /**
-     * @var array
-     */
-    private $cookie;
-    /**
-     * @var string
-     */
-    private $query;
-    private function __construct()
-    {
-    }
-    public static function fromGlobals()
-    {
-        $instance = new self();
-        $instance->env = $_SERVER;
-        $instance->cookie = $_COOKIE;
-        return $instance;
-    }
-    public static function fromArray(array $get = array(), array $env = array(), array $cookie = array())
-    {
-        if ($get) {
-            $url = isset($env['REQUEST_URI']) ? $env['REQUEST_URI'] : '';
-            $env['REQUEST_URI'] = \Kibo\Phast\ValueObjects\URL::fromString($url)->withQuery(http_build_query($get))->toString();
-        }
-        $instance = new self();
-        $instance->env = $env;
-        $instance->cookie = $cookie;
-        return $instance;
-    }
-    /**
-     * @return array
-     */
-    public function getGet()
-    {
-        return $this->getQuery()->toAssoc();
-    }
-    /**
-     * @return Query
-     */
-    public function getQuery()
-    {
-        return \Kibo\Phast\ValueObjects\Query::fromString($this->getQueryString());
-    }
-    /**
-     * @param $name string
-     * @return string|null
-     */
-    public function getHeader($name)
-    {
-        $key = 'HTTP_' . strtoupper(str_replace('-', '_', $name));
-        return $this->getEnvValue($key);
-    }
-    public function getPathInfo()
-    {
-        $pathInfo = $this->getEnvValue('PATH_INFO');
-        if ($pathInfo) {
-            return $pathInfo;
-        }
-        $path = parse_url($this->getEnvValue('REQUEST_URI'), PHP_URL_PATH);
-        if (preg_match('~[^/]\\.php(/.*)~', $path, $match)) {
-            return $match[1];
-        }
-    }
-    public function getCookie($name)
-    {
-        if (isset($this->cookie[$name])) {
-            return $this->cookie[$name];
-        }
-    }
-    public function getQueryString()
-    {
-        $parsed = parse_url($this->getEnvValue('REQUEST_URI'));
-        if (isset($parsed['query'])) {
-            return $parsed['query'];
-        }
-    }
-    public function getAbsoluteURI()
-    {
-        return ($this->getEnvValue('HTTPS') ? 'https' : 'http') . '://' . $this->getHost() . $this->getURI();
-    }
-    public function getHost()
-    {
-        return $this->getHeader('Host');
-    }
-    public function getURI()
-    {
-        return $this->getEnvValue('REQUEST_URI');
-    }
-    public function getEnvValue($key)
-    {
-        if (isset($this->env[$key])) {
-            return $this->env[$key];
-        }
-    }
-    public function getDocumentRoot()
-    {
-        $scriptName = (string) $this->getEnvValue('SCRIPT_NAME');
-        $scriptFilename = $this->normalizePath((string) $this->getEnvValue('SCRIPT_FILENAME'));
-        if (strpos($scriptName, '/') === 0 && $this->isAbsolutePath($scriptFilename) && $this->isSuffix($scriptName, $scriptFilename)) {
-            return substr($scriptFilename, 0, strlen($scriptFilename) - strlen($scriptName));
-        }
-        return $this->getEnvValue('DOCUMENT_ROOT');
-    }
-    private function normalizePath($path)
-    {
-        return str_replace('\\', '/', $path);
-    }
-    private function isAbsolutePath($path)
-    {
-        return preg_match('~^/|^[a-z]:/~i', $path);
-    }
-    private function isSuffix($suffix, $string)
-    {
-        return substr($string, -strlen($suffix)) === $suffix;
-    }
-    public function isCloudflare()
-    {
-        return !!$this->getHeader('CF-Ray');
-    }
-}
-namespace Kibo\Phast\HTTP;
-
-class ClientFactory
-{
-    const CONFIG_KEY = 'httpClient';
-    /**
-     * @param array $config
-     * @return Client
-     */
-    public function make(array $config)
-    {
-        $spec = $config[self::CONFIG_KEY];
-        if (is_callable($spec)) {
-            $client = $spec();
-        } elseif (class_exists($spec)) {
-            $client = new $spec();
-        } else {
-            throw new \Kibo\Phast\Exceptions\RuntimeException(self::CONFIG_KEY . ' config value must be either callable or a class name');
-        }
-        return $client;
-    }
-}
-namespace Kibo\Phast\HTTP\Exceptions;
-
-class HTTPError extends \RuntimeException
-{
-}
-namespace Kibo\Phast\HTTP\Exceptions;
-
-class NetworkError extends \RuntimeException
-{
-}
-namespace Kibo\Phast\Environment;
-
-class DefaultConfiguration
-{
-    public static function get()
-    {
-        $request = \Kibo\Phast\HTTP\Request::fromGlobals();
-        return ['securityToken' => null, 'retrieverMap' => [$request->getHost() => $request->getDocumentRoot()], 'httpClient' => \Kibo\Phast\HTTP\CURLClient::class, 'cache' => ['cacheRoot' => sys_get_temp_dir() . '/phast-cache-' . (new \Kibo\Phast\Common\System())->getUserId(), 'shardingDepth' => 1, 'garbageCollection' => ['maxItems' => 100, 'probability' => 0.1, 'maxAge' => 86400 * 365], 'diskCleanup' => ['maxSize' => 500 * pow(1024, 2), 'probability' => 0.02, 'portionToFree' => 0.5]], 'servicesUrl' => '/phast.php', 'serviceRequestFormat' => \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH, 'compressServiceResponse' => true, 'optimizeHTMLDocumentsOnly' => true, 'optimizeJSONResponses' => false, 'outputServerSideStats' => true, 'documents' => ['maxBufferSizeToApply' => 2 * 1024 * 1024, 'baseUrl' => $request->getAbsoluteURI(), 'filters' => [\Kibo\Phast\Filters\HTML\CommentsRemoval\Filter::class => [], \Kibo\Phast\Filters\HTML\MetaCharset\Filter::class => [], \Kibo\Phast\Filters\HTML\Minify\Filter::class => [], \Kibo\Phast\Filters\HTML\MinifyScripts\Filter::class => [], \Kibo\Phast\Filters\HTML\BaseURLSetter\Filter::class => [], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter::class => [], \Kibo\Phast\Filters\HTML\LazyImageLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\CSSInlining\Filter::class => ['optimizerSizeDiffThreshold' => 1024, 'whitelist' => ['~^https?://fonts\\.googleapis\\.com/~' => ['ieCompatible' => false], '~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~', '~^https?://maxcdn\\.bootstrapcdn\\.com/[^?#]*\\.css~', '~^https?://idangero\\.us/~', '~^https?://[^/]*\\.github\\.io/~', '~^https?://\\w+\\.typekit\\.net/~' => ['ieCompatible' => false], '~^https?://stackpath\\.bootstrapcdn\\.com/~', '~^https?://cdnjs\\.cloudflare\\.com/~']], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class => [], \Kibo\Phast\Filters\HTML\DelayedIFrameLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class => ['urlRefreshTime' => 7200], \Kibo\Phast\Filters\HTML\Diagnostics\Filter::class => ['enabled' => 'diagnostics'], \Kibo\Phast\Filters\HTML\ScriptsDeferring\Filter::class => [], \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter::class => []]], 'images' => ['enable-cache' => 'imgcache', 'api-mode' => false, 'factory' => \Kibo\Phast\Filters\Image\ImageFactory::class, 'maxImageInliningSize' => 512, 'whitelist' => ['~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~'], 'filters' => [\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class => ['api-url' => 'https://optimize.phast.io/?service=images', 'host-name' => $request->getHost(), 'request-uri' => $request->getURI(), 'plugin-version' => 'phast-core-1.0']]], 'styles' => ['filters' => [\Kibo\Phast\Filters\Text\Decode\Filter::class => [], \Kibo\Phast\Filters\CSS\ImportsStripper\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSMinifier\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSURLRewriter\Filter::class => [], \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['maxImageInliningSize' => 512], \Kibo\Phast\Filters\CSS\FontSwap\Filter::class => []]], 'logging' => ['logWriters' => [['class' => \Kibo\Phast\Logging\LogWriters\PHPError\Writer::class, 'levelMask' => \Kibo\Phast\Logging\LogLevel::EMERGENCY | \Kibo\Phast\Logging\LogLevel::ALERT | \Kibo\Phast\Logging\LogLevel::CRITICAL | \Kibo\Phast\Logging\LogLevel::ERROR | \Kibo\Phast\Logging\LogLevel::WARNING], ['enabled' => 'diagnostics', 'class' => \Kibo\Phast\Logging\LogWriters\JSONLFile\Writer::class, 'logRoot' => sys_get_temp_dir() . '/phast-logs']]], 'switches' => ['phast' => true, 'diagnostics' => false], 'scripts' => ['removeLicenseHeaders' => false, 'whitelist' => ['~^https?://' . preg_quote($request->getHost(), '~') . '/~']]];
-    }
-}
-namespace Kibo\Phast\Environment;
-
-class Package
-{
-    /**
-     * @var string
-     */
-    protected $type;
-    /**
-     * @var string
-     */
-    protected $namespace;
-    /**
-     * @param $className
-     * @param string|null $type
-     * @return Package
-     */
-    public static function fromPackageClass($className, $type = null)
-    {
-        $instance = new self();
-        $lastSeparatorPosition = strrpos($className, '\\');
-        $instance->type = empty($type) ? substr($className, $lastSeparatorPosition + 1) : $type;
-        $instance->namespace = substr($className, 0, $lastSeparatorPosition);
-        return $instance;
-    }
-    /**
-     * @return string
-     */
-    public function getType()
-    {
-        return $this->type;
-    }
-    /**
-     * @return string
-     */
-    public function getNamespace()
-    {
-        return $this->namespace;
-    }
-    /**
-     * @return bool
-     */
-    public function hasFactory()
-    {
-        return $this->classExists($this->getFactoryClassName());
-    }
-    /**
-     * @return mixed
-     */
-    public function getFactory()
-    {
-        if ($this->hasFactory()) {
-            $class = $this->getFactoryClassName();
-            return new $class();
-        }
-        throw new \Kibo\Phast\Environment\Exceptions\PackageHasNoFactoryException("Package {$this->namespace} has no factory");
-    }
-    /**
-     * @return bool
-     */
-    public function hasDiagnostics()
-    {
-        return $this->classExists($this->getDiagnosticsClassName());
-    }
-    /**
-     * @return Diagnostics
-     */
-    public function getDiagnostics()
-    {
-        if ($this->hasDiagnostics()) {
-            $class = $this->getDiagnosticsClassName();
-            return new $class();
-        }
-        throw new \Kibo\Phast\Environment\Exceptions\PackageHasNoDiagnosticsException("Package {$this->namespace} has no diagnostics");
-    }
-    private function getFactoryClassName()
-    {
-        return $this->getClassName('Factory');
-    }
-    private function getDiagnosticsClassName()
-    {
-        return $this->getClassName('Diagnostics');
-    }
-    private function getClassName($class)
-    {
-        return $this->namespace . '\\' . $class;
-    }
-    private function classExists($class)
-    {
-        // Don't trigger any autoloaders if Phast has been compiled into a
-        // single file, and avoid triggering Magento code generation.
-        $useAutoloader = basename(__FILE__) == 'Package.php';
-        return class_exists($class, $useAutoloader);
-    }
-}
-namespace Kibo\Phast\Environment;
-
-class Switches
-{
-    const SWITCH_PHAST = 'phast';
-    const SWITCH_DIAGNOSTICS = 'diagnostics';
-    private static $defaults = array(self::SWITCH_PHAST => true, self::SWITCH_DIAGNOSTICS => false);
-    private $switches = array();
-    public static function fromArray(array $switches)
-    {
-        $instance = new self();
-        $instance->switches = array_merge($instance->switches, $switches);
-        return $instance;
-    }
-    public static function fromString($switches)
-    {
-        $instance = new self();
-        if (empty($switches)) {
-            return $instance;
-        }
-        foreach (explode(',', $switches) as $switch) {
-            if ($switch[0] == '-') {
-                $instance->switches[substr($switch, 1)] = false;
-            } else {
-                $instance->switches[$switch] = true;
-            }
-        }
-        return $instance;
-    }
-    public function merge(\Kibo\Phast\Environment\Switches $switches)
-    {
-        $instance = new self();
-        $instance->switches = array_merge($this->switches, $switches->switches);
-        return $instance;
-    }
-    public function isOn($switch)
-    {
-        if (isset($this->switches[$switch])) {
-            return (bool) $this->switches[$switch];
-        }
-        if (isset(self::$defaults[$switch])) {
-            return (bool) self::$defaults[$switch];
-        }
-        return true;
-    }
-    public function toArray()
-    {
-        return array_merge(self::$defaults, $this->switches);
-    }
-}
-namespace Kibo\Phast\Environment;
-
-class Configuration
-{
-    /**
-     * @var array
-     */
-    private $sourceConfig;
-    /**
-     * @var Switches
-     */
-    private $switches;
-    /**
-     * @return Configuration
-     */
-    public static function fromDefaults()
-    {
-        return new self(\Kibo\Phast\Environment\DefaultConfiguration::get());
-    }
-    /**
-     * Configuration constructor.
-     * @param array $sourceConfig
-     */
-    public function __construct(array $sourceConfig)
-    {
-        $this->sourceConfig = $sourceConfig;
-        if (!isset($this->sourceConfig['switches'])) {
-            $this->switches = new \Kibo\Phast\Environment\Switches();
-        } else {
-            $this->switches = \Kibo\Phast\Environment\Switches::fromArray($this->sourceConfig['switches']);
-        }
-    }
-    /**
-     * @param Configuration $config
-     * @return $this
-     */
-    public function withUserConfiguration(\Kibo\Phast\Environment\Configuration $config)
-    {
-        $result = $this->recursiveMerge($this->sourceConfig, $config->sourceConfig);
-        return new self($result);
-    }
-    public function withServiceRequest(\Kibo\Phast\Services\ServiceRequest $request)
-    {
-        $clone = clone $this;
-        $clone->switches = $this->switches->merge($request->getSwitches());
-        return $clone;
-    }
-    public function getRuntimeConfig()
-    {
-        $config = $this->sourceConfig;
-        $switchables = [&$config['documents']['filters'], &$config['images']['filters'], &$config['logging']['logWriters'], &$config['styles']['filters']];
-        foreach ($switchables as &$switchable) {
-            if (!is_array($switchable)) {
-                continue;
-            }
-            $switchable = array_filter($switchable, function ($item) {
-                if (!isset($item['enabled'])) {
-                    return true;
-                }
-                if ($item['enabled'] === false) {
-                    return false;
-                }
-                return $this->switches->isOn($item['enabled']);
-            });
-        }
-        if (isset($config['images']['enable-cache']) && is_string($config['images']['enable-cache'])) {
-            $config['images']['enable-cache'] = $this->switches->isOn($config['images']['enable-cache']);
-        }
-        $config['switches'] = $this->switches->toArray();
-        return new \Kibo\Phast\Environment\Configuration($config);
-    }
-    public function toArray()
-    {
-        return $this->sourceConfig;
-    }
-    private function recursiveMerge(array $a1, array $a2)
-    {
-        foreach ($a2 as $key => $value) {
-            if (isset($a1[$key]) && is_array($a1[$key]) && is_array($value)) {
-                $a1[$key] = $this->recursiveMerge($a1[$key], $value);
-            } elseif (is_string($key)) {
-                $a1[$key] = $value;
-            } else {
-                $a1[] = $value;
-            }
-        }
-        return $a1;
-    }
-}
 namespace Kibo\Phast\Cache;
 
 interface Cache
@@ -584,134 +18,6 @@ interface Cache
      * @return mixed
      */
     public function set($key, $value, $expiresIn = 0);
-}
-namespace Kibo\Phast\Cache\File;
-
-abstract class ProbabilisticExecutor
-{
-    /**
-     * @var string
-     */
-    protected $cacheRoot;
-    /**
-     * @var float
-     */
-    protected $probability = 0;
-    /**
-     * @var ObjectifiedFunctions
-     */
-    protected $functions;
-    protected abstract function execute();
-    protected function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
-    {
-        $this->cacheRoot = $config['cacheRoot'];
-        $this->functions = is_null($functions) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $functions;
-    }
-    public function __destruct()
-    {
-        if ($this->shouldExecute()) {
-            $this->execute();
-        }
-    }
-    private function shouldExecute()
-    {
-        if (!$this->functions->file_exists($this->cacheRoot)) {
-            return false;
-        }
-        if ($this->probability <= 0) {
-            return false;
-        }
-        if ($this->probability >= 1) {
-            return true;
-        }
-        return $this->functions->mt_rand(1, round(1 / $this->probability)) == 1;
-    }
-    protected function getCacheFiles($path)
-    {
-        /** @var \SplFileInfo $item */
-        foreach ($this->makeFileSystemIterator($path) as $item) {
-            if ($this->isShard($item)) {
-                foreach ($this->getCacheFiles($item->getRealPath()) as $item) {
-                    (yield $item);
-                }
-            } elseif ($this->isCacheEntry($item)) {
-                (yield $item);
-            }
-        }
-    }
-    /**
-     * @return \Iterator
-     */
-    protected function makeFileSystemIterator($path)
-    {
-        try {
-            $items = iterator_to_array(new \FilesystemIterator($path));
-            shuffle($items);
-            return new \ArrayIterator($items);
-        } catch (\Exception $e) {
-            return new \ArrayIterator([]);
-        }
-    }
-    protected function isShard(\SplFileInfo $item)
-    {
-        return $item->isDir() && !$item->isLink() && preg_match('/^[a-f\\d]{2}$/', $item->getFilename());
-    }
-    protected function isCacheEntry(\SplFileInfo $item)
-    {
-        return $item->isFile() && preg_match('/^[a-f\\d]{32}-/', $item->getFilename());
-    }
-}
-namespace Kibo\Phast\Cache\File;
-
-class GarbageCollector extends \Kibo\Phast\Cache\File\ProbabilisticExecutor
-{
-    /**
-     * @var integer
-     */
-    private $shardingDepth;
-    /**
-     * @var integer
-     */
-    private $gcMaxAge;
-    /**
-     * @var integer
-     */
-    private $gcMaxItems;
-    public function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
-    {
-        $this->shardingDepth = $config['shardingDepth'];
-        $this->gcMaxAge = $config['garbageCollection']['maxAge'];
-        $this->gcMaxItems = $config['garbageCollection']['maxItems'];
-        $this->probability = $config['garbageCollection']['probability'];
-        parent::__construct($config, $functions);
-    }
-    protected function execute()
-    {
-        $files = $this->getCacheFiles($this->cacheRoot);
-        $deleted = 0;
-        /** @var \SplFileInfo $file */
-        foreach ($this->filterOldFiles($files) as $file) {
-            @$this->functions->unlink($file->getRealPath());
-            $deleted++;
-            if ($deleted == $this->gcMaxItems) {
-                break;
-            }
-        }
-    }
-    /**
-     * @param \Iterator $files
-     * @return \Generator
-     */
-    private function filterOldFiles(\Iterator $files)
-    {
-        $maxTimeModified = time() - $this->gcMaxAge;
-        /** @var \SplFileInfo $file */
-        foreach ($files as $file) {
-            if ($file->getMTime() < $maxTimeModified) {
-                (yield $file);
-            }
-        }
-    }
 }
 namespace Kibo\Phast\Cache\File;
 
@@ -872,142 +178,272 @@ class Cache implements \Kibo\Phast\Cache\Cache
 }
 namespace Kibo\Phast\Cache\File;
 
-class DiskCleanup extends \Kibo\Phast\Cache\File\ProbabilisticExecutor
+abstract class ProbabilisticExecutor
 {
     /**
-     * @var integer
+     * @var string
      */
-    private $maxSize;
+    protected $cacheRoot;
     /**
      * @var float
      */
-    private $portionToFree;
-    public function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    protected $probability = 0;
+    /**
+     * @var ObjectifiedFunctions
+     */
+    protected $functions;
+    protected abstract function execute();
+    protected function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
     {
-        $this->maxSize = $config['diskCleanup']['maxSize'];
-        $this->probability = $config['diskCleanup']['probability'];
-        $this->portionToFree = $config['diskCleanup']['portionToFree'];
-        parent::__construct($config, $functions);
+        $this->cacheRoot = $config['cacheRoot'];
+        $this->functions = is_null($functions) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $functions;
     }
-    protected function execute()
+    public function __destruct()
     {
-        $usedSpace = $this->calculateUsedSpace();
-        $neededSpace = round($this->portionToFree * $this->maxSize);
-        $bytesToDelete = $usedSpace - $this->maxSize + $neededSpace;
-        $deletedBytes = 0;
-        /** @var \SplFileInfo $file */
-        foreach ($this->getCacheFiles($this->cacheRoot) as $file) {
-            if ($deletedBytes >= $bytesToDelete) {
-                break;
+        if ($this->shouldExecute()) {
+            $this->execute();
+        }
+    }
+    private function shouldExecute()
+    {
+        if (!$this->functions->file_exists($this->cacheRoot)) {
+            return false;
+        }
+        if ($this->probability <= 0) {
+            return false;
+        }
+        if ($this->probability >= 1) {
+            return true;
+        }
+        return $this->functions->mt_rand(1, round(1 / $this->probability)) == 1;
+    }
+    protected function getCacheFiles($path)
+    {
+        /** @var \SplFileInfo $item */
+        foreach ($this->makeFileSystemIterator($path) as $item) {
+            if ($this->isShard($item)) {
+                foreach ($this->getCacheFiles($item->getRealPath()) as $item) {
+                    (yield $item);
+                }
+            } elseif ($this->isCacheEntry($item)) {
+                (yield $item);
             }
-            $deletedBytes += $file->getSize();
-            @unlink($file->getRealPath());
         }
     }
-    private function calculateUsedSpace()
+    /**
+     * @return \Iterator
+     */
+    protected function makeFileSystemIterator($path)
     {
-        $size = 0;
-        /** @var \SplFileInfo $file */
-        foreach ($this->getCacheFiles($this->cacheRoot) as $file) {
-            $size += $file->getSize();
+        try {
+            $items = iterator_to_array(new \FilesystemIterator($path));
+            shuffle($items);
+            return new \ArrayIterator($items);
+        } catch (\Exception $e) {
+            return new \ArrayIterator([]);
         }
-        return $size;
+    }
+    protected function isShard(\SplFileInfo $item)
+    {
+        return $item->isDir() && !$item->isLink() && preg_match('/^[a-f\\d]{2}$/', $item->getFilename());
+    }
+    protected function isCacheEntry(\SplFileInfo $item)
+    {
+        return $item->isFile() && preg_match('/^[a-f\\d]{32}-/', $item->getFilename());
     }
 }
-namespace Kibo\Phast;
+namespace Kibo\Phast\Common;
 
-class PhastDocumentFilters
+class Base64url
 {
-    const DOCUMENT_PATTERN = "~\n        \\s* (<\\?xml[^>]*>)?\n        (\\s* <!--(.*?)-->)*\n        \\s* (<!doctype\\s+html[^>]*>)?\n        (\\s* <!--(.*?)-->)*\n        \\s* <html (?<amp> [^>]* \\s ( amp | \342\232\241 ) [\\s=>] )?\n        .*\n        ( </body> | </html> )\n    ~xsiA";
+    public static function encode($data)
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
+    public static function decode($data)
+    {
+        return base64_decode(str_pad(strtr($data, '-_', '+/'), strlen($data) % 4, '=', STR_PAD_RIGHT));
+    }
+    public static function shortHash($data)
+    {
+        return self::encode(substr(sha1($data, true), 0, 8));
+    }
+}
+namespace Kibo\Phast\Common;
+
+class JSON
+{
+    public static function encode($value)
+    {
+        return self::_encode($value, 0);
+    }
+    public static function prettyEncode($value)
+    {
+        return self::_encode($value, JSON_PRETTY_PRINT);
+    }
+    private static function _encode($value, $flags)
+    {
+        $flags |= JSON_UNESCAPED_SLASHES;
+        if (version_compare(PHP_VERSION, '7.2.0', '<')) {
+            return self::legacyEncode($value, $flags);
+        }
+        return json_encode($value, $flags | JSON_INVALID_UTF8_IGNORE | JSON_PARTIAL_OUTPUT_ON_ERROR);
+    }
+    private static function legacyEncode($value, $flags)
+    {
+        $result = json_encode($value, $flags);
+        if ($result !== false || json_last_error() !== JSON_ERROR_UTF8) {
+            return $result;
+        }
+        self::cleanUTF8($value);
+        return json_encode($value, $flags | JSON_PARTIAL_OUTPUT_ON_ERROR);
+    }
+    private static function cleanUTF8(&$value)
+    {
+        if (is_array($value)) {
+            array_walk_recursive($value, __METHOD__);
+        } elseif (is_string($value)) {
+            $value = preg_replace_callback('~
+                    [\\x00-\\x7F]++                      # ASCII
+                  | [\\xC2-\\xDF][\\x80-\\xBF]             # non-overlong 2-byte
+                  |  \\xE0[\\xA0-\\xBF][\\x80-\\xBF]        # excluding overlongs
+                  | [\\xE1-\\xEC\\xEE\\xEF][\\x80-\\xBF]{2}  # straight 3-byte
+                  |  \\xED[\\x80-\\x9F][\\x80-\\xBF]        # excluding surrogates
+                  |  \\xF0[\\x90-\\xBF][\\x80-\\xBF]{2}     # planes 1-3
+                  | [\\xF1-\\xF3][\\x80-\\xBF]{3}          # planes 4-15
+                  |  \\xF4[\\x80-\\x8F][\\x80-\\xBF]{2}     # plane 16
+                  | (.)
+                ~xs', function ($match) {
+                if (isset($match[1]) && strlen($match[1])) {
+                    return '';
+                }
+                return $match[0];
+            }, $value);
+        }
+    }
+}
+namespace Kibo\Phast\Common;
+
+class ObjectifiedFunctions
+{
     /**
-     * @return ?OutputBufferHandler
+     * @param string $name
+     * @param array $arguments
      */
-    public static function deploy(array $userConfig = array())
+    public function __call($name, array $arguments)
     {
-        $runtimeConfig = self::configure($userConfig);
-        if (!$runtimeConfig) {
-            return null;
+        if (isset($this->{$name}) && is_callable($this->{$name})) {
+            $fn = $this->{$name};
+            return $fn(...$arguments);
         }
-        $handler = new \Kibo\Phast\Common\OutputBufferHandler($runtimeConfig['documents']['maxBufferSizeToApply'], function ($html, $applyCheckBuffer) use($runtimeConfig) {
-            return self::applyWithRuntimeConfig($html, $runtimeConfig, $applyCheckBuffer);
-        });
-        $handler->install();
-        \Kibo\Phast\Logging\Log::info('Phast deployed!');
-        return $handler;
+        if (function_exists($name)) {
+            return $name(...$arguments);
+        }
+        throw new \Kibo\Phast\Exceptions\UndefinedObjectifiedFunction("Undefined objectified function {$name}");
     }
-    public static function apply($html, array $userConfig)
+}
+namespace Kibo\Phast\Common;
+
+class OutputBufferHandler
+{
+    use \Kibo\Phast\Logging\LoggingTrait;
+    const START_PATTERN = '~
+        (
+            \\s*+ <!doctype\\s++html\\b[^<>]*> |
+            \\s*+ <html\\b[^<>]*> |
+            \\s*+ <head> |
+            \\s*+ <!--.*?-->
+        )++
+    ~xsiA';
+    private $filterCb;
+    /**
+     * @var ?string
+     */
+    private $buffer = '';
+    private $offset = 0;
+    /**
+     * @var integer
+     */
+    private $maxBufferSizeToApply;
+    private $canceled = false;
+    public function __construct($maxBufferSizeToApply, callable $filterCb)
     {
-        $runtimeConfig = self::configure($userConfig);
-        if (!$runtimeConfig) {
-            return $html;
-        }
-        return self::applyWithRuntimeConfig($html, $runtimeConfig);
+        $this->maxBufferSizeToApply = $maxBufferSizeToApply;
+        $this->filterCb = $filterCb;
     }
-    private static function configure(array $userConfig)
+    public function install()
     {
-        $request = \Kibo\Phast\Services\ServiceRequest::fromHTTPRequest(\Kibo\Phast\HTTP\Request::fromGlobals());
-        $runtimeConfig = \Kibo\Phast\Environment\Configuration::fromDefaults()->withUserConfiguration(new \Kibo\Phast\Environment\Configuration($userConfig))->withServiceRequest($request)->getRuntimeConfig()->toArray();
-        \Kibo\Phast\Logging\Log::init($runtimeConfig['logging'], $request, 'dom-filters');
-        \Kibo\Phast\Services\ServiceRequest::setDefaultSerializationMode($runtimeConfig['serviceRequestFormat']);
-        if ($request->hasRequestSwitchesSet()) {
-            \Kibo\Phast\Logging\Log::info('Request has switches set! Sending "noindex" header!');
-            header('X-Robots-Tag: noindex');
+        $ignoreHandlers = ['default output handler', 'ob_gzhandler'];
+        if (!array_diff(ob_list_handlers(), $ignoreHandlers)) {
+            while (ob_get_level() && @ob_end_clean()) {
+            }
         }
-        if (!$runtimeConfig['switches']['phast']) {
-            \Kibo\Phast\Logging\Log::info('Phast is off. Skipping document filter deployment!');
-            return;
-        }
-        return $runtimeConfig;
+        ob_start([$this, 'handleChunk'], 2);
+        ob_implicit_flush(1);
     }
-    private static function applyWithRuntimeConfig($buffer, $runtimeConfig, $applyCheckBuffer = null)
+    public function handleChunk($chunk, $phase)
     {
-        if (preg_match('~^\\s*{~', $buffer) && is_object($jsonData = json_decode($buffer))) {
-            return self::applyToJson($jsonData, $buffer, $runtimeConfig);
+        if ($this->buffer === null) {
+            return $chunk;
         }
-        if (is_null($applyCheckBuffer)) {
-            $applyCheckBuffer = $buffer;
+        $this->buffer .= $chunk;
+        if ($this->canceled) {
+            return $this->stop();
         }
-        if (!self::shouldApply($applyCheckBuffer, $runtimeConfig)) {
-            \Kibo\Phast\Logging\Log::info("Buffer ({bufferSize} bytes) doesn't look like html! Not applying filters", ['bufferSize' => strlen($applyCheckBuffer)]);
-            return $buffer;
+        if (strlen($this->buffer) > $this->maxBufferSizeToApply) {
+            $this->logger()->info('Buffer exceeds max. size ({buffersize} bytes). Not applying', ['buffersize' => $this->maxBufferSizeToApply]);
+            return $this->stop();
         }
-        $compositeFilter = (new \Kibo\Phast\Filters\HTML\Composite\Factory())->make($runtimeConfig);
-        if (self::isAMP($applyCheckBuffer)) {
-            $compositeFilter->selectFilters(function ($filter) {
-                return $filter instanceof \Kibo\Phast\Filters\HTML\AMPCompatibleFilter;
-            });
+        $output = '';
+        if (preg_match(self::START_PATTERN, $this->buffer, $match, 0, $this->offset)) {
+            $this->offset += strlen($match[0]);
+            $output .= $match[0];
         }
-        return $compositeFilter->apply($buffer);
+        if ($phase & PHP_OUTPUT_HANDLER_FINAL) {
+            $output .= $this->finalize();
+        }
+        if ($output !== '') {
+            @header_remove('Content-Length');
+        }
+        return $output;
     }
-    private static function applyToJson($jsonData, $buffer, $runtimeConfig)
+    private function finalize()
     {
-        if (!$runtimeConfig['optimizeJSONResponses']) {
-            return $buffer;
-        }
-        if (empty($jsonData->html) || !is_string($jsonData->html)) {
-            return $buffer;
-        }
-        $newHtml = self::applyWithRuntimeConfig($jsonData->html, $runtimeConfig);
-        if ($newHtml == $jsonData->html) {
-            return $buffer;
-        }
-        $jsonData->html = $newHtml;
-        $json = json_encode($jsonData);
-        if (!$json) {
-            return $buffer;
-        }
-        return $json;
+        $input = substr($this->buffer, $this->offset);
+        $result = call_user_func($this->filterCb, $input, $this->buffer);
+        $this->buffer = null;
+        return $result;
     }
-    private static function shouldApply($buffer, $runtimeConfig)
+    private function stop()
     {
-        if ($runtimeConfig['optimizeHTMLDocumentsOnly']) {
-            return preg_match(self::DOCUMENT_PATTERN, $buffer);
-        }
-        return strpos($buffer, '<') !== false && !preg_match('~^\\s*+{\\s*+"~', $buffer);
+        $output = $this->buffer;
+        $this->buffer = null;
+        return $output;
     }
-    private static function isAMP($buffer)
+    public function cancel()
     {
-        return preg_match(self::DOCUMENT_PATTERN, $buffer, $match) && !empty($match['amp']);
+        $this->canceled = true;
+    }
+}
+namespace Kibo\Phast\Common;
+
+class System
+{
+    private $functions;
+    public function __construct(\Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    {
+        if ($functions === null) {
+            $functions = new \Kibo\Phast\Common\ObjectifiedFunctions();
+        }
+        $this->functions = $functions;
+    }
+    public function getUserId()
+    {
+        try {
+            return (int) $this->functions->posix_geteuid();
+        } catch (\Kibo\Phast\Exceptions\UndefinedObjectifiedFunction $e) {
+            return 0;
+        }
     }
 }
 namespace Kibo\Phast\Diagnostics;
@@ -1018,51 +454,6 @@ interface Diagnostics
      * @param array $config
      */
     public function diagnose(array $config);
-}
-namespace Kibo\Phast\Diagnostics;
-
-class SystemDiagnostics
-{
-    /**
-     * @param array $userConfigArr
-     * @return Status[]
-     */
-    public function run(array $userConfigArr)
-    {
-        $results = [];
-        $userConfig = new \Kibo\Phast\Environment\Configuration($userConfigArr);
-        $config = \Kibo\Phast\Environment\Configuration::fromDefaults()->withUserConfiguration($userConfig);
-        foreach ($this->getExaminedItems($config) as $type => $group) {
-            foreach ($group['items'] as $name) {
-                $enabled = call_user_func($group['enabled'], $name);
-                $package = \Kibo\Phast\Environment\Package::fromPackageClass($name, $type);
-                try {
-                    $diagnostic = $package->getDiagnostics();
-                    $diagnostic->diagnose($config->toArray());
-                    $results[] = new \Kibo\Phast\Diagnostics\Status($package, true, '', $enabled);
-                } catch (\Kibo\Phast\Environment\Exceptions\PackageHasNoDiagnosticsException $e) {
-                    $results[] = new \Kibo\Phast\Diagnostics\Status($package, true, '', $enabled);
-                } catch (\Kibo\Phast\Exceptions\RuntimeException $e) {
-                    $results[] = new \Kibo\Phast\Diagnostics\Status($package, false, $e->getMessage(), $enabled);
-                } catch (\Exception $e) {
-                    $results[] = new \Kibo\Phast\Diagnostics\Status($package, false, sprintf('Unknown error: Exception: %s, Message: %s, Code: %s', get_class($e), $e->getMessage(), $e->getCode()), $enabled);
-                }
-            }
-        }
-        return $results;
-    }
-    private function getExaminedItems(\Kibo\Phast\Environment\Configuration $config)
-    {
-        $runtimeConfig = $config->getRuntimeConfig()->toArray();
-        $configArr = $config->toArray();
-        return ['HTMLFilter' => ['items' => array_keys($configArr['documents']['filters']), 'enabled' => function ($filter) use($runtimeConfig) {
-            return isset($runtimeConfig['documents']['filters'][$filter]);
-        }], 'ImageFilter' => ['items' => array_keys($configArr['images']['filters']), 'enabled' => function ($filter) use($runtimeConfig) {
-            return isset($runtimeConfig['images']['filters'][$filter]);
-        }], 'Cache' => ['items' => [\Kibo\Phast\Cache\File\Cache::class], 'enabled' => function () {
-            return true;
-        }]];
-    }
 }
 namespace Kibo\Phast\Diagnostics;
 
@@ -1138,301 +529,576 @@ class Status implements \JsonSerializable
         return $this->toArray();
     }
 }
-namespace Kibo\Phast\Retrievers;
+namespace Kibo\Phast\Diagnostics;
 
-interface Retriever
+class SystemDiagnostics
 {
     /**
-     * @param URL $url
-     * @return string|bool
+     * @param array $userConfigArr
+     * @return Status[]
      */
-    public function retrieve(\Kibo\Phast\ValueObjects\URL $url);
-    /**
-     * @param URL $url
-     * @return integer|bool
-     */
-    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url);
-}
-namespace Kibo\Phast\Retrievers;
-
-trait DynamicCacheSaltTrait
-{
-    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url)
+    public function run(array $userConfigArr)
     {
-        return md5($url->toString()) . '-' . floor(time() / 7200);
-    }
-}
-namespace Kibo\Phast\Retrievers;
-
-class RemoteRetriever implements \Kibo\Phast\Retrievers\Retriever
-{
-    use \Kibo\Phast\Retrievers\DynamicCacheSaltTrait;
-    use \Kibo\Phast\Logging\LoggingTrait;
-    private $client;
-    public function __construct(\Kibo\Phast\HTTP\Client $client)
-    {
-        $this->client = $client;
-    }
-    public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        $cdnLoop = ['Phast'];
-        if (!empty($_SERVER['HTTP_CDN_LOOP'])) {
-            $cdnLoop[] = $_SERVER['HTTP_CDN_LOOP'];
-        }
-        try {
-            $response = $this->client->get($url, ['User-Agent' => 'Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:56.0) Gecko/20100101 Firefox/56.0', 'CDN-Loop' => implode(', ', $cdnLoop)]);
-        } catch (\Exception $e) {
-            $this->logger()->warning('Caught {cls} while fetching {url}: ({code}) {message}', ['cls' => get_class($e), 'url' => (string) $url, 'code' => $e->getCode(), 'message' => $e->getMessage()]);
-            return false;
-        }
-        return $response->getContent();
-    }
-}
-namespace Kibo\Phast\Retrievers;
-
-class RemoteRetrieverFactory
-{
-    public function make(array $config)
-    {
-        return new \Kibo\Phast\Retrievers\RemoteRetriever((new \Kibo\Phast\HTTP\ClientFactory())->make($config));
-    }
-}
-namespace Kibo\Phast\Retrievers;
-
-class UniversalRetriever implements \Kibo\Phast\Retrievers\Retriever
-{
-    /**
-     * @var Retriever[]
-     */
-    private $retrievers = array();
-    public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        return $this->iterateRetrievers(function (\Kibo\Phast\Retrievers\Retriever $retriever) use($url) {
-            return $retriever->retrieve($url);
-        });
-    }
-    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        return $this->iterateRetrievers(function (\Kibo\Phast\Retrievers\Retriever $retriever) use($url) {
-            return $retriever->getCacheSalt($url);
-        });
-    }
-    private function iterateRetrievers(callable $callback)
-    {
-        foreach ($this->retrievers as $retriever) {
-            $result = $callback($retriever);
-            if ($result !== false) {
-                return $result;
+        $results = [];
+        $userConfig = new \Kibo\Phast\Environment\Configuration($userConfigArr);
+        $config = \Kibo\Phast\Environment\Configuration::fromDefaults()->withUserConfiguration($userConfig);
+        foreach ($this->getExaminedItems($config) as $type => $group) {
+            foreach ($group['items'] as $name) {
+                $enabled = call_user_func($group['enabled'], $name);
+                $package = \Kibo\Phast\Environment\Package::fromPackageClass($name, $type);
+                try {
+                    $diagnostic = $package->getDiagnostics();
+                    $diagnostic->diagnose($config->toArray());
+                    $results[] = new \Kibo\Phast\Diagnostics\Status($package, true, '', $enabled);
+                } catch (\Kibo\Phast\Environment\Exceptions\PackageHasNoDiagnosticsException $e) {
+                    $results[] = new \Kibo\Phast\Diagnostics\Status($package, true, '', $enabled);
+                } catch (\Kibo\Phast\Exceptions\RuntimeException $e) {
+                    $results[] = new \Kibo\Phast\Diagnostics\Status($package, false, $e->getMessage(), $enabled);
+                } catch (\Exception $e) {
+                    $results[] = new \Kibo\Phast\Diagnostics\Status($package, false, sprintf('Unknown error: Exception: %s, Message: %s, Code: %s', get_class($e), $e->getMessage(), $e->getCode()), $enabled);
+                }
             }
         }
-        return false;
+        return $results;
     }
-    public function addRetriever(\Kibo\Phast\Retrievers\Retriever $retriever)
+    private function getExaminedItems(\Kibo\Phast\Environment\Configuration $config)
     {
-        $this->retrievers[] = $retriever;
+        $runtimeConfig = $config->getRuntimeConfig()->toArray();
+        $configArr = $config->toArray();
+        return ['HTMLFilter' => ['items' => array_keys($configArr['documents']['filters']), 'enabled' => function ($filter) use($runtimeConfig) {
+            return isset($runtimeConfig['documents']['filters'][$filter]);
+        }], 'ImageFilter' => ['items' => array_keys($configArr['images']['filters']), 'enabled' => function ($filter) use($runtimeConfig) {
+            return isset($runtimeConfig['images']['filters'][$filter]);
+        }], 'Cache' => ['items' => [\Kibo\Phast\Cache\File\Cache::class], 'enabled' => function () {
+            return true;
+        }]];
     }
 }
-namespace Kibo\Phast\Retrievers;
+namespace Kibo\Phast\Environment;
 
-class LocalRetriever implements \Kibo\Phast\Retrievers\Retriever
+class Configuration
 {
     /**
      * @var array
      */
-    private $map;
+    private $sourceConfig;
     /**
-     * @var ObjectifiedFunctions
+     * @var Switches
      */
-    private $funcs;
+    private $switches;
     /**
-     * LocalRetriever constructor.
-     *
-     * @param array $map
-     * @param ObjectifiedFunctions|null $functions
+     * @return Configuration
      */
-    public function __construct(array $map, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    public static function fromDefaults()
     {
-        $this->map = $map;
-        if ($functions) {
-            $this->funcs = $functions;
+        return new self(\Kibo\Phast\Environment\DefaultConfiguration::get());
+    }
+    /**
+     * Configuration constructor.
+     * @param array $sourceConfig
+     */
+    public function __construct(array $sourceConfig)
+    {
+        $this->sourceConfig = $sourceConfig;
+        if (!isset($this->sourceConfig['switches'])) {
+            $this->switches = new \Kibo\Phast\Environment\Switches();
         } else {
-            $this->funcs = new \Kibo\Phast\Common\ObjectifiedFunctions();
+            $this->switches = \Kibo\Phast\Environment\Switches::fromArray($this->sourceConfig['switches']);
         }
     }
-    public static function getAllowedExtensions()
+    /**
+     * @param Configuration $config
+     * @return $this
+     */
+    public function withUserConfiguration(\Kibo\Phast\Environment\Configuration $config)
     {
-        return ['css', 'js', 'bmp', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'svg', 'txt'];
+        $result = $this->recursiveMerge($this->sourceConfig, $config->sourceConfig);
+        return new self($result);
     }
-    public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
+    public function withServiceRequest(\Kibo\Phast\Services\ServiceRequest $request)
     {
-        return $this->guard($url, function ($file) {
-            return @$this->funcs->file_get_contents($file);
-        });
+        $clone = clone $this;
+        $clone->switches = $this->switches->merge($request->getSwitches());
+        return $clone;
     }
-    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url)
+    public function getRuntimeConfig()
     {
-        return $this->guard($url, function ($file) {
-            $size = @$this->funcs->filesize($file);
-            $mtime = @$this->funcs->filectime($file);
-            if ($size === false && $mtime === false) {
-                return '';
+        $config = $this->sourceConfig;
+        $switchables = [&$config['documents']['filters'], &$config['images']['filters'], &$config['logging']['logWriters'], &$config['styles']['filters']];
+        foreach ($switchables as &$switchable) {
+            if (!is_array($switchable)) {
+                continue;
             }
-            return "{$mtime}-{$size}";
-        });
-    }
-    public function getSize(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        return $this->guard($url, function ($file) {
-            return @$this->funcs->filesize($file);
-        });
-    }
-    private function guard(\Kibo\Phast\ValueObjects\URL $url, callable $cb)
-    {
-        if (!in_array($this->getExtensionForURL($url), self::getAllowedExtensions())) {
-            return false;
-        }
-        $file = $this->getFileForURL($url);
-        if ($file === false) {
-            return false;
-        }
-        return $cb($file);
-    }
-    private function getExtensionForURL(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        $dotPosition = strrpos($url->getDecodedPath(), '.');
-        if ($dotPosition === false) {
-            return '';
-        }
-        return strtolower(substr($url->getDecodedPath(), $dotPosition + 1));
-    }
-    private function getFileForURL(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        if (!isset($this->map[$url->getHost()])) {
-            return false;
-        }
-        $submap = $this->map[$url->getHost()];
-        if (!is_array($submap)) {
-            return $this->appendNormalized($submap, $url->getDecodedPath());
-        }
-        $selectedPath = null;
-        $selectedRoot = null;
-        foreach ($submap as $prefix => $root) {
-            $pattern = '~^(?=/)/*?(?:' . str_replace('~', '\\~', $prefix) . ')(?<path>/*(?<=/).*)~';
-            if (preg_match($pattern, $url->getDecodedPath(), $match) && ($selectedPath === null || strlen($match['path']) < strlen($selectedPath))) {
-                $selectedRoot = $root;
-                $selectedPath = $match['path'];
-            }
-        }
-        if ($selectedPath === null) {
-            return false;
-        }
-        return $this->appendNormalized($selectedRoot, $selectedPath);
-    }
-    private function appendNormalized($target, $appended)
-    {
-        $appended = explode("\0", $appended)[0];
-        $appended = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $appended);
-        $absolutes = [];
-        foreach (explode(DIRECTORY_SEPARATOR, $appended) as $part) {
-            if ($part == '' || $part == '.') {
-            } elseif ($part == '..') {
-                if (array_pop($absolutes) === null) {
+            $switchable = array_filter($switchable, function ($item) {
+                if (!isset($item['enabled'])) {
+                    return true;
+                }
+                if ($item['enabled'] === false) {
                     return false;
                 }
+                return $this->switches->isOn($item['enabled']);
+            });
+        }
+        if (isset($config['images']['enable-cache']) && is_string($config['images']['enable-cache'])) {
+            $config['images']['enable-cache'] = $this->switches->isOn($config['images']['enable-cache']);
+        }
+        $config['switches'] = $this->switches->toArray();
+        return new \Kibo\Phast\Environment\Configuration($config);
+    }
+    public function toArray()
+    {
+        return $this->sourceConfig;
+    }
+    private function recursiveMerge(array $a1, array $a2)
+    {
+        foreach ($a2 as $key => $value) {
+            if (isset($a1[$key]) && is_array($a1[$key]) && is_array($value)) {
+                $a1[$key] = $this->recursiveMerge($a1[$key], $value);
+            } elseif (is_string($key)) {
+                $a1[$key] = $value;
             } else {
-                $absolutes[] = $part;
+                $a1[] = $value;
             }
         }
-        return $target . DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $absolutes);
+        return $a1;
     }
 }
-namespace Kibo\Phast\Retrievers;
+namespace Kibo\Phast\Environment;
 
-class CachingRetriever implements \Kibo\Phast\Retrievers\Retriever
+class DefaultConfiguration
 {
-    use \Kibo\Phast\Retrievers\DynamicCacheSaltTrait {
-        getCacheSalt as getDynamicCacheSalt;
+    public static function get()
+    {
+        $request = \Kibo\Phast\HTTP\Request::fromGlobals();
+        return ['securityToken' => null, 'retrieverMap' => [$request->getHost() => $request->getDocumentRoot()], 'httpClient' => \Kibo\Phast\HTTP\CURLClient::class, 'cache' => ['cacheRoot' => sys_get_temp_dir() . '/phast-cache-' . (new \Kibo\Phast\Common\System())->getUserId(), 'shardingDepth' => 1, 'garbageCollection' => ['maxItems' => 100, 'probability' => 0.1, 'maxAge' => 86400 * 365], 'diskCleanup' => ['maxSize' => 500 * pow(1024, 2), 'probability' => 0.02, 'portionToFree' => 0.5]], 'servicesUrl' => '/phast.php', 'serviceRequestFormat' => \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH, 'compressServiceResponse' => true, 'optimizeHTMLDocumentsOnly' => true, 'optimizeJSONResponses' => false, 'outputServerSideStats' => true, 'documents' => ['maxBufferSizeToApply' => 2 * 1024 * 1024, 'baseUrl' => $request->getAbsoluteURI(), 'filters' => [\Kibo\Phast\Filters\HTML\CommentsRemoval\Filter::class => [], \Kibo\Phast\Filters\HTML\MetaCharset\Filter::class => [], \Kibo\Phast\Filters\HTML\Minify\Filter::class => [], \Kibo\Phast\Filters\HTML\MinifyScripts\Filter::class => [], \Kibo\Phast\Filters\HTML\BaseURLSetter\Filter::class => [], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter::class => [], \Kibo\Phast\Filters\HTML\LazyImageLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\CSSInlining\Filter::class => ['optimizerSizeDiffThreshold' => 1024, 'whitelist' => ['~^https?://fonts\\.googleapis\\.com/~' => ['ieCompatible' => false], '~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~', '~^https?://maxcdn\\.bootstrapcdn\\.com/[^?#]*\\.css~', '~^https?://idangero\\.us/~', '~^https?://[^/]*\\.github\\.io/~', '~^https?://\\w+\\.typekit\\.net/~' => ['ieCompatible' => false], '~^https?://stackpath\\.bootstrapcdn\\.com/~', '~^https?://cdnjs\\.cloudflare\\.com/~']], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class => [], \Kibo\Phast\Filters\HTML\DelayedIFrameLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class => ['urlRefreshTime' => 7200], \Kibo\Phast\Filters\HTML\Diagnostics\Filter::class => ['enabled' => 'diagnostics'], \Kibo\Phast\Filters\HTML\ScriptsDeferring\Filter::class => [], \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter::class => []]], 'images' => ['enable-cache' => 'imgcache', 'api-mode' => false, 'factory' => \Kibo\Phast\Filters\Image\ImageFactory::class, 'maxImageInliningSize' => 512, 'whitelist' => ['~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~'], 'filters' => [\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class => ['api-url' => 'https://optimize.phast.io/?service=images', 'host-name' => $request->getHost(), 'request-uri' => $request->getURI(), 'plugin-version' => 'phast-core-1.0']]], 'styles' => ['filters' => [\Kibo\Phast\Filters\Text\Decode\Filter::class => [], \Kibo\Phast\Filters\CSS\ImportsStripper\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSMinifier\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSURLRewriter\Filter::class => [], \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['maxImageInliningSize' => 512], \Kibo\Phast\Filters\CSS\FontSwap\Filter::class => []]], 'logging' => ['logWriters' => [['class' => \Kibo\Phast\Logging\LogWriters\PHPError\Writer::class, 'levelMask' => \Kibo\Phast\Logging\LogLevel::EMERGENCY | \Kibo\Phast\Logging\LogLevel::ALERT | \Kibo\Phast\Logging\LogLevel::CRITICAL | \Kibo\Phast\Logging\LogLevel::ERROR | \Kibo\Phast\Logging\LogLevel::WARNING], ['enabled' => 'diagnostics', 'class' => \Kibo\Phast\Logging\LogWriters\JSONLFile\Writer::class, 'logRoot' => sys_get_temp_dir() . '/phast-logs']]], 'switches' => ['phast' => true, 'diagnostics' => false], 'scripts' => ['removeLicenseHeaders' => false, 'whitelist' => ['~^https?://' . preg_quote($request->getHost(), '~') . '/~']], 'cspNonce' => null];
     }
+}
+namespace Kibo\Phast\Environment;
+
+class Package
+{
+    /**
+     * @var string
+     */
+    protected $type;
+    /**
+     * @var string
+     */
+    protected $namespace;
+    /**
+     * @param $className
+     * @param string|null $type
+     * @return Package
+     */
+    public static function fromPackageClass($className, $type = null)
+    {
+        $instance = new self();
+        $lastSeparatorPosition = strrpos($className, '\\');
+        $instance->type = empty($type) ? substr($className, $lastSeparatorPosition + 1) : $type;
+        $instance->namespace = substr($className, 0, $lastSeparatorPosition);
+        return $instance;
+    }
+    /**
+     * @return string
+     */
+    public function getType()
+    {
+        return $this->type;
+    }
+    /**
+     * @return string
+     */
+    public function getNamespace()
+    {
+        return $this->namespace;
+    }
+    /**
+     * @return bool
+     */
+    public function hasFactory()
+    {
+        return $this->classExists($this->getFactoryClassName());
+    }
+    /**
+     * @return mixed
+     */
+    public function getFactory()
+    {
+        if ($this->hasFactory()) {
+            $class = $this->getFactoryClassName();
+            return new $class();
+        }
+        throw new \Kibo\Phast\Environment\Exceptions\PackageHasNoFactoryException("Package {$this->namespace} has no factory");
+    }
+    /**
+     * @return bool
+     */
+    public function hasDiagnostics()
+    {
+        return $this->classExists($this->getDiagnosticsClassName());
+    }
+    /**
+     * @return Diagnostics
+     */
+    public function getDiagnostics()
+    {
+        if ($this->hasDiagnostics()) {
+            $class = $this->getDiagnosticsClassName();
+            return new $class();
+        }
+        throw new \Kibo\Phast\Environment\Exceptions\PackageHasNoDiagnosticsException("Package {$this->namespace} has no diagnostics");
+    }
+    private function getFactoryClassName()
+    {
+        return $this->getClassName('Factory');
+    }
+    private function getDiagnosticsClassName()
+    {
+        return $this->getClassName('Diagnostics');
+    }
+    private function getClassName($class)
+    {
+        return $this->namespace . '\\' . $class;
+    }
+    private function classExists($class)
+    {
+        // Don't trigger any autoloaders if Phast has been compiled into a
+        // single file, and avoid triggering Magento code generation.
+        $useAutoloader = basename(__FILE__) == 'Package.php';
+        return class_exists($class, $useAutoloader);
+    }
+}
+namespace Kibo\Phast\Environment;
+
+class Switches
+{
+    const SWITCH_PHAST = 'phast';
+    const SWITCH_DIAGNOSTICS = 'diagnostics';
+    private static $defaults = array(self::SWITCH_PHAST => true, self::SWITCH_DIAGNOSTICS => false);
+    private $switches = array();
+    public static function fromArray(array $switches)
+    {
+        $instance = new self();
+        $instance->switches = array_merge($instance->switches, $switches);
+        return $instance;
+    }
+    public static function fromString($switches)
+    {
+        $instance = new self();
+        if (empty($switches)) {
+            return $instance;
+        }
+        foreach (explode(',', $switches) as $switch) {
+            if ($switch[0] == '-') {
+                $instance->switches[substr($switch, 1)] = false;
+            } else {
+                $instance->switches[$switch] = true;
+            }
+        }
+        return $instance;
+    }
+    public function merge(\Kibo\Phast\Environment\Switches $switches)
+    {
+        $instance = new self();
+        $instance->switches = array_merge($this->switches, $switches->switches);
+        return $instance;
+    }
+    public function isOn($switch)
+    {
+        if (isset($this->switches[$switch])) {
+            return (bool) $this->switches[$switch];
+        }
+        if (isset(self::$defaults[$switch])) {
+            return (bool) self::$defaults[$switch];
+        }
+        return true;
+    }
+    public function toArray()
+    {
+        return array_merge(self::$defaults, $this->switches);
+    }
+}
+namespace Kibo\Phast\Exceptions;
+
+class CachedExceptionException extends \Exception
+{
+}
+namespace Kibo\Phast\Exceptions;
+
+class ItemNotFoundException extends \Exception
+{
+    /**
+     * @var URL
+     */
+    private $url;
+    public function __construct($message = '', $code = 0, \Throwable $previous = null, \Kibo\Phast\ValueObjects\URL $failed = null)
+    {
+        parent::__construct($message, $code, $previous);
+        $this->url = $failed;
+    }
+    /**
+     * @return URL
+     */
+    public function getUrl()
+    {
+        return $this->url;
+    }
+}
+namespace Kibo\Phast\Exceptions;
+
+class LogicException extends \LogicException
+{
+}
+namespace Kibo\Phast\Exceptions;
+
+class RuntimeException extends \RuntimeException
+{
+}
+namespace Kibo\Phast\Exceptions;
+
+class UnauthorizedException extends \Exception
+{
+}
+namespace Kibo\Phast\Exceptions;
+
+class UndefinedObjectifiedFunction extends \RuntimeException
+{
+}
+namespace Kibo\Phast\Filters\CSS\CSSMinifier;
+
+class Factory
+{
+    public function make()
+    {
+        return new \Kibo\Phast\Filters\CSS\CSSMinifier\Filter();
+    }
+}
+namespace Kibo\Phast\Filters\CSS\CSSURLRewriter;
+
+class Factory
+{
+    public function make()
+    {
+        return new \Kibo\Phast\Filters\CSS\CSSURLRewriter\Filter();
+    }
+}
+namespace Kibo\Phast\Filters\CSS\Composite;
+
+class Factory
+{
+    /**
+     * @param array $config
+     * @return Filter
+     */
+    public function make(array $config)
+    {
+        $class = \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class;
+        if (isset($config['documents']['filters'][$class]['serviceUrl'])) {
+            $serviceUrl = $config['documents']['filters'][$class]['serviceUrl'];
+        } else {
+            $serviceUrl = $config['servicesUrl'] . '?service=images';
+        }
+        $filter = new \Kibo\Phast\Filters\CSS\Composite\Filter($serviceUrl);
+        foreach (array_keys($config['styles']['filters']) as $filterClass) {
+            $filter->addFilter(\Kibo\Phast\Environment\Package::fromPackageClass($filterClass)->getFactory()->make($config));
+        }
+        return $filter;
+    }
+}
+namespace Kibo\Phast\Filters\CSS\FontSwap;
+
+class Factory
+{
+    public function make()
+    {
+        return new \Kibo\Phast\Filters\CSS\FontSwap\Filter();
+    }
+}
+namespace Kibo\Phast\Filters\CSS\ImageURLRewriter;
+
+class Factory
+{
+    public function make(array $config)
+    {
+        return new \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter((new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageURLRewriterFactory())->make($config, \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class));
+    }
+}
+namespace Kibo\Phast\Filters\CSS\ImportsStripper;
+
+class Factory
+{
+    public function make()
+    {
+        return new \Kibo\Phast\Filters\CSS\ImportsStripper\Filter();
+    }
+}
+namespace Kibo\Phast\Filters\HTML;
+
+interface AMPCompatibleFilter
+{
+}
+namespace Kibo\Phast\Filters\HTML\CSSInlining;
+
+class Optimizer
+{
+    private $classNamePattern = '-?[_a-zA-Z]++[_a-zA-Z0-9-]*+';
+    /**
+     * @var array
+     */
+    private $usedClasses;
     /**
      * @var Cache
      */
     private $cache;
-    /**
-     * @var Retriever
-     */
-    private $retriever;
-    /**
-     * CachingRetriever constructor.
-     *
-     * @param Retriever $retriever
-     * @param Cache $cache
-     * @param int $defaultCacheTime
-     */
-    public function __construct(\Kibo\Phast\Cache\Cache $cache, \Kibo\Phast\Retrievers\Retriever $retriever = null, $defaultCacheTime = 0)
+    public function __construct(\Traversable $elements, \Kibo\Phast\Cache\Cache $cache)
     {
+        $this->usedClasses = $this->getUsedClasses($elements);
         $this->cache = $cache;
-        $this->retriever = $retriever;
     }
-    public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
+    public function optimizeCSS($css)
     {
-        if ($this->retriever) {
-            return $this->getCachedWithRetriever($url);
-        }
-        return $this->getFromCacheOnly($url);
-    }
-    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        if ($this->retriever) {
-            return $this->retriever->getCacheSalt($url);
-        }
-        return $this->getDynamicCacheSalt($url);
-    }
-    private function getCachedWithRetriever(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        return $this->cache->get($this->getCacheKey($url), function () use($url) {
-            return $this->retriever->retrieve($url);
+        $stylesheet = $this->cache->get(md5($css), function () use($css) {
+            return $this->parseCSS($css);
         });
-    }
-    private function getFromCacheOnly(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        $cached = $this->cache->get($this->getCacheKey($url));
-        if (!$cached) {
-            return false;
+        if ($stylesheet === null) {
+            return;
         }
-        return $cached;
+        $output = '';
+        $selectors = null;
+        foreach ($stylesheet as $element) {
+            if (is_array($element)) {
+                if ($selectors === null) {
+                    $selectors = [];
+                }
+                foreach ($element as $i => $class) {
+                    if ($i !== 0 && !isset($this->usedClasses[$class])) {
+                        continue 2;
+                    }
+                }
+                $selectors[] = $element[0];
+            } elseif ($selectors !== null) {
+                if (isset($selectors[0])) {
+                    $output .= implode(',', $selectors) . $element;
+                }
+                $selectors = null;
+            } else {
+                $output .= $element;
+            }
+        }
+        $output = $this->removeEmptyMediaQueries($output);
+        return trim($output);
     }
-    private function getCacheKey(\Kibo\Phast\ValueObjects\URL $url)
+    /**
+     * Parse a stylesheet into an array of segments
+     *
+     * Each string segment is preceded by zero or more arrays encoding selectors
+     * parsed by parseSelector (see below).
+     *
+     * @param $css
+     * @return array|void
+     */
+    private function parseCSS($css)
     {
-        return $url . '-' . $this->getCacheSalt($url);
+        $re_simple_selector_chars = "[A-Z0-9_.#*:>+\\~\\s-]";
+        $re_selector = "(?: {$re_simple_selector_chars} | \\[[a-z]++\\] )++";
+        $re_rule = "~\n            (?<= ^ | [;{}] ) \\s*+\n            ( (?: {$re_selector} , )*+ {$re_selector} )\n            ( { [^}]*+ } )\n        ~xi";
+        if (preg_match_all($re_rule, $css, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE) === false) {
+            // This is an error condition
+            return;
+        }
+        $offset = 0;
+        $stylesheet = [];
+        foreach ($matches as $match) {
+            $selectors = $this->parseSelectors($match[1][0]);
+            if ($selectors === null) {
+                continue;
+            }
+            if ($match[0][1] > $offset) {
+                $stylesheet[] = substr($css, $offset, $match[0][1] - $offset);
+            }
+            foreach ($selectors as $selector) {
+                $stylesheet[] = $selector;
+            }
+            $stylesheet[] = $match[2][0];
+            $offset = $match[0][1] + strlen($match[0][0]);
+        }
+        if ($offset < strlen($css)) {
+            $stylesheet[] = substr($css, $offset);
+        }
+        return $stylesheet;
+    }
+    /**
+     * Parse the selector part of a CSS rule into an array of selectors.
+     *
+     * Each selector will be an array with at offset 0, the string contents of
+     * the selector. The rest of the array will be the class names (if any) that
+     * must be present in the document for this selector to match.
+     *
+     * Null is returned if none of the selectors use classes, and can therefore
+     * not be optimized.
+     *
+     * @param string $selectors
+     * @return array|void
+     */
+    private function parseSelectors($selectors)
+    {
+        $newSelectors = [];
+        $anyClasses = false;
+        foreach (explode(',', $selectors) as $selector) {
+            $classes = [$selector];
+            if (preg_match_all("~\\.({$this->classNamePattern})~", $selector, $matches)) {
+                foreach ($matches[1] as $class) {
+                    $classes[] = $class;
+                    $anyClasses = true;
+                }
+            }
+            $newSelectors[] = $classes;
+        }
+        if (!$anyClasses) {
+            return;
+        }
+        return $newSelectors;
+    }
+    private function getUsedClasses(\Traversable $elements)
+    {
+        $classes = [];
+        /** @var Tag $tag */
+        foreach ($elements as $tag) {
+            if (!$tag instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag) {
+                continue;
+            }
+            foreach (preg_split('/\\s+/', $tag->getAttribute('class')) as $cls) {
+                if ($cls != '' && !isset($classes[$cls]) && preg_match("/^{$this->classNamePattern}\$/", $cls)) {
+                    $classes[$cls] = true;
+                }
+            }
+        }
+        return $classes;
+    }
+    private function removeEmptyMediaQueries($css)
+    {
+        return preg_replace('~@media\\s++[A-Z0-9():,\\s-]++\\s*+{}~i', '', $css);
     }
 }
-namespace Kibo\Phast\Retrievers;
+namespace Kibo\Phast\Filters\HTML\CSSInlining;
 
-class PostDataRetriever implements \Kibo\Phast\Retrievers\Retriever
+class OptimizerFactory
 {
     /**
-     * @var ObjectifiedFunctions
+     * @var Cache
      */
-    private $funcs;
-    private $content;
+    private $cache;
+    public function __construct(array $config)
+    {
+        $this->cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'css-optimizitor');
+    }
     /**
-     * PostDataRetriever constructor.
-     * @param ObjectifiedFunctions $funcs
+     * @param \Traversable $elements
+     * @return Optimizer
      */
-    public function __construct(\Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
+    public function makeForElements(\Traversable $elements)
     {
-        $this->funcs = is_null($funcs) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $funcs;
-    }
-    public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        if (!isset($this->content)) {
-            $this->content = $this->funcs->file_get_contents('php://input');
-        }
-        return $this->content;
-    }
-    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        return md5($this->retrieve($url));
+        return new \Kibo\Phast\Filters\HTML\CSSInlining\Optimizer($elements, $this->cache);
     }
 }
 namespace Kibo\Phast\Filters\HTML\Composite;
@@ -1526,8 +1192,62 @@ class Filter
 }
 namespace Kibo\Phast\Filters\HTML;
 
-interface AMPCompatibleFilter
+interface HTMLFilterFactory
 {
+    /**
+     * @param array $config
+     * @return HTMLStreamFilter
+     */
+    public function make(array $config);
+}
+namespace Kibo\Phast\Filters\HTML;
+
+class HTMLPageContext
+{
+    /**
+     * @var URL
+     */
+    private $baseUrl;
+    /**
+     * @var PhastJavaScript[]
+     */
+    private $phastJavaScripts = array();
+    /**
+     * HTMLPageContext constructor.
+     * @param URL $baseUrl
+     */
+    public function __construct(\Kibo\Phast\ValueObjects\URL $baseUrl)
+    {
+        $this->baseUrl = $baseUrl;
+    }
+    /**
+     * @param URL $baseUrl
+     */
+    public function setBaseUrl(\Kibo\Phast\ValueObjects\URL $baseUrl)
+    {
+        $this->baseUrl = $baseUrl;
+    }
+    /**
+     * @return URL
+     */
+    public function getBaseUrl()
+    {
+        return $this->baseUrl;
+    }
+    /**
+     * @param PhastJavaScript $script
+     */
+    public function addPhastJavascript(\Kibo\Phast\ValueObjects\PhastJavaScript $script)
+    {
+        $this->phastJavaScripts[] = $script;
+    }
+    /**
+     * @return PhastJavaScript[]
+     */
+    public function getPhastJavaScripts()
+    {
+        return $this->phastJavaScripts;
+    }
 }
 namespace Kibo\Phast\Filters\HTML;
 
@@ -1540,64 +1260,29 @@ interface HTMLStreamFilter
      */
     public function transformElements(\Traversable $elements, \Kibo\Phast\Filters\HTML\HTMLPageContext $context);
 }
-namespace Kibo\Phast\Filters\HTML\MinifyScripts;
+namespace Kibo\Phast\Filters\HTML\Helpers;
 
-class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
+trait JSDetectorTrait
 {
-    use \Kibo\Phast\Filters\HTML\Helpers\JSDetectorTrait;
-    private $cache;
-    public function __construct(\Kibo\Phast\Cache\File\Cache $cache)
+    /**
+     * @param Tag $element
+     * @return bool
+     */
+    private function isJSElement(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $element)
     {
-        $this->cache = $cache;
-    }
-    public function transformElements(\Traversable $elements, \Kibo\Phast\Filters\HTML\HTMLPageContext $context)
-    {
-        foreach ($elements as $element) {
-            if ($element instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag && $element->getTagName() === 'script' && ($content = $element->getTextContent()) !== '') {
-                $content = trim($content);
-                if ($this->isJSElement($element) && preg_match('~[()[\\]{};]\\s~', $content)) {
-                    $content = preg_replace('~^\\s*<!--\\s*\\n(.*)\\n\\s*-->\\s*$~s', '$1', $content);
-                    $content = $this->cache->get(md5($content), function () use($content) {
-                        return (new \Kibo\Phast\Common\JSMinifier($content, true))->min();
-                    });
-                } elseif (($data = @json_decode($content)) !== null && ($newContent = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) !== false) {
-                    $content = str_replace('</', '<\\/', $newContent);
-                }
-                $element->setTextContent($content);
-            }
-            (yield $element);
+        if (!$element->hasAttribute('type')) {
+            return true;
         }
+        return (bool) preg_match('~^(text|application)/javascript(;|$)~i', $element->getAttribute('type'));
     }
 }
-namespace Kibo\Phast\Filters\HTML\MinifyScripts;
+namespace Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS;
 
-class Factory
+class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
 {
     public function make(array $config)
     {
-        return new \Kibo\Phast\Filters\HTML\MinifyScripts\Filter(new \Kibo\Phast\Cache\File\Cache($config['cache'], 'minified-inline-scripts'));
-    }
-}
-namespace Kibo\Phast\Filters\HTML\ImagesOptimizationService;
-
-class ImageURLRewriterFactory
-{
-    public function make(array $config, $filterClass = '')
-    {
-        $signature = (new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config);
-        if (isset($config['documents']['filters'][$filterClass])) {
-            $classConfig = $config['documents']['filters'][$filterClass];
-        } elseif (isset($config['styles']['filters'][$filterClass])) {
-            $classConfig = $config['styles']['filters'][$filterClass];
-        } else {
-            $classConfig = [];
-        }
-        if (isset($classConfig['serviceUrl'])) {
-            $serviceUrl = $classConfig['serviceUrl'];
-        } else {
-            $serviceUrl = $config['servicesUrl'] . '?service=images';
-        }
-        return new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageURLRewriter($signature, new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']), (new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageInliningManagerFactory())->make($config), \Kibo\Phast\ValueObjects\URL::fromString($config['documents']['baseUrl']), \Kibo\Phast\ValueObjects\URL::fromString($serviceUrl), $config['images']['whitelist']);
+        return new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter((new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageURLRewriterFactory())->make($config, \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class));
     }
 }
 namespace Kibo\Phast\Filters\HTML\ImagesOptimizationService;
@@ -1669,6 +1354,16 @@ class ImageInliningManager
     private function getCacheKey(\Kibo\Phast\ValueObjects\Resource $resource)
     {
         return $resource->getUrl()->toString() . '|' . $resource->getCacheSalt() . '|' . $this->maxImageInliningSize;
+    }
+}
+namespace Kibo\Phast\Filters\HTML\ImagesOptimizationService;
+
+class ImageInliningManagerFactory
+{
+    public function make(array $config)
+    {
+        $cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'inline-images-1');
+        return new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageInliningManager($cache, $config['images']['maxImageInliningSize']);
     }
 }
 namespace Kibo\Phast\Filters\HTML\ImagesOptimizationService;
@@ -1841,6 +1536,37 @@ class ImageURLRewriter
         return (new \Kibo\Phast\Services\ServiceRequest())->withParams($params)->withUrl($this->serviceUrl)->sign($this->signature)->serialize();
     }
 }
+namespace Kibo\Phast\Filters\HTML\ImagesOptimizationService;
+
+class ImageURLRewriterFactory
+{
+    public function make(array $config, $filterClass = '')
+    {
+        $signature = (new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config);
+        if (isset($config['documents']['filters'][$filterClass])) {
+            $classConfig = $config['documents']['filters'][$filterClass];
+        } elseif (isset($config['styles']['filters'][$filterClass])) {
+            $classConfig = $config['styles']['filters'][$filterClass];
+        } else {
+            $classConfig = [];
+        }
+        if (isset($classConfig['serviceUrl'])) {
+            $serviceUrl = $classConfig['serviceUrl'];
+        } else {
+            $serviceUrl = $config['servicesUrl'] . '?service=images';
+        }
+        return new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageURLRewriter($signature, new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']), (new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageInliningManagerFactory())->make($config), \Kibo\Phast\ValueObjects\URL::fromString($config['documents']['baseUrl']), \Kibo\Phast\ValueObjects\URL::fromString($serviceUrl), $config['images']['whitelist']);
+    }
+}
+namespace Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags;
+
+class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
+{
+    public function make(array $config)
+    {
+        return new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter((new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageURLRewriterFactory())->make($config, \Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter::class));
+    }
+}
 namespace Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags;
 
 class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter, \Kibo\Phast\Filters\HTML\AMPCompatibleFilter
@@ -1945,127 +1671,95 @@ class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter, \Kibo\Phast\F
         $element->setAttribute($attribute, $newUrl);
     }
 }
-namespace Kibo\Phast\Filters\HTML\ImagesOptimizationService;
+namespace Kibo\Phast\Filters\HTML\MetaCharset;
 
-class ImageInliningManagerFactory
+class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
+{
+    public function transformElements(\Traversable $elements, \Kibo\Phast\Filters\HTML\HTMLPageContext $context)
+    {
+        $didYield = false;
+        foreach ($elements as $element) {
+            if ($element instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag) {
+                if ($element->tagName == 'meta' && array_keys($element->getAttributes()) == ['charset']) {
+                    continue;
+                }
+                if (!$didYield && !in_array($element->tagName, ['html', 'head', '!doctype'])) {
+                    (yield new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag('meta', ['charset' => 'utf-8']));
+                    $didYield = true;
+                }
+            }
+            (yield $element);
+        }
+    }
+}
+namespace Kibo\Phast\Filters\HTML\Minify;
+
+class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
+{
+    public function transformElements(\Traversable $elements, \Kibo\Phast\Filters\HTML\HTMLPageContext $context)
+    {
+        $inTags = ['pre' => 0, 'textarea' => 0];
+        foreach ($elements as $element) {
+            if ($element instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag && isset($inTags[$element->getTagName()])) {
+                $inTags[$element->getTagName()]++;
+            } elseif ($element instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\ClosingTag && !empty($inTags[$element->getTagName()])) {
+                $inTags[$element->getTagName()]--;
+            } elseif ($element instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Junk && !array_sum($inTags)) {
+                $element->originalString = preg_replace_callback('~\\s++~', function ($match) {
+                    return strpos($match[0], "\n") === false ? ' ' : "\n";
+                }, $element->originalString);
+            }
+            (yield $element);
+        }
+    }
+}
+namespace Kibo\Phast\Filters\HTML\MinifyScripts;
+
+class Factory
 {
     public function make(array $config)
     {
-        $cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'inline-images-1');
-        return new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageInliningManager($cache, $config['images']['maxImageInliningSize']);
+        return new \Kibo\Phast\Filters\HTML\MinifyScripts\Filter(new \Kibo\Phast\Cache\File\Cache($config['cache'], 'minified-inline-scripts'));
     }
 }
-namespace Kibo\Phast\Filters\HTML;
+namespace Kibo\Phast\Filters\HTML\MinifyScripts;
 
-class HTMLPageContext
+class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
 {
-    /**
-     * @var URL
-     */
-    private $baseUrl;
-    /**
-     * @var PhastJavaScript[]
-     */
-    private $phastJavaScripts = array();
-    /**
-     * HTMLPageContext constructor.
-     * @param URL $baseUrl
-     */
-    public function __construct(\Kibo\Phast\ValueObjects\URL $baseUrl)
+    use \Kibo\Phast\Filters\HTML\Helpers\JSDetectorTrait;
+    private $cache;
+    public function __construct(\Kibo\Phast\Cache\File\Cache $cache)
     {
-        $this->baseUrl = $baseUrl;
+        $this->cache = $cache;
     }
-    /**
-     * @param URL $baseUrl
-     */
-    public function setBaseUrl(\Kibo\Phast\ValueObjects\URL $baseUrl)
-    {
-        $this->baseUrl = $baseUrl;
-    }
-    /**
-     * @return URL
-     */
-    public function getBaseUrl()
-    {
-        return $this->baseUrl;
-    }
-    /**
-     * @param PhastJavaScript $script
-     */
-    public function addPhastJavascript(\Kibo\Phast\ValueObjects\PhastJavaScript $script)
-    {
-        $this->phastJavaScripts[] = $script;
-    }
-    /**
-     * @return PhastJavaScript[]
-     */
-    public function getPhastJavaScripts()
-    {
-        return $this->phastJavaScripts;
-    }
-}
-namespace Kibo\Phast\Filters\HTML\Helpers;
-
-trait JSDetectorTrait
-{
-    /**
-     * @param Tag $element
-     * @return bool
-     */
-    private function isJSElement(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $element)
-    {
-        if (!$element->hasAttribute('type')) {
-            return true;
-        }
-        return (bool) preg_match('~^(text|application)/javascript(;|$)~i', $element->getAttribute('type'));
-    }
-}
-namespace Kibo\Phast\Filters\HTML;
-
-abstract class BaseHTMLStreamFilter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
-{
-    /**
-     * @var HTMLPageContext
-     */
-    protected $context;
-    /**
-     * @var \Traversable
-     */
-    protected $elements;
-    /**
-     * @param Tag $tag
-     * @return Element[]|\Generator
-     */
-    protected abstract function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag);
     public function transformElements(\Traversable $elements, \Kibo\Phast\Filters\HTML\HTMLPageContext $context)
     {
-        $this->context = $context;
-        $this->elements = $elements;
-        $this->beforeLoop();
-        foreach ($this->elements as $element) {
-            if ($element instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag && $this->isTagOfInterest($element)) {
-                foreach ($this->handleTag($element) as $item) {
-                    (yield $item);
+        foreach ($elements as $element) {
+            if ($element instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag && $element->getTagName() === 'script' && ($content = $element->getTextContent()) !== '') {
+                $content = trim($content);
+                if ($this->isJSElement($element) && preg_match('~[()[\\]{};]\\s~', $content)) {
+                    $content = preg_replace('~^\\s*<!--\\s*\\n(.*)\\n\\s*-->\\s*$~s', '$1', $content);
+                    $content = $this->cache->get(md5($content), function () use($content) {
+                        return (new \Kibo\Phast\Common\JSMinifier($content, true))->min();
+                    });
+                } elseif (($data = @json_decode($content)) !== null && ($newContent = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) !== false) {
+                    $content = str_replace('</', '<\\/', $newContent);
                 }
-            } else {
-                (yield $element);
+                $element->setTextContent($content);
             }
+            (yield $element);
         }
-        $this->afterLoop();
     }
-    /**
-     * @param Tag $tag
-     * @return bool
-     */
-    protected function isTagOfInterest(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
+}
+namespace Kibo\Phast\Filters\HTML\PhastScriptsCompiler;
+
+class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
+{
+    public function make(array $config)
     {
-        return true;
-    }
-    protected function beforeLoop()
-    {
-    }
-    protected function afterLoop()
-    {
+        $cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'phast-scripts');
+        $compiler = new \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\PhastJavaScriptCompiler($cache, $config['servicesUrl'], $config['serviceRequestFormat']);
+        return new \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter($compiler, $config['cspNonce']);
     }
 }
 namespace Kibo\Phast\Filters\HTML\PhastScriptsCompiler;
@@ -2248,703 +1942,19 @@ class PhastJavaScriptCompiler
         }, '');
     }
 }
-namespace Kibo\Phast\Filters\HTML\LazyImageLoading;
-
-class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
-{
-    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
-    {
-        if (!$tag->hasAttribute('loading')) {
-            $tag->setAttribute('loading', 'lazy');
-        }
-        (yield $tag);
-    }
-    protected function isTagOfInterest(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
-    {
-        return $tag->getTagName() == 'img';
-    }
-}
 namespace Kibo\Phast\Filters\HTML\ScriptsProxyService;
 
-class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
+class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
 {
-    use \Kibo\Phast\Filters\HTML\Helpers\JSDetectorTrait, \Kibo\Phast\Logging\LoggingTrait;
-    /**
-     * @var array
-     */
-    private $config;
-    /**
-     * @var ServiceSignature
-     */
-    private $signature;
-    /**
-     * @var LocalRetriever
-     */
-    private $retriever;
-    private $tokenRefMaker;
-    /**
-     * @var ObjectifiedFunctions
-     */
-    private $functions;
-    /**
-     * @var bool
-     */
-    private $didInject = false;
-    public function __construct(array $config, \Kibo\Phast\Security\ServiceSignature $signature, \Kibo\Phast\Retrievers\LocalRetriever $retriever, \Kibo\Phast\Services\Bundler\TokenRefMaker $tokenRefMaker, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    public function make(array $config)
     {
-        $this->config = $config;
-        $this->signature = $signature;
-        $this->retriever = $retriever;
-        $this->tokenRefMaker = $tokenRefMaker;
-        $this->functions = is_null($functions) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $functions;
-    }
-    protected function isTagOfInterest(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
-    {
-        return $tag->getTagName() == 'script' && $this->isJSElement($tag);
-    }
-    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $script)
-    {
-        $this->rewriteScriptSource($script);
-        if (!$this->didInject) {
-            $this->addScript();
-            $this->didInject = true;
+        if (!isset($config['documents']['filters'][\Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class]['serviceUrl'])) {
+            $config['documents']['filters'][\Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class]['serviceUrl'] = $config['servicesUrl'];
         }
-        (yield $script);
+        $filterConfig = $config['documents']['filters'][\Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class];
+        $filterConfig['match'] = $config['scripts']['whitelist'];
+        return new \Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter($filterConfig, (new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config), new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']), (new \Kibo\Phast\Services\Bundler\TokenRefMakerFactory())->make($config));
     }
-    private function rewriteScriptSource(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $element)
-    {
-        if (!$element->hasAttribute('src')) {
-            return;
-        }
-        $src = trim($element->getAttribute('src'));
-        $url = $this->getAbsoluteURL($src);
-        $cacheMarker = $this->retriever->getCacheSalt($url);
-        if (!$cacheMarker) {
-            return;
-        }
-        $cacheMarker .= '-' . \Kibo\Phast\Filters\JavaScript\Minification\JSMinifierFilter::VERSION;
-        $element->setAttribute('src', $this->makeProxiedURL($url, $cacheMarker));
-        $element->setAttribute('data-phast-original-src', (string) $url);
-        $element->setAttribute('data-phast-params', $this->makeServiceParams($url, $cacheMarker));
-    }
-    private function makeProxiedURL(\Kibo\Phast\ValueObjects\URL $url, $cacheMarker)
-    {
-        $params = ['service' => 'scripts', 'src' => (string) $url->withoutQuery(), 'cacheMarker' => $cacheMarker];
-        return (new \Kibo\Phast\Services\ServiceRequest())->withUrl(\Kibo\Phast\ValueObjects\URL::fromString($this->config['serviceUrl']))->withParams($params)->serialize();
-    }
-    private function makeServiceParams(\Kibo\Phast\ValueObjects\URL $url, $cacheMarker)
-    {
-        return \Kibo\Phast\Services\Bundler\ServiceParams::fromArray(['src' => (string) $url->withoutQuery(), 'cacheMarker' => $cacheMarker, 'isScript' => '1'])->sign($this->signature)->replaceByTokenRef($this->tokenRefMaker)->serialize();
-    }
-    private function addScript()
-    {
-        $config = ['serviceUrl' => $this->config['serviceUrl'], 'pathInfo' => \Kibo\Phast\Services\ServiceRequest::getDefaultSerializationMode() === \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH, 'urlRefreshTime' => $this->config['urlRefreshTime'], 'whitelist' => $this->config['match']];
-        $script = \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/ScriptsProxyService/rewrite-function.js', "var config=phast.config[\"script-proxy-service\"];var urlPattern=/^(https?:)?\\/\\//;var cacheMarker=Math.floor((new Date).getTime()/1e3/config.urlRefreshTime);var whitelist=compileWhitelistPatterns(config.whitelist);phast.scripts.push(function(){overrideDOMMethod(\"appendChild\");overrideDOMMethod(\"insertBefore\")});function compileWhitelistPatterns(a){var b=/^(.)(.*)\\1([a-z]*)\$/i;var c=[];a.forEach(function(d){var e=b.exec(d);if(!e){window.console&&window.console.log(\"Phast: Not a pattern:\",d);return}try{c.push(new RegExp(e[2],e[3]))}catch(f){window.console&&window.console.log(\"Phast: Failed to compile pattern:\",d)}});return c}function checkWhitelist(g){for(var h=0;h<whitelist.length;h++){if(whitelist[h].exec(g)){return true}}return false}function overrideDOMMethod(i){var j=Element.prototype[i];var k=function(){var l=processNode(arguments[0]);var m=j.apply(this,arguments);l();return m};Element.prototype[i]=k;window.addEventListener(\"load\",function(){if(Element.prototype[i]===k){delete Element.prototype[i]}})}function processNode(n){if(!n||n.nodeType!==Node.ELEMENT_NODE||n.tagName!==\"SCRIPT\"||!urlPattern.test(n.src)||n.src.substr(0,config.serviceUrl.length)===config.serviceUrl||!checkWhitelist(n.src)){return function(){}}var o=n.src;n.src=phast.buildServiceUrl(config,{service:\"scripts\",src:o,cacheMarker:cacheMarker});return function(){n.src=o}}\n");
-        $script->setConfig('script-proxy-service', $config);
-        $this->context->addPhastJavaScript($script);
-    }
-    private function getAbsoluteURL($url)
-    {
-        return \Kibo\Phast\ValueObjects\URL::fromString($url)->withBase($this->context->getBaseUrl());
-    }
-}
-namespace Kibo\Phast\Filters\HTML\MetaCharset;
-
-class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
-{
-    public function transformElements(\Traversable $elements, \Kibo\Phast\Filters\HTML\HTMLPageContext $context)
-    {
-        $didYield = false;
-        foreach ($elements as $element) {
-            if ($element instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag) {
-                if ($element->tagName == 'meta' && array_keys($element->getAttributes()) == ['charset']) {
-                    continue;
-                }
-                if (!$didYield && !in_array($element->tagName, ['html', 'head', '!doctype'])) {
-                    (yield new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag('meta', ['charset' => 'utf-8']));
-                    $didYield = true;
-                }
-            }
-            (yield $element);
-        }
-    }
-}
-namespace Kibo\Phast\Filters\HTML\BaseURLSetter;
-
-class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
-{
-    protected function isTagOfInterest(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
-    {
-        return $tag->getTagName() == 'base' && $tag->hasAttribute('href');
-    }
-    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
-    {
-        $base = \Kibo\Phast\ValueObjects\URL::fromString($tag->getAttribute('href'));
-        $current = $this->context->getBaseUrl();
-        $this->context->setBaseUrl($base->withBase($current));
-        (yield $tag);
-    }
-}
-namespace Kibo\Phast\Filters\HTML\CSSInlining;
-
-class OptimizerFactory
-{
-    /**
-     * @var Cache
-     */
-    private $cache;
-    public function __construct(array $config)
-    {
-        $this->cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'css-optimizitor');
-    }
-    /**
-     * @param \Traversable $elements
-     * @return Optimizer
-     */
-    public function makeForElements(\Traversable $elements)
-    {
-        return new \Kibo\Phast\Filters\HTML\CSSInlining\Optimizer($elements, $this->cache);
-    }
-}
-namespace Kibo\Phast\Filters\HTML\CSSInlining;
-
-class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
-{
-    use \Kibo\Phast\Logging\LoggingTrait;
-    const CSS_IMPORTS_REGEXP = '~
-        @import \\s++
-        ( url \\( )?+                # url() is optional
-        ( (?(1) ["\']?+ | ["\'] ) ) # without url() a quote is necessary
-        \\s*+ (?<url>[A-Za-z0-9_/.:?&=+%,-]++) \\s*+
-        \\2                          # match ending quote
-        (?(1)\\))                    # match closing paren if url( was used
-        \\s*+ ;
-    ~xi';
-    /**
-     * @var ServiceSignature
-     */
-    private $signature;
-    /**
-     * @var int
-     */
-    private $maxInlineDepth = 2;
-    /**
-     * @var URL
-     */
-    private $baseURL;
-    /**
-     * @var string[]
-     */
-    private $whitelist = array();
-    /**
-     * @var string
-     */
-    private $serviceUrl;
-    /**
-     * @var int
-     */
-    private $optimizerSizeDiffThreshold;
-    /**
-     * @var Retriever
-     */
-    private $localRetriever;
-    /**
-     * @var Retriever
-     */
-    private $retriever;
-    /**
-     * @var OptimizerFactory
-     */
-    private $optimizerFactory;
-    /**
-     * @var ServiceFilter
-     */
-    private $cssFilter;
-    /**
-     * @var Optimizer
-     */
-    private $optimizer;
-    /**
-     * @var TokenRefMaker
-     */
-    private $tokenRefMaker;
-    /**
-     * @var string[]
-     */
-    private $cacheMarkers = array();
-    /**
-     * @var string
-     */
-    private $cspNonce;
-    public function __construct(\Kibo\Phast\Security\ServiceSignature $signature, \Kibo\Phast\ValueObjects\URL $baseURL, array $config, \Kibo\Phast\Retrievers\Retriever $localRetriever, \Kibo\Phast\Retrievers\Retriever $retriever, \Kibo\Phast\Filters\HTML\CSSInlining\OptimizerFactory $optimizerFactory, \Kibo\Phast\Services\ServiceFilter $cssFilter, \Kibo\Phast\Services\Bundler\TokenRefMaker $tokenRefMaker, $cspNonce)
-    {
-        $this->signature = $signature;
-        $this->baseURL = $baseURL;
-        $this->serviceUrl = \Kibo\Phast\ValueObjects\URL::fromString((string) $config['serviceUrl']);
-        $this->optimizerSizeDiffThreshold = (int) $config['optimizerSizeDiffThreshold'];
-        $this->localRetriever = $localRetriever;
-        $this->retriever = $retriever;
-        $this->optimizerFactory = $optimizerFactory;
-        $this->cssFilter = $cssFilter;
-        $this->tokenRefMaker = $tokenRefMaker;
-        $this->cspNonce = $cspNonce;
-        foreach ($config['whitelist'] as $key => $value) {
-            if (!is_array($value)) {
-                $this->whitelist[$value] = ['ieCompatible' => true];
-                $key = $value;
-            } else {
-                $this->whitelist[$key] = $value;
-            }
-        }
-    }
-    protected function beforeLoop()
-    {
-        $this->elements = iterator_to_array($this->elements);
-        $this->optimizer = $this->optimizerFactory->makeForElements(new \ArrayIterator($this->elements));
-    }
-    protected function isTagOfInterest(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
-    {
-        return $tag->getTagName() == 'style' || $tag->getTagName() == 'link' && $tag->getAttribute('rel') == 'stylesheet' && $tag->hasAttribute('href');
-    }
-    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
-    {
-        if ($tag->getTagName() == 'link') {
-            return $this->inlineLink($tag, $this->context->getBaseUrl());
-        }
-        return $this->inlineStyle($tag);
-    }
-    protected function afterLoop()
-    {
-        $this->addIEFallbackScript();
-        $this->addInlinedRetrieverScript();
-    }
-    private function inlineLink(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $link, \Kibo\Phast\ValueObjects\URL $baseUrl)
-    {
-        $href = trim($link->getAttribute('href'));
-        if (trim($href, '/') == '') {
-            return [$link];
-        }
-        $location = \Kibo\Phast\ValueObjects\URL::fromString($href)->withBase($baseUrl);
-        if (!$this->findInWhitelist($location) && !$this->localRetriever->getCacheSalt($location)) {
-            return [$link];
-        }
-        $media = $link->getAttribute('media');
-        if (preg_match('~^\\s*(this\\.)?media\\s*=\\s*(?<q>[\'"])(?<m>((?!\\k<q>).)+?)\\k<q>\\s*(;|$)~', $link->getAttribute('onload'), $match)) {
-            $media = $match['m'];
-        }
-        $elements = $this->inlineURL($location, $media);
-        return is_null($elements) ? [$link] : $elements;
-    }
-    private function inlineStyle(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $style)
-    {
-        $processed = $this->cssFilter->apply(\Kibo\Phast\ValueObjects\Resource::makeWithContent($this->baseURL, $style->textContent), [])->getContent();
-        $elements = $this->inlineCSS($this->baseURL, $processed, $style->getAttribute('media'), false);
-        if (($id = $style->getAttribute('id')) != '') {
-            if (sizeof($elements) == 1) {
-                $elements[0]->setAttribute('id', $id);
-            } else {
-                foreach ($elements as $element) {
-                    $element->setAttribute('data-phast-original-id', $id);
-                }
-            }
-        }
-        return $elements;
-    }
-    private function findInWhitelist(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        $stringUrl = (string) $url;
-        foreach ($this->whitelist as $pattern => $settings) {
-            if (preg_match($pattern, $stringUrl)) {
-                return $settings;
-            }
-        }
-        return false;
-    }
-    /**
-     * @param URL $url
-     * @param string $media
-     * @param boolean $ieCompatible
-     * @param int $currentLevel
-     * @param string[] $seen
-     * @return Tag[]|null
-     * @throws \Kibo\Phast\Exceptions\ItemNotFoundException
-     */
-    private function inlineURL(\Kibo\Phast\ValueObjects\URL $url, $media, $ieCompatible = true, $currentLevel = 0, $seen = array())
-    {
-        $whitelistEntry = $this->findInWhitelist($url);
-        if (!$whitelistEntry) {
-            $whitelistEntry = !!$this->localRetriever->getCacheSalt($url);
-        }
-        if (!$whitelistEntry) {
-            $this->logger()->info('Not inlining {url}. Not in whitelist', ['url' => $url]);
-            return [$this->makeLink($url, $media)];
-        }
-        if (isset($whitelistEntry['ieCompatible']) && !$whitelistEntry['ieCompatible']) {
-            $ieFallbackUrl = $ieCompatible ? $url : null;
-            $ieCompatible = false;
-        } else {
-            $ieFallbackUrl = null;
-        }
-        if (in_array($url, $seen)) {
-            return [];
-        }
-        if ($currentLevel > $this->maxInlineDepth) {
-            return $this->addIEFallback($ieFallbackUrl, [$this->makeLink($url, $media)]);
-        }
-        $seen[] = $url;
-        $this->logger()->info('Inlining {url}.', ['url' => (string) $url]);
-        $content = $this->retriever->retrieve($url);
-        if ($content === false) {
-            return $this->addIEFallback($ieFallbackUrl, [$this->makeServiceLink($url, $media)]);
-        }
-        $content = $this->cssFilter->apply(\Kibo\Phast\ValueObjects\Resource::makeWithContent($url, $content), [])->getContent();
-        $this->cacheMarkers[$url->toString()] = \Kibo\Phast\Common\Base64url::shortHash(implode("\0", [$this->retriever->getCacheSalt($url), $content]));
-        $optimized = $this->optimizer->optimizeCSS($content);
-        if ($optimized === null) {
-            $this->logger()->error('CSS optimizer failed for {url}', ['url' => (string) $url]);
-            return null;
-        }
-        $isOptimized = false;
-        if (strlen($content) - strlen($optimized) > $this->optimizerSizeDiffThreshold) {
-            $content = $optimized;
-            $isOptimized = true;
-        }
-        $elements = $this->inlineCSS($url, $content, $media, $isOptimized, $ieCompatible, $currentLevel, $seen);
-        $this->addIEFallback($ieFallbackUrl, $elements);
-        return $elements;
-    }
-    private function inlineCSS(\Kibo\Phast\ValueObjects\URL $url, $content, $media, $optimized, $ieCompatible = true, $currentLevel = 0, $seen = array())
-    {
-        $urlMatches = $this->getImportedURLs($content);
-        $elements = [];
-        foreach ($urlMatches as $match) {
-            $matchedUrl = \Kibo\Phast\ValueObjects\URL::fromString($match['url'])->withBase($url);
-            $replacement = $this->inlineURL($matchedUrl, $media, $ieCompatible, $currentLevel + 1, $seen);
-            if ($replacement !== null) {
-                $content = str_replace($match[0], '', $content);
-                $elements = array_merge($elements, $replacement);
-            }
-        }
-        $elements[] = $this->makeStyle($url, $content, $media, $optimized);
-        return $elements;
-    }
-    private function addIEFallback(\Kibo\Phast\ValueObjects\URL $fallbackUrl = null, array $elements = null)
-    {
-        if ($fallbackUrl === null || !$elements) {
-            return $elements;
-        }
-        foreach ($elements as $element) {
-            $element->setAttribute('data-phast-nested-inlined', '');
-        }
-        $element->setAttribute('data-phast-ie-fallback-url', (string) $fallbackUrl);
-        $element->removeAttribute('data-phast-nested-inlined');
-        $this->logger()->info('Set {url} as IE fallback URL', ['url' => (string) $fallbackUrl]);
-        return $elements;
-    }
-    private function addIEFallbackScript()
-    {
-        $this->logger()->info('Adding IE fallback script');
-        $this->context->addPhastJavaScript(\Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/CSSInlining/ie-fallback.js', "(function(){var a=function(){if(!(\"FontFace\"in window)){return false}var b=new FontFace(\"t\",'url( \"data:font/woff2;base64,d09GMgABAAAAAADwAAoAAAAAAiQAAACoAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAALAogOAE2AiQDBgsGAAQgBSAHIBuDAciO1EZ3I/mL5/+5/rfPnTt9/9Qa8H4cUUZxaRbh36LiKJoVh61XGzw6ufkpoeZBW4KphwFYIJGHB4LAY4hby++gW+6N1EN94I49v86yCpUdYgqeZrOWN34CMQg2tAmthdli0eePIwAKNIIRS4AGZFzdX9lbBUAQlm//f262/61o8PlYO/D1/X4FrWFFgdCQD9DpGJSxmFyjOAGUU4P0qigcNb82GAAA\" ) format( \"woff2\" )',{});b.load()[\"catch\"](function(){});return b.status==\"loading\"||b.status==\"loaded\"}();if(a){return}console.log(\"[Phast] Browser does not support WOFF2, falling back to original stylesheets\");Array.prototype.forEach.call(document.querySelectorAll(\"style[data-phast-ie-fallback-url]\"),function(c){var d=document.createElement(\"link\");if(c.hasAttribute(\"media\")){d.setAttribute(\"media\",c.getAttribute(\"media\"))}d.setAttribute(\"rel\",\"stylesheet\");d.setAttribute(\"href\",c.getAttribute(\"data-phast-ie-fallback-url\"));c.parentNode.insertBefore(d,c);c.parentNode.removeChild(c)});Array.prototype.forEach.call(document.querySelectorAll(\"style[data-phast-nested-inlined]\"),function(e){e.parentNode.removeChild(e)})})();\n"));
-    }
-    private function addInlinedRetrieverScript()
-    {
-        $this->logger()->info('Adding inlined retriever script');
-        $this->context->addPhastJavaScript(\Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/CSSInlining/inlined-css-retriever.js', "phast.stylesLoading=0;var resourceLoader=phast.ResourceLoader.instance;phast.forEachSelectedElement(\"style[data-phast-params]\",function(a){var b=a.getAttribute(\"data-phast-params\");var c=phast.ResourceLoader.RequestParams.fromString(b);phast.stylesLoading++;resourceLoader.get(c).then(function(d){a.textContent=d;a.removeAttribute(\"data-phast-params\")}).catch(function(e){console.warn(\"[Phast] Failed to load CSS\",c,e);var f=a.getAttribute(\"data-phast-original-src\");if(!f){console.error(\"[Phast] No data-phast-original-src on <style>!\",a);return}console.info(\"[Phast] Falling back to <link> element for\",f);var g=document.createElement(\"link\");g.href=f;g.media=a.media;g.rel=\"stylesheet\";g.addEventListener(\"load\",function(){if(a.parentNode){a.parentNode.removeChild(a)}});a.parentNode.insertBefore(g,a.nextSibling)}).finally(function(){phast.stylesLoading--;if(phast.stylesLoading===0&&phast.onStylesLoaded){phast.onStylesLoaded()}})});(function(){var h=[];phast.forEachSelectedElement(\"style[data-phast-original-id]\",function(i){var j=i.getAttribute(\"data-phast-original-id\");if(h[j]){return}h[j]=true;console.warn(\"[Phast] The style element with id\",j,\"has been split into multiple style tags due to @import statements and the id attribute has been removed. Normally, this does not cause any issues.\")})})();\n"));
-    }
-    private function getImportedURLs($cssContent)
-    {
-        preg_match_all(self::CSS_IMPORTS_REGEXP, $cssContent, $matches, PREG_SET_ORDER);
-        return $matches;
-    }
-    private function makeStyle(\Kibo\Phast\ValueObjects\URL $url, $content, $media, $optimized, $stripImports = true)
-    {
-        $style = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag('style');
-        if ($media !== '' && $media !== 'all') {
-            $style->setAttribute('media', $media);
-        }
-        if ($optimized) {
-            $style->setAttribute('data-phast-original-src', $url->toString());
-            $style->setAttribute('data-phast-params', $this->makeServiceParams($url, $stripImports));
-        }
-        if ($this->cspNonce) {
-            $style->setAttribute('nonce', $this->cspNonce);
-        }
-        $content = preg_replace('~(</)(style)~i', '$1 $2', $content);
-        $style->setTextContent($content);
-        return $style;
-    }
-    private function makeLink(\Kibo\Phast\ValueObjects\URL $url, $media)
-    {
-        $link = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag('link', ['rel' => 'stylesheet', 'href' => (string) $url]);
-        if ($media !== '') {
-            $link->setAttribute('media', $media);
-        }
-        return $link;
-    }
-    private function makeServiceLink(\Kibo\Phast\ValueObjects\URL $location, $media)
-    {
-        $url = $this->makeServiceURL($location);
-        return $this->makeLink(\Kibo\Phast\ValueObjects\URL::fromString($url), $media);
-    }
-    protected function makeServiceParams(\Kibo\Phast\ValueObjects\URL $originalLocation, $stripImports = false)
-    {
-        if (isset($this->cacheMarkers[$originalLocation->toString()])) {
-            $cacheMarker = $this->cacheMarkers[$originalLocation->toString()];
-        } else {
-            $cacheMarker = $this->retriever->getCacheSalt($originalLocation);
-        }
-        $src = $originalLocation;
-        if ($this->localRetriever->getCacheSalt($src)) {
-            $src = $originalLocation->withoutQuery();
-        }
-        $params = ['src' => (string) $src, 'cacheMarker' => $cacheMarker];
-        if ($stripImports) {
-            $params['strip-imports'] = 1;
-        }
-        return \Kibo\Phast\Services\Bundler\ServiceParams::fromArray($params)->sign($this->signature)->replaceByTokenRef($this->tokenRefMaker)->serialize();
-    }
-    protected function makeServiceURL(\Kibo\Phast\ValueObjects\URL $originalLocation)
-    {
-        $params = ['service' => 'css', 'src' => (string) $originalLocation, 'cacheMarker' => $this->retriever->getCacheSalt($originalLocation)];
-        return (new \Kibo\Phast\Services\ServiceRequest())->withUrl($this->serviceUrl)->withParams($params)->sign($this->signature)->serialize();
-    }
-}
-namespace Kibo\Phast\Filters\HTML\CSSInlining;
-
-class Optimizer
-{
-    private $classNamePattern = '-?[_a-zA-Z]++[_a-zA-Z0-9-]*+';
-    /**
-     * @var array
-     */
-    private $usedClasses;
-    /**
-     * @var Cache
-     */
-    private $cache;
-    public function __construct(\Traversable $elements, \Kibo\Phast\Cache\Cache $cache)
-    {
-        $this->usedClasses = $this->getUsedClasses($elements);
-        $this->cache = $cache;
-    }
-    public function optimizeCSS($css)
-    {
-        $stylesheet = $this->cache->get(md5($css), function () use($css) {
-            return $this->parseCSS($css);
-        });
-        if ($stylesheet === null) {
-            return;
-        }
-        $output = '';
-        $selectors = null;
-        foreach ($stylesheet as $element) {
-            if (is_array($element)) {
-                if ($selectors === null) {
-                    $selectors = [];
-                }
-                foreach ($element as $i => $class) {
-                    if ($i !== 0 && !isset($this->usedClasses[$class])) {
-                        continue 2;
-                    }
-                }
-                $selectors[] = $element[0];
-            } elseif ($selectors !== null) {
-                if (isset($selectors[0])) {
-                    $output .= implode(',', $selectors) . $element;
-                }
-                $selectors = null;
-            } else {
-                $output .= $element;
-            }
-        }
-        $output = $this->removeEmptyMediaQueries($output);
-        return trim($output);
-    }
-    /**
-     * Parse a stylesheet into an array of segments
-     *
-     * Each string segment is preceded by zero or more arrays encoding selectors
-     * parsed by parseSelector (see below).
-     *
-     * @param $css
-     * @return array|void
-     */
-    private function parseCSS($css)
-    {
-        $re_simple_selector_chars = "[A-Z0-9_.#*:>+\\~\\s-]";
-        $re_selector = "(?: {$re_simple_selector_chars} | \\[[a-z]++\\] )++";
-        $re_rule = "~\n            (?<= ^ | [;{}] ) \\s*+\n            ( (?: {$re_selector} , )*+ {$re_selector} )\n            ( { [^}]*+ } )\n        ~xi";
-        if (preg_match_all($re_rule, $css, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE) === false) {
-            // This is an error condition
-            return;
-        }
-        $offset = 0;
-        $stylesheet = [];
-        foreach ($matches as $match) {
-            $selectors = $this->parseSelectors($match[1][0]);
-            if ($selectors === null) {
-                continue;
-            }
-            if ($match[0][1] > $offset) {
-                $stylesheet[] = substr($css, $offset, $match[0][1] - $offset);
-            }
-            foreach ($selectors as $selector) {
-                $stylesheet[] = $selector;
-            }
-            $stylesheet[] = $match[2][0];
-            $offset = $match[0][1] + strlen($match[0][0]);
-        }
-        if ($offset < strlen($css)) {
-            $stylesheet[] = substr($css, $offset);
-        }
-        return $stylesheet;
-    }
-    /**
-     * Parse the selector part of a CSS rule into an array of selectors.
-     *
-     * Each selector will be an array with at offset 0, the string contents of
-     * the selector. The rest of the array will be the class names (if any) that
-     * must be present in the document for this selector to match.
-     *
-     * Null is returned if none of the selectors use classes, and can therefore
-     * not be optimized.
-     *
-     * @param string $selectors
-     * @return array|void
-     */
-    private function parseSelectors($selectors)
-    {
-        $newSelectors = [];
-        $anyClasses = false;
-        foreach (explode(',', $selectors) as $selector) {
-            $classes = [$selector];
-            if (preg_match_all("~\\.({$this->classNamePattern})~", $selector, $matches)) {
-                foreach ($matches[1] as $class) {
-                    $classes[] = $class;
-                    $anyClasses = true;
-                }
-            }
-            $newSelectors[] = $classes;
-        }
-        if (!$anyClasses) {
-            return;
-        }
-        return $newSelectors;
-    }
-    private function getUsedClasses(\Traversable $elements)
-    {
-        $classes = [];
-        /** @var Tag $tag */
-        foreach ($elements as $tag) {
-            if (!$tag instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag) {
-                continue;
-            }
-            foreach (preg_split('/\\s+/', $tag->getAttribute('class')) as $cls) {
-                if ($cls != '' && !isset($classes[$cls]) && preg_match("/^{$this->classNamePattern}\$/", $cls)) {
-                    $classes[$cls] = true;
-                }
-            }
-        }
-        return $classes;
-    }
-    private function removeEmptyMediaQueries($css)
-    {
-        return preg_replace('~@media\\s++[A-Z0-9():,\\s-]++\\s*+{}~i', '', $css);
-    }
-}
-namespace Kibo\Phast\Filters\HTML\Minify;
-
-class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
-{
-    public function transformElements(\Traversable $elements, \Kibo\Phast\Filters\HTML\HTMLPageContext $context)
-    {
-        $inTags = ['pre' => 0, 'textarea' => 0];
-        foreach ($elements as $element) {
-            if ($element instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag && isset($inTags[$element->getTagName()])) {
-                $inTags[$element->getTagName()]++;
-            } elseif ($element instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\ClosingTag && !empty($inTags[$element->getTagName()])) {
-                $inTags[$element->getTagName()]--;
-            } elseif ($element instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Junk && !array_sum($inTags)) {
-                $element->originalString = preg_replace_callback('~\\s++~', function ($match) {
-                    return strpos($match[0], "\n") === false ? ' ' : "\n";
-                }, $element->originalString);
-            }
-            (yield $element);
-        }
-    }
-}
-namespace Kibo\Phast\Filters\HTML\DelayedIFrameLoading;
-
-class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
-{
-    use \Kibo\Phast\Logging\LoggingTrait;
-    protected function isTagOfInterest(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
-    {
-        return $tag->getTagName() == 'iframe' && $tag->hasAttribute('src');
-    }
-    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
-    {
-        if (!$tag->hasAttribute('loading')) {
-            $tag->setAttribute('loading', 'lazy');
-        }
-        (yield $tag);
-    }
-}
-namespace Kibo\Phast\Filters\HTML\Diagnostics;
-
-class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
-{
-    private $serviceUrl;
-    public function __construct($serviceUrl)
-    {
-        $this->serviceUrl = $serviceUrl;
-    }
-    public function transformElements(\Traversable $elements, \Kibo\Phast\Filters\HTML\HTMLPageContext $context)
-    {
-        $url = (new \Kibo\Phast\Services\ServiceRequest())->withUrl(\Kibo\Phast\ValueObjects\URL::fromString($this->serviceUrl))->serialize();
-        $script = \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/Diagnostics/diagnostics.js', "window.addEventListener(\"load\",function(){var a=phast.config.diagnostics.serviceUrl;var b=new XMLHttpRequest;b.open(\"GET\",a);b.responseType=\"json\";b.onload=function(){var c=b.response;var d={};var e=[];c.forEach(function(g){var h=g.context.requestId;if(!d[h]){d[h]={title:g.context.service,timestamp:g.context.timestamp,errorsCnt:0,warningsCnt:0,longestPrefixLength:0,entries:[]};e.push(d[h])}if(g.level>8){d[h].errorsCnt++}else if(g.level===8){d[h].warningsCnt++}var i=(g.context.timestamp-d[h].timestamp).toFixed(3);if(g.context.class){i+=\" \"+g.context.class}if(g.context.class&&g.context.method){i+=\"::\"}if(g.context.method){i+=g.context.method+\"()\"}if(g.context.line){i+=\" Line: \"+g.context.line}var j=g.message.replace(/\\{([a-z0-9_.]*)\\}/gi,function(l,m){return g.context[m]});var k;if(g.level>8){k=console.error}else if(g.level===8){k=console.warn}else if(g.level>1){k=console.info}else{k=console.log}d[h].entries.push({prefix:i,message:j,cb:k});if(i.length>d[h].longestPrefixLength){d[h].longestPrefixLength=i.length}});if(e.length===0){return}e.sort(function(n,o){return n.timestamp<o.timestamp?-1:1});var f=e[0].timestamp;console.group(\"Phast diagnostics log\");e.forEach(function(p){var q=(p.timestamp-f).toFixed(3);var r=q+\" - \"+p.title+\" (entries: \"+p.entries.length;if(p.errorsCnt>0){r+=\", errors: \"+p.errorsCnt}if(p.warningsCnt>0){r+=\", warnings: \"+p.warningsCnt}r+=\")\";console.groupCollapsed(r);p.entries.forEach(function(s){var t=s.prefix;var u=p.longestPrefixLength-t.length;for(var v=0;v<u;v++){t+=\" \"}s.cb(t+\" \"+s.message)});console.groupEnd()});console.groupEnd()};b.send()});\n");
-        $script->setConfig('diagnostics', ['serviceUrl' => $url]);
-        $context->addPhastJavaScript($script);
-        foreach ($elements as $element) {
-            (yield $element);
-        }
-    }
-}
-namespace Kibo\Phast\Filters\HTML;
-
-interface HTMLFilterFactory
-{
-    /**
-     * @param array $config
-     * @return HTMLStreamFilter
-     */
-    public function make(array $config);
-}
-namespace Kibo\Phast\Filters\Image;
-
-interface ImageFilter
-{
-    /**
-     * @param array $request
-     * @return string
-     */
-    public function getCacheSalt(array $request);
-    /**
-     * @param Image $image
-     * @param array $request
-     * @return Image
-     */
-    public function transformImage(\Kibo\Phast\Filters\Image\Image $image, array $request);
-}
-namespace Kibo\Phast\Filters\Image;
-
-interface ImageFilterFactory
-{
-    /**
-     * @param array $config
-     * @return ImageFilter
-     */
-    public function make(array $config);
 }
 namespace Kibo\Phast\Filters\Image\Composite;
 
@@ -2984,59 +1994,10 @@ class Factory
         return $composite;
     }
 }
-namespace Kibo\Phast\Filters\Image;
+namespace Kibo\Phast\Filters\Image\Exceptions;
 
-class ImageFactory
+class ImageProcessingException extends \Kibo\Phast\Exceptions\RuntimeException
 {
-    private $config;
-    public function __construct(array $config)
-    {
-        $this->config = $config;
-    }
-    /**
-     * @param URL $url
-     * @return Image
-     */
-    public function getForURL(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        $retriever = new \Kibo\Phast\Retrievers\UniversalRetriever();
-        $retriever->addRetriever(new \Kibo\Phast\Retrievers\LocalRetriever($this->config['retrieverMap']));
-        $retriever->addRetriever((new \Kibo\Phast\Retrievers\RemoteRetrieverFactory())->make($this->config));
-        return new \Kibo\Phast\Filters\Image\ImageImplementations\DefaultImage($url, $retriever);
-    }
-    /**
-     * @param Resource $resource
-     * @return Image
-     */
-    public function getForResource(\Kibo\Phast\ValueObjects\Resource $resource)
-    {
-        return $this->getForURL($resource->getUrl());
-    }
-}
-namespace Kibo\Phast\Filters\Image\CommonDiagnostics;
-
-class DiagnosticsRetriever implements \Kibo\Phast\Retrievers\Retriever
-{
-    /**
-     * @var string
-     */
-    private $file;
-    /**
-     * DiagnosticsRetriever constructor.
-     * @param string $file
-     */
-    public function __construct($file)
-    {
-        $this->file = $file;
-    }
-    public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        return file_get_contents($this->file);
-    }
-    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        return '';
-    }
 }
 namespace Kibo\Phast\Filters\Image;
 
@@ -3100,104 +2061,60 @@ class Diagnostics implements \Kibo\Phast\Diagnostics\Diagnostics
         $filter->transformImage($image, []);
     }
 }
-namespace Kibo\Phast\Filters\Image\ImageAPIClient;
+namespace Kibo\Phast\Filters\Image;
 
-class Factory implements \Kibo\Phast\Filters\Image\ImageFilterFactory
+class ImageFactory
 {
-    public function make(array $config)
-    {
-        $signature = new \Kibo\Phast\Security\ServiceSignature(new \Kibo\Phast\Cache\File\Cache($config['cache'], 'api-service-signature'));
-        return new \Kibo\Phast\Filters\Image\ImageAPIClient\Filter($config['images']['filters'][\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class], $signature, (new \Kibo\Phast\HTTP\ClientFactory())->make($config));
-    }
-}
-namespace Kibo\Phast\Filters\Image\ImageAPIClient;
-
-class Filter implements \Kibo\Phast\Filters\Image\ImageFilter
-{
-    /**
-     * @var array
-     */
     private $config;
-    /**
-     * @var ServiceSignature
-     */
-    private $signature;
-    /**
-     * @var Client
-     */
-    private $client;
-    /**
-     * Filter constructor.
-     * @param array $config
-     * @param ServiceSignature $signature
-     * @param Client $client
-     */
-    public function __construct(array $config, \Kibo\Phast\Security\ServiceSignature $signature, \Kibo\Phast\HTTP\Client $client)
+    public function __construct(array $config)
     {
         $this->config = $config;
-        $this->signature = $signature;
-        $this->client = $client;
-        $this->signature->setIdentities('');
     }
-    public function getCacheSalt(array $request)
+    /**
+     * @param URL $url
+     * @return Image
+     */
+    public function getForURL(\Kibo\Phast\ValueObjects\URL $url)
     {
-        $result = 'api-call';
-        foreach (['width', 'height', 'preferredType'] as $key) {
-            if (isset($request[$key])) {
-                $result .= "-{$key}-{$request[$key]}";
-            }
-        }
-        return $result;
+        $retriever = new \Kibo\Phast\Retrievers\UniversalRetriever();
+        $retriever->addRetriever(new \Kibo\Phast\Retrievers\LocalRetriever($this->config['retrieverMap']));
+        $retriever->addRetriever((new \Kibo\Phast\Retrievers\RemoteRetrieverFactory())->make($this->config));
+        return new \Kibo\Phast\Filters\Image\ImageImplementations\DefaultImage($url, $retriever);
     }
-    public function transformImage(\Kibo\Phast\Filters\Image\Image $image, array $request)
+    /**
+     * @param Resource $resource
+     * @return Image
+     */
+    public function getForResource(\Kibo\Phast\ValueObjects\Resource $resource)
     {
-        $url = $this->getRequestURL($request);
-        $headers = $this->getRequestHeaders($image, $request);
-        $data = $image->getAsString();
-        try {
-            $response = $this->client->post(\Kibo\Phast\ValueObjects\URL::fromString($url), $data, $headers);
-        } catch (\Exception $e) {
-            throw new \Kibo\Phast\Filters\Image\Exceptions\ImageProcessingException('Request exception: ' . get_class($e) . ' MSG: ' . $e->getMessage() . ' Code: ' . $e->getCode());
-        }
-        if (strlen($response->getContent()) === 0) {
-            throw new \Kibo\Phast\Filters\Image\Exceptions\ImageProcessingException('Image API response is empty');
-        }
-        $newImage = new \Kibo\Phast\Filters\Image\ImageImplementations\DummyImage();
-        $newImage->setImageString($response->getContent());
-        $headers = [];
-        foreach ($response->getHeaders() as $name => $value) {
-            $headers[strtolower($name)] = $value;
-        }
-        $newImage->setType($headers['content-type']);
-        return $newImage;
+        return $this->getForURL($resource->getUrl());
     }
-    private function getRequestURL(array $request)
-    {
-        $params = [];
-        foreach (['width', 'height'] as $key) {
-            if (isset($request[$key])) {
-                $params[$key] = $request[$key];
-            }
-        }
-        return (new \Kibo\Phast\Services\ServiceRequest())->withUrl(\Kibo\Phast\ValueObjects\URL::fromString($this->config['api-url']))->withParams($params)->sign($this->signature)->serialize(\Kibo\Phast\Services\ServiceRequest::FORMAT_QUERY);
-    }
-    private function getRequestHeaders(\Kibo\Phast\Filters\Image\Image $image, array $request)
-    {
-        $headers = ['X-Phast-Image-API-Client' => $this->getRequestToken(), 'Content-Type' => 'application/octet-stream'];
-        if (isset($request['preferredType']) && $request['preferredType'] == \Kibo\Phast\Filters\Image\Image::TYPE_WEBP) {
-            $headers['Accept'] = 'image/webp';
-        }
-        return $headers;
-    }
-    private function getRequestToken()
-    {
-        $token_parts = [];
-        foreach (['host-name', 'request-uri', 'plugin-version'] as $key) {
-            $token_parts[$key] = $this->config[$key];
-        }
-        $token_parts['php'] = PHP_VERSION;
-        return json_encode($token_parts);
-    }
+}
+namespace Kibo\Phast\Filters\Image;
+
+interface ImageFilter
+{
+    /**
+     * @param array $request
+     * @return string
+     */
+    public function getCacheSalt(array $request);
+    /**
+     * @param Image $image
+     * @param array $request
+     * @return Image
+     */
+    public function transformImage(\Kibo\Phast\Filters\Image\Image $image, array $request);
+}
+namespace Kibo\Phast\Filters\Image;
+
+interface ImageFilterFactory
+{
+    /**
+     * @param array $config
+     * @return ImageFilter
+     */
+    public function make(array $config);
 }
 namespace Kibo\Phast\Filters\Image\ImageImplementations;
 
@@ -3346,72 +2263,85 @@ class DefaultImage extends \Kibo\Phast\Filters\Image\ImageImplementations\BaseIm
         throw new \Kibo\Phast\Exceptions\LogicException('No operations may be performed on DefaultImage');
     }
 }
-namespace Kibo\Phast\Filters\CSS\CSSMinifier;
+namespace Kibo\Phast\Filters\Image\ImageImplementations;
 
-class Factory
-{
-    public function make()
-    {
-        return new \Kibo\Phast\Filters\CSS\CSSMinifier\Filter();
-    }
-}
-namespace Kibo\Phast\Filters\CSS\CSSURLRewriter;
-
-class Factory
-{
-    public function make()
-    {
-        return new \Kibo\Phast\Filters\CSS\CSSURLRewriter\Filter();
-    }
-}
-namespace Kibo\Phast\Filters\CSS\ImageURLRewriter;
-
-class Factory
-{
-    public function make(array $config)
-    {
-        return new \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter((new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageURLRewriterFactory())->make($config, \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class));
-    }
-}
-namespace Kibo\Phast\Filters\CSS\Composite;
-
-class Factory
+class DummyImage extends \Kibo\Phast\Filters\Image\ImageImplementations\BaseImage implements \Kibo\Phast\Filters\Image\Image
 {
     /**
-     * @param array $config
-     * @return Filter
+     * @var string
      */
-    public function make(array $config)
+    private $imageString;
+    private $transformationString;
+    /**
+     * DummyImage constructor.
+     *
+     * @param int $width
+     * @param int $height
+     */
+    public function __construct($width = null, $height = null)
     {
-        $class = \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class;
-        if (isset($config['documents']['filters'][$class]['serviceUrl'])) {
-            $serviceUrl = $config['documents']['filters'][$class]['serviceUrl'];
-        } else {
-            $serviceUrl = $config['servicesUrl'] . '?service=images';
-        }
-        $filter = new \Kibo\Phast\Filters\CSS\Composite\Filter($serviceUrl);
-        foreach (array_keys($config['styles']['filters']) as $filterClass) {
-            $filter->addFilter(\Kibo\Phast\Environment\Package::fromPackageClass($filterClass)->getFactory()->make($config));
-        }
-        return $filter;
+        $this->width = $width;
+        $this->height = $height;
     }
-}
-namespace Kibo\Phast\Filters\CSS\FontSwap;
-
-class Factory
-{
-    public function make()
+    /**
+     * @return int
+     */
+    public function getWidth()
     {
-        return new \Kibo\Phast\Filters\CSS\FontSwap\Filter();
+        return $this->width;
     }
-}
-namespace Kibo\Phast\Filters\CSS\ImportsStripper;
-
-class Factory
-{
-    public function make()
+    /**
+     * @return int
+     */
+    public function getHeight()
     {
-        return new \Kibo\Phast\Filters\CSS\ImportsStripper\Filter();
+        return $this->height;
+    }
+    /**
+     * @return string
+     */
+    public function getType()
+    {
+        return $this->type;
+    }
+    /**
+     * @param string $type
+     */
+    public function setType($type)
+    {
+        $this->type = $type;
+    }
+    /**
+     * @return int
+     */
+    public function getCompression()
+    {
+        return $this->compression;
+    }
+    /**
+     * @return string
+     */
+    public function getAsString()
+    {
+        return $this->imageString;
+    }
+    /**
+     * @param string $imageString
+     */
+    public function setImageString($imageString)
+    {
+        $this->imageString = $imageString;
+    }
+    /**
+     * @param mixed $transformationString
+     */
+    public function setTransformationString($transformationString)
+    {
+        $this->transformationString = $transformationString;
+    }
+    protected function __clone()
+    {
+        $this->imageString = $this->transformationString;
     }
 }
 namespace Kibo\Phast\Filters\Text\Decode;
@@ -3423,20 +2353,270 @@ class Factory
         return new \Kibo\Phast\Filters\Text\Decode\Filter();
     }
 }
-namespace Kibo\Phast\JSMin;
+namespace Kibo\Phast\HTTP;
 
-class UnterminatedRegExpException extends \Exception
+interface Client
+{
+    /**
+     * Retrieve a URL using the GET HTTP method
+     *
+     * @param URL $url
+     * @param array $headers - headers to send in headerName => headerValue format
+     * @return Response
+     * @throws \Exception
+     */
+    public function get(\Kibo\Phast\ValueObjects\URL $url, array $headers = array());
+    /**
+     * Send data to a URL using the POST HTTP method
+     *
+     * @param URL $url
+     * @param array|string $data - if array, it will be encoded as form data, if string - will be sent as is
+     * @param array $headers - headers to send in headerName => headerValue format
+     * @return Response
+     * @throws \Exception
+     */
+    public function post(\Kibo\Phast\ValueObjects\URL $url, $data, array $headers = array());
+}
+namespace Kibo\Phast\HTTP;
+
+class ClientFactory
+{
+    const CONFIG_KEY = 'httpClient';
+    /**
+     * @param array $config
+     * @return Client
+     */
+    public function make(array $config)
+    {
+        $spec = $config[self::CONFIG_KEY];
+        if (is_callable($spec)) {
+            $client = $spec();
+        } elseif (class_exists($spec)) {
+            $client = new $spec();
+        } else {
+            throw new \Kibo\Phast\Exceptions\RuntimeException(self::CONFIG_KEY . ' config value must be either callable or a class name');
+        }
+        return $client;
+    }
+}
+namespace Kibo\Phast\HTTP\Exceptions;
+
+class HTTPError extends \RuntimeException
 {
 }
-namespace Kibo\Phast\JSMin;
+namespace Kibo\Phast\HTTP\Exceptions;
 
-class UnterminatedCommentException extends \Exception
+class NetworkError extends \RuntimeException
 {
 }
-namespace Kibo\Phast\JSMin;
+namespace Kibo\Phast\HTTP;
 
-class UnterminatedStringException extends \Exception
+class Request
 {
+    /**
+     * @var array
+     */
+    private $env;
+    /**
+     * @var array
+     */
+    private $cookie;
+    /**
+     * @var string
+     */
+    private $query;
+    private function __construct()
+    {
+    }
+    public static function fromGlobals()
+    {
+        $instance = new self();
+        $instance->env = $_SERVER;
+        $instance->cookie = $_COOKIE;
+        return $instance;
+    }
+    public static function fromArray(array $get = array(), array $env = array(), array $cookie = array())
+    {
+        if ($get) {
+            $url = isset($env['REQUEST_URI']) ? $env['REQUEST_URI'] : '';
+            $env['REQUEST_URI'] = \Kibo\Phast\ValueObjects\URL::fromString($url)->withQuery(http_build_query($get))->toString();
+        }
+        $instance = new self();
+        $instance->env = $env;
+        $instance->cookie = $cookie;
+        return $instance;
+    }
+    /**
+     * @return array
+     */
+    public function getGet()
+    {
+        return $this->getQuery()->toAssoc();
+    }
+    /**
+     * @return Query
+     */
+    public function getQuery()
+    {
+        return \Kibo\Phast\ValueObjects\Query::fromString($this->getQueryString());
+    }
+    /**
+     * @param $name string
+     * @return string|null
+     */
+    public function getHeader($name)
+    {
+        $key = 'HTTP_' . strtoupper(str_replace('-', '_', $name));
+        return $this->getEnvValue($key);
+    }
+    public function getPathInfo()
+    {
+        $pathInfo = $this->getEnvValue('PATH_INFO');
+        if ($pathInfo) {
+            return $pathInfo;
+        }
+        $path = parse_url($this->getEnvValue('REQUEST_URI'), PHP_URL_PATH);
+        if (preg_match('~[^/]\\.php(/.*)~', $path, $match)) {
+            return $match[1];
+        }
+    }
+    public function getCookie($name)
+    {
+        if (isset($this->cookie[$name])) {
+            return $this->cookie[$name];
+        }
+    }
+    public function getQueryString()
+    {
+        $parsed = parse_url($this->getEnvValue('REQUEST_URI'));
+        if (isset($parsed['query'])) {
+            return $parsed['query'];
+        }
+    }
+    public function getAbsoluteURI()
+    {
+        return ($this->getEnvValue('HTTPS') ? 'https' : 'http') . '://' . $this->getHost() . $this->getURI();
+    }
+    public function getHost()
+    {
+        return $this->getHeader('Host');
+    }
+    public function getURI()
+    {
+        return $this->getEnvValue('REQUEST_URI');
+    }
+    public function getEnvValue($key)
+    {
+        if (isset($this->env[$key])) {
+            return $this->env[$key];
+        }
+    }
+    public function getDocumentRoot()
+    {
+        $scriptName = (string) $this->getEnvValue('SCRIPT_NAME');
+        $scriptFilename = $this->normalizePath((string) $this->getEnvValue('SCRIPT_FILENAME'));
+        if (strpos($scriptName, '/') === 0 && $this->isAbsolutePath($scriptFilename) && $this->isSuffix($scriptName, $scriptFilename)) {
+            return substr($scriptFilename, 0, strlen($scriptFilename) - strlen($scriptName));
+        }
+        return $this->getEnvValue('DOCUMENT_ROOT');
+    }
+    private function normalizePath($path)
+    {
+        return str_replace('\\', '/', $path);
+    }
+    private function isAbsolutePath($path)
+    {
+        return preg_match('~^/|^[a-z]:/~i', $path);
+    }
+    private function isSuffix($suffix, $string)
+    {
+        return substr($string, -strlen($suffix)) === $suffix;
+    }
+    public function isCloudflare()
+    {
+        return !!$this->getHeader('CF-Ray');
+    }
+}
+namespace Kibo\Phast\HTTP;
+
+class Response
+{
+    /**
+     * @var int
+     */
+    private $code = 200;
+    /**
+     * @var array
+     */
+    private $headers = array();
+    /**
+     * @var string|iterable
+     */
+    private $content;
+    /**
+     * @return int
+     */
+    public function getCode()
+    {
+        return $this->code;
+    }
+    /**
+     * @param int $code
+     */
+    public function setCode($code)
+    {
+        $this->code = $code;
+    }
+    /**
+     * @return array
+     */
+    public function getHeaders()
+    {
+        return $this->headers;
+    }
+    /**
+     * @param string $name
+     * @return string|null
+     */
+    public function getHeader($name)
+    {
+        foreach ($this->headers as $k => $v) {
+            if (strcasecmp($name, $k) === 0) {
+                return $v;
+            }
+        }
+        return null;
+    }
+    public function setHeaders(array $headers)
+    {
+        $this->headers = $headers;
+    }
+    /**
+     * @param $name
+     * @param $value
+     */
+    public function setHeader($name, $value)
+    {
+        $this->headers[$name] = $value;
+    }
+    /**
+     * @return string|iterable
+     */
+    public function getContent()
+    {
+        return $this->content;
+    }
+    /**
+     * @param string|iterable $content
+     */
+    public function setContent($content)
+    {
+        $this->content = $content;
+    }
+    public function isCompressible()
+    {
+        return strpos($this->getHeader('Content-Type'), 'image/') === false;
+    }
 }
 namespace Kibo\Phast\JSMin;
 
@@ -3867,171 +3047,787 @@ class JSMin
         return $s !== null && strpos("\n\r", $s) !== false;
     }
 }
-namespace Kibo\Phast\Parsing\HTML;
+namespace Kibo\Phast\JSMin;
 
-class PCRETokenizer
+class UnterminatedCommentException extends \Exception
 {
-    private $mainPattern = '~
-        # Allow duplicate names for subpatterns
-        (?J)
-
-        (
-            @@COMMENT |
-            @@SCRIPT |
-            @@STYLE |
-            @@CLOSING_TAG |
-            @@TAG
-        )
-    ~Xxsi';
-    private $attributePattern = '~
-        @attr
-    ~Xxsi';
-    private $subroutines = array('COMMENT' => '
-            <!--.*?-->
-        ', 'SCRIPT' => "\n            (?= <script[\\s>]) @@TAG\n            (?'body' .*? )\n            (?'closing_tag' </script/?+(?:\\s[^a-z>]*+)?+> )\n        ", 'STYLE' => "\n            (?= <style[\\s>]) @@TAG\n            (?'body' .*? )\n            (?'closing_tag' </style/?+(?:\\s[^a-z>]*+)?+> )\n        ", 'TAG' => "\n            < @@tag_name \\s*+ @@attrs? @tag_end\n        ", 'tag_name' => "\n            [^\\s>]++\n        ", 'attrs' => '
-            (?: @attr )*+
-        ', 'attr' => "\n            \\s*+\n            @@attr_name\n            (?: \\s*+ = \\s*+ @attr_value )?\n        ", 'attr_name' => "\n            [^\\s>][^\\s>=]*+\n        ", 'attr_value' => "\n            (?|\n                \"(?'attr_value'[^\"]*+)\" |\n                ' (?'attr_value' [^']*+) ' |\n                (?'attr_value' [^\\s>]*+)\n            )\n        ", 'tag_end' => "\n            \\s*+ >\n        ", 'CLOSING_TAG' => '
-            </ @@tag_name [^>]*+ >
-        ');
-    public function __construct()
-    {
-        $this->mainPattern = $this->compilePattern($this->mainPattern, $this->subroutines);
-        $this->attributePattern = $this->compilePattern($this->attributePattern, $this->subroutines);
-    }
-    public function tokenize($data)
-    {
-        $offset = 0;
-        while (preg_match($this->mainPattern, $data, $match, PREG_OFFSET_CAPTURE, $offset)) {
-            if ($match[0][1] > $offset) {
-                $element = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Junk();
-                $element->originalString = substr($data, $offset, $match[0][1] - $offset);
-                (yield $element);
-            }
-            if (!empty($match['COMMENT'][0])) {
-                $element = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Comment();
-                $element->originalString = $match[0][0];
-            } elseif (!empty($match['TAG'][0]) || !empty($match['SCRIPT'][0]) || !empty($match['STYLE'][0])) {
-                $attributes = $match['attrs'][0] === '' ? [] : $this->parseAttributes($match['attrs'][0]);
-                $element = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag($match['tag_name'][0], $attributes);
-                $element->originalString = $match['TAG'][0];
-                if (isset($match['body'][1]) && $match['body'][1] != -1) {
-                    $element->setTextContent($match['body'][0]);
-                    $element = $element->withClosingTag($match['closing_tag'][0]);
-                }
-            } elseif (!empty($match['CLOSING_TAG'][0])) {
-                $element = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\ClosingTag($match['tag_name'][0]);
-                $element->originalString = $match[0][0];
-            } else {
-                throw new \Kibo\Phast\Exceptions\RuntimeException("Unhandled match:\n" . \Kibo\Phast\Common\JSON::prettyEncode($match));
-            }
-            (yield $element);
-            $offset = $match[0][1] + strlen($match[0][0]);
-        }
-        if ($offset < strlen($data) - 1) {
-            $element = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Junk();
-            $element->originalString = substr($data, $offset);
-            (yield $element);
-        }
-    }
-    private function parseAttributes($str)
-    {
-        $matches = $this->repeatMatch($this->attributePattern, $str);
-        foreach ($matches as $match) {
-            (yield $match['attr_name'][0] => isset($match['attr_value'][0]) ? html_entity_decode($match['attr_value'][0], ENT_QUOTES, 'UTF-8') : '');
-        }
-    }
-    private function repeatMatch($pattern, $subject)
-    {
-        $offset = 0;
-        while (preg_match($pattern, $subject, $match, PREG_OFFSET_CAPTURE, $offset)) {
-            (yield $match);
-            $offset = $match[0][1] + strlen($match[0][0]);
-        }
-        if ($offset < strlen($subject) - 1) {
-            throw new \Kibo\Phast\Exceptions\RuntimeException('Unmatched part of subject: ' . substr($subject, $offset));
-        }
-    }
-    /**
-     * Replace subroutines in patterns
-     */
-    private function compilePattern($pattern, array $subroutines)
-    {
-        return preg_replace_callback('/@(@?)(\\w+)/', function ($match) use($subroutines) {
-            $capture = !empty($match[1]);
-            $ref = $match[2];
-            if (!isset($subroutines[$ref])) {
-                throw new \Kibo\Phast\Exceptions\RuntimeException("Unknown pattern '{$ref}' used, or circular reference");
-            }
-            $subroutine = $subroutines[$ref];
-            unset($subroutines[$ref]);
-            $replace = $this->compilePattern($subroutine, $subroutines);
-            if ($capture) {
-                $replace = "(?'{$ref}'{$replace})";
-            } else {
-                $replace = "(?:{$replace})";
-            }
-            return $replace;
-        }, $pattern);
-    }
 }
-namespace Kibo\Phast\Parsing\HTML\HTMLStreamElements;
+namespace Kibo\Phast\JSMin;
 
-class Element
+class UnterminatedRegExpException extends \Exception
+{
+}
+namespace Kibo\Phast\JSMin;
+
+class UnterminatedStringException extends \Exception
+{
+}
+namespace Kibo\Phast\Logging\Common;
+
+trait JSONLFileLogTrait
 {
     /**
      * @var string
      */
-    public $originalString;
+    private $dir;
     /**
-     * @param string $originalString
+     * @var string
      */
-    public function setOriginalString($originalString)
+    private $filename;
+    /**
+     * JSONLFileLogWriter constructor.
+     * @param string $dir
+     * @param string $suffix
+     */
+    public function __construct($dir, $suffix)
     {
-        $this->originalString = $originalString;
-    }
-    public function __get($name)
-    {
-        $method = 'get' . ucfirst($name);
-        if (method_exists($this, $method)) {
-            return call_user_func([$this, $method]);
+        $this->dir = $dir;
+        $suffix = preg_replace('/[^0-9A-Za-z_-]/', '', (string) $suffix);
+        if (!empty($suffix)) {
+            $suffix = '-' . $suffix;
         }
-    }
-    public function __set($name, $value)
-    {
-        $method = 'set' . ucfirst($name);
-        if (method_exists($this, $method)) {
-            return call_user_func([$this, $method], $value);
-        }
-    }
-    public function toString()
-    {
-        return $this->__toString();
-    }
-    public function __toString()
-    {
-        return isset($this->originalString) ? $this->originalString : '';
-    }
-    public function dump()
-    {
-        return '<' . preg_replace('~^.*\\\\~', '', get_class($this)) . ' ' . $this->dumpValue() . '>';
-    }
-    public function dumpValue()
-    {
-        return \Kibo\Phast\Common\JSON::encode($this->originalString);
+        $this->filename = $this->dir . '/log' . $suffix . '.jsonl';
     }
 }
-namespace Kibo\Phast\Parsing\HTML\HTMLStreamElements;
+namespace Kibo\Phast\Logging;
 
-class Junk extends \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Element
+class Log
 {
-}
-namespace Kibo\Phast\Parsing\HTML\HTMLStreamElements;
-
-class Comment extends \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Element
-{
-    public function isIEConditional()
+    /**
+     * @var Logger
+     */
+    private static $logger;
+    public static function setLogger(\Kibo\Phast\Logging\Logger $logger)
     {
-        return (bool) preg_match('/^<!--\\[if\\s/', $this->originalString);
+        self::$logger = $logger;
+    }
+    public static function initWithDummy()
+    {
+        self::$logger = new \Kibo\Phast\Logging\Logger(new \Kibo\Phast\Logging\LogWriters\Dummy\Writer());
+    }
+    public static function init(array $config, \Kibo\Phast\Services\ServiceRequest $request, $service)
+    {
+        $writer = (new \Kibo\Phast\Logging\LogWriters\Factory())->make($config, $request);
+        $logger = new \Kibo\Phast\Logging\Logger($writer);
+        self::$logger = $logger->withContext(['documentRequestId' => $request->getDocumentRequestId(), 'requestId' => mt_rand(0, 99999999), 'service' => $service]);
+    }
+    /**
+     * @return Logger
+     */
+    public static function get()
+    {
+        if (!isset(self::$logger)) {
+            self::initWithDummy();
+        }
+        return self::$logger;
+    }
+    /**
+     * @param array $context
+     * @return Logger
+     */
+    public static function context(array $context)
+    {
+        return self::get()->withContext($context);
+    }
+    /**
+     * System is unusable.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public static function emergency($message, array $context = array())
+    {
+        self::get()->emergency($message, $context);
+    }
+    /**
+     * Action must be taken immediately.
+     *
+     * Example: Entire website down, database unavailable, etc. This should
+     * trigger the SMS alerts and wake you up.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public static function alert($message, array $context = array())
+    {
+        self::get()->alert($message, $context);
+    }
+    /**
+     * Critical conditions.
+     *
+     * Example: Application component unavailable, unexpected exception.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public static function critical($message, array $context = array())
+    {
+        self::get()->critical($message, $context);
+    }
+    /**
+     * Runtime errors that do not require immediate action but should typically
+     * be logged and monitored.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public static function error($message, array $context = array())
+    {
+        self::get()->error($message, $context);
+    }
+    /**
+     * Exceptional occurrences that are not errors.
+     *
+     * Example: Use of deprecated APIs, poor use of an API, undesirable things
+     * that are not necessarily wrong.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public static function warning($message, array $context = array())
+    {
+        self::get()->warning($message, $context);
+    }
+    /**
+     * Normal but significant events.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public static function notice($message, array $context = array())
+    {
+        self::get()->notice($message, $context);
+    }
+    /**
+     * Interesting events.
+     *
+     * Example: User logs in, SQL logs.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public static function info($message, array $context = array())
+    {
+        self::get()->info($message, $context);
+    }
+    /**
+     * Detailed debug information.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public static function debug($message, array $context = array())
+    {
+        self::get()->debug($message, $context);
+    }
+}
+namespace Kibo\Phast\Logging;
+
+class LogEntry implements \JsonSerializable
+{
+    /**
+     * @var int
+     */
+    private $level;
+    /**
+     * @var string
+     */
+    private $message;
+    /**
+     * @var array
+     */
+    private $context;
+    /**
+     * LogEntry constructor.
+     * @param int $level
+     * @param string $message
+     * @param array $context
+     */
+    public function __construct($level, $message, array $context)
+    {
+        $this->level = (int) $level;
+        $this->message = $message;
+        $this->context = $context;
+    }
+    /**
+     * @return int
+     */
+    public function getLevel()
+    {
+        return $this->level;
+    }
+    /**
+     * @return string
+     */
+    public function getMessage()
+    {
+        return $this->message;
+    }
+    /**
+     * @return array
+     */
+    public function getContext()
+    {
+        return $this->context;
+    }
+    public function toArray()
+    {
+        return ['level' => $this->level, 'message' => $this->message, 'context' => $this->context];
+    }
+    public function jsonSerialize()
+    {
+        return $this->toArray();
+    }
+}
+namespace Kibo\Phast\Logging;
+
+class LogLevel
+{
+    const EMERGENCY = 128;
+    const ALERT = 64;
+    const CRITICAL = 32;
+    const ERROR = 16;
+    const WARNING = 8;
+    const NOTICE = 4;
+    const INFO = 2;
+    const DEBUG = 1;
+    public static function toString($level)
+    {
+        switch ($level) {
+            case self::EMERGENCY:
+                return 'EMERGENCY';
+            case self::ALERT:
+                return 'ALERT';
+            case self::CRITICAL:
+                return 'CRITICAL';
+            case self::ERROR:
+                return 'ERROR';
+            case self::WARNING:
+                return 'WARNING';
+            case self::NOTICE:
+                return 'NOTICE';
+            case self::INFO:
+                return 'INFO';
+            case self::DEBUG:
+                return 'DEBUG';
+            default:
+                return 'UNKNOWN';
+        }
+    }
+}
+namespace Kibo\Phast\Logging;
+
+interface LogReader
+{
+    /**
+     * Reads LogMessage objects
+     *
+     * @return \Generator
+     */
+    public function readEntries();
+}
+namespace Kibo\Phast\Logging\LogReaders\JSONLFile;
+
+class Reader implements \Kibo\Phast\Logging\LogReader
+{
+    use \Kibo\Phast\Logging\Common\JSONLFileLogTrait;
+    public function readEntries()
+    {
+        $fp = @fopen($this->filename, 'r');
+        while ($fp && ($row = @fgets($fp))) {
+            $decoded = @json_decode($row, true);
+            if (!$decoded) {
+                continue;
+            }
+            (yield new \Kibo\Phast\Logging\LogEntry(@$decoded['level'], @$decoded['message'], @$decoded['context']));
+        }
+        @fclose($fp);
+        @unlink($this->filename);
+    }
+    public function __destruct()
+    {
+        if (!($dir = @opendir($this->dir))) {
+            return;
+        }
+        $tenMinutesAgo = time() - 600;
+        while ($file = @readdir($dir)) {
+            $filename = $this->dir . "/{$file}";
+            if (preg_match('/\\.jsonl$/', $file) && @filectime($filename) < $tenMinutesAgo) {
+                @unlink($filename);
+            }
+        }
+    }
+}
+namespace Kibo\Phast\Logging;
+
+interface LogWriter
+{
+    /**
+     * Set a bit-mask to filter entries that are actually written
+     *
+     * @param int $mask
+     * @return void
+     */
+    public function setLevelMask($mask);
+    /**
+     * Write an entry to the log
+     *
+     * @param LogEntry $entry
+     * @return void
+     */
+    public function writeEntry(\Kibo\Phast\Logging\LogEntry $entry);
+}
+namespace Kibo\Phast\Logging\LogWriters;
+
+abstract class BaseLogWriter implements \Kibo\Phast\Logging\LogWriter
+{
+    protected $levelMask = ~0;
+    protected abstract function doWriteEntry(\Kibo\Phast\Logging\LogEntry $entry);
+    public function setLevelMask($mask)
+    {
+        $this->levelMask = $mask;
+    }
+    public function writeEntry(\Kibo\Phast\Logging\LogEntry $entry)
+    {
+        if ($this->levelMask & $entry->getLevel()) {
+            $this->doWriteEntry($entry);
+        }
+    }
+}
+namespace Kibo\Phast\Logging\LogWriters\Composite;
+
+class Factory
+{
+    public function make(array $config, \Kibo\Phast\Services\ServiceRequest $request)
+    {
+        $writer = new \Kibo\Phast\Logging\LogWriters\Composite\Writer();
+        $factory = new \Kibo\Phast\Logging\LogWriters\Factory();
+        foreach ($config['logWriters'] as $writerConfig) {
+            $writer->addWriter($factory->make($writerConfig, $request));
+        }
+        return $writer;
+    }
+}
+namespace Kibo\Phast\Logging\LogWriters\Composite;
+
+class Writer extends \Kibo\Phast\Logging\LogWriters\BaseLogWriter
+{
+    /**
+     * @var Writer[]
+     */
+    private $writers = array();
+    public function addWriter(\Kibo\Phast\Logging\LogWriter $writer)
+    {
+        $this->writers[] = $writer;
+    }
+    protected function doWriteEntry(\Kibo\Phast\Logging\LogEntry $entry)
+    {
+        foreach ($this->writers as $writer) {
+            $writer->writeEntry($entry);
+        }
+    }
+}
+namespace Kibo\Phast\Logging\LogWriters\Dummy;
+
+class Writer implements \Kibo\Phast\Logging\LogWriter
+{
+    public function setLevelMask($mask)
+    {
+    }
+    public function writeEntry(\Kibo\Phast\Logging\LogEntry $entry)
+    {
+    }
+}
+namespace Kibo\Phast\Logging\LogWriters;
+
+class Factory
+{
+    public function make(array $config, \Kibo\Phast\Services\ServiceRequest $request)
+    {
+        if (isset($config['logWriters']) && count($config['logWriters']) > 1) {
+            $class = \Kibo\Phast\Logging\LogWriters\Composite\Writer::class;
+        } elseif (isset($config['logWriters'])) {
+            $config = array_pop($config['logWriters']);
+            $class = $config['class'];
+        } else {
+            $class = $config['class'];
+        }
+        $package = \Kibo\Phast\Environment\Package::fromPackageClass($class);
+        $writer = $package->getFactory()->make($config, $request);
+        if (isset($config['levelMask'])) {
+            $writer->setLevelMask($config['levelMask']);
+        }
+        return $writer;
+    }
+}
+namespace Kibo\Phast\Logging\LogWriters\JSONLFile;
+
+class Factory
+{
+    public function make(array $config, \Kibo\Phast\Services\ServiceRequest $request)
+    {
+        return new \Kibo\Phast\Logging\LogWriters\JSONLFile\Writer($config['logRoot'], $request->getDocumentRequestId());
+    }
+}
+namespace Kibo\Phast\Logging\LogWriters\JSONLFile;
+
+class Writer extends \Kibo\Phast\Logging\LogWriters\BaseLogWriter
+{
+    use \Kibo\Phast\Logging\Common\JSONLFileLogTrait;
+    /**
+     * @param LogEntry $entry
+     */
+    protected function doWriteEntry(\Kibo\Phast\Logging\LogEntry $entry)
+    {
+        $encoded = @\Kibo\Phast\Common\JSON::encode($entry->toArray());
+        if ($encoded) {
+            $this->makeDirIfNotExists();
+            @file_put_contents($this->filename, $encoded . "\n", FILE_APPEND | LOCK_EX);
+        }
+    }
+    private function makeDirIfNotExists()
+    {
+        if (!@file_exists($this->dir)) {
+            @mkdir($this->dir, 0777, true);
+        }
+    }
+}
+namespace Kibo\Phast\Logging\LogWriters\PHPError;
+
+class Factory
+{
+    public function make(array $config, \Kibo\Phast\Services\ServiceRequest $request)
+    {
+        return new \Kibo\Phast\Logging\LogWriters\PHPError\Writer($config);
+    }
+}
+namespace Kibo\Phast\Logging\LogWriters\PHPError;
+
+class Writer extends \Kibo\Phast\Logging\LogWriters\BaseLogWriter
+{
+    private $messageType = 0;
+    private $destination = null;
+    private $extraHeaders = null;
+    /**
+     * @var ObjectifiedFunctions
+     */
+    private $funcs;
+    /**
+     * PHPErrorLogWriter constructor.
+     * @param array $config
+     * @param ObjectifiedFunctions $funcs
+     */
+    public function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
+    {
+        foreach (['messageType', 'destination', 'extraHeaders'] as $field) {
+            if (isset($config[$field])) {
+                $this->{$field} = $config[$field];
+            }
+        }
+        $this->funcs = is_null($funcs) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $funcs;
+    }
+    protected function doWriteEntry(\Kibo\Phast\Logging\LogEntry $entry)
+    {
+        if ($this->levelMask & $entry->getLevel()) {
+            $this->funcs->error_log($this->interpolate($entry->getMessage(), $entry->getContext()), $this->messageType, $this->destination, $this->extraHeaders);
+        }
+    }
+    private function interpolate($message, $context)
+    {
+        $prefix = '';
+        $prefixKeys = ['requestId', 'service', 'class', 'method', 'line'];
+        foreach ($prefixKeys as $key) {
+            if (isset($context[$key])) {
+                $prefix .= '{' . $key . "}\t";
+            }
+        }
+        return preg_replace_callback('/{(.+?)}/', function ($match) use($context) {
+            return array_key_exists($match[1], $context) ? $context[$match[1]] : $match[0];
+        }, $prefix . $message);
+    }
+}
+namespace Kibo\Phast\Logging\LogWriters\RotatingTextFile;
+
+class Factory
+{
+    public function make(array $config, \Kibo\Phast\Services\ServiceRequest $request)
+    {
+        return new \Kibo\Phast\Logging\LogWriters\RotatingTextFile\Writer($config);
+    }
+}
+namespace Kibo\Phast\Logging\LogWriters\RotatingTextFile;
+
+class Writer extends \Kibo\Phast\Logging\LogWriters\BaseLogWriter
+{
+    /** @var string */
+    private $path = 'phast.log';
+    /** @var int */
+    private $maxFiles = 2;
+    /** @var int */
+    private $maxSize = 10 * 1024 * 1024;
+    /** @var ObjectifiedFunctions */
+    private $funcs;
+    /**
+     * @param array $config
+     * @param ?ObjectifiedFunctions $funcs
+     */
+    public function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
+    {
+        if (isset($config['path'])) {
+            $this->path = (string) $config['path'];
+        }
+        if (isset($config['maxFiles'])) {
+            $this->maxFiles = (int) $config['maxFiles'];
+        }
+        if (isset($config['maxSize'])) {
+            $this->maxSize = (int) $config['maxSize'];
+        }
+        $this->funcs = is_null($funcs) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $funcs;
+    }
+    protected function doWriteEntry(\Kibo\Phast\Logging\LogEntry $entry)
+    {
+        if (!($this->levelMask & $entry->getLevel())) {
+            return;
+        }
+        $message = $this->interpolate($entry->getMessage(), $entry->getContext());
+        $line = sprintf("%s %s %s\n", gmdate('Y-m-d\\TH:i:s\\Z', $this->funcs->time()), \Kibo\Phast\Logging\LogLevel::toString($entry->getLevel()), $message);
+        clearstatcache(true, $this->path);
+        $this->rotate(strlen($line));
+        file_put_contents($this->path, $line, FILE_APPEND);
+    }
+    private function interpolate($message, $context)
+    {
+        $prefix = '';
+        $prefixKeys = ['requestId', 'service', 'class', 'method', 'line'];
+        foreach ($prefixKeys as $key) {
+            if (isset($context[$key])) {
+                $prefix .= '{' . $key . "}\t";
+            }
+        }
+        return preg_replace_callback('/{(.+?)}/', function ($match) use($context) {
+            return array_key_exists($match[1], $context) ? $context[$match[1]] : $match[0];
+        }, $prefix . $message);
+    }
+    private function rotate($bufferSize)
+    {
+        if (!$this->shouldRotate($bufferSize)) {
+            return;
+        }
+        if (!($fp = fopen($this->path, 'r+'))) {
+            return;
+        }
+        try {
+            if (!flock($fp, LOCK_EX | LOCK_NB)) {
+                return;
+            }
+            if (!$this->shouldRotate($bufferSize)) {
+                return;
+            }
+            for ($i = $this->maxFiles - 1; $i > 0; $i--) {
+                @rename($this->getName($i - 1), $this->getName($i));
+            }
+        } finally {
+            fclose($fp);
+        }
+    }
+    private function getName($index)
+    {
+        if ($index <= 0) {
+            return $this->path;
+        }
+        return $this->path . '.' . $index;
+    }
+    private function shouldRotate($bufferSize)
+    {
+        $currentSize = @filesize($this->path);
+        if (!$currentSize) {
+            return false;
+        }
+        $newSize = $currentSize + $bufferSize;
+        return $newSize > $this->maxSize;
+    }
+}
+namespace Kibo\Phast\Logging;
+
+class Logger
+{
+    /**
+     * @var LogWriter
+     */
+    private $writer;
+    /**
+     * @var array
+     */
+    private $context = array();
+    /**
+     * @var ObjectifiedFunctions
+     */
+    private $functions;
+    /**
+     * Logger constructor.
+     * @param LogWriter $writer
+     */
+    public function __construct(\Kibo\Phast\Logging\LogWriter $writer, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    {
+        $this->writer = $writer;
+        $this->functions = is_null($functions) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $functions;
+    }
+    /**
+     * Returns a new logger with default context
+     * merged from the current logger and the passed array
+     *
+     * @param array $context
+     * @return Logger
+     */
+    public function withContext(array $context)
+    {
+        $logger = clone $this;
+        $logger->context = array_merge($this->context, $context);
+        return $logger;
+    }
+    /**
+     * System is unusable.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public function emergency($message, array $context = array())
+    {
+        $this->log(\Kibo\Phast\Logging\LogLevel::EMERGENCY, $message, $context);
+    }
+    /**
+     * Action must be taken immediately.
+     *
+     * Example: Entire website down, database unavailable, etc. This should
+     * trigger the SMS alerts and wake you up.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public function alert($message, array $context = array())
+    {
+        $this->log(\Kibo\Phast\Logging\LogLevel::ALERT, $message, $context);
+    }
+    /**
+     * Critical conditions.
+     *
+     * Example: Application component unavailable, unexpected exception.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public function critical($message, array $context = array())
+    {
+        $this->log(\Kibo\Phast\Logging\LogLevel::CRITICAL, $message, $context);
+    }
+    /**
+     * Runtime errors that do not require immediate action but should typically
+     * be logged and monitored.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public function error($message, array $context = array())
+    {
+        $this->log(\Kibo\Phast\Logging\LogLevel::ERROR, $message, $context);
+    }
+    /**
+     * Exceptional occurrences that are not errors.
+     *
+     * Example: Use of deprecated APIs, poor use of an API, undesirable things
+     * that are not necessarily wrong.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public function warning($message, array $context = array())
+    {
+        $this->log(\Kibo\Phast\Logging\LogLevel::WARNING, $message, $context);
+    }
+    /**
+     * Normal but significant events.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public function notice($message, array $context = array())
+    {
+        $this->log(\Kibo\Phast\Logging\LogLevel::NOTICE, $message, $context);
+    }
+    /**
+     * Interesting events.
+     *
+     * Example: User logs in, SQL logs.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public function info($message, array $context = array())
+    {
+        $this->log(\Kibo\Phast\Logging\LogLevel::INFO, $message, $context);
+    }
+    /**
+     * Detailed debug information.
+     *
+     * @param string $message
+     * @param array  $context
+     *
+     * @return void
+     */
+    public function debug($message, array $context = array())
+    {
+        $this->log(\Kibo\Phast\Logging\LogLevel::DEBUG, $message, $context);
+    }
+    protected function log($level, $message, array $context = array())
+    {
+        $context = array_merge(['timestamp' => $this->functions->microtime(true)], $context);
+        $this->writer->writeEntry(new \Kibo\Phast\Logging\LogEntry($level, $message, array_merge($this->context, $context)));
+    }
+}
+namespace Kibo\Phast\Logging;
+
+trait LoggingTrait
+{
+    protected function logger($method = null, $line = null)
+    {
+        $context = ['class' => get_class($this)];
+        if (!is_null($method)) {
+            $context['method'] = $method;
+        }
+        if (!is_null($line)) {
+            $context['line'] = $line;
+        }
+        return \Kibo\Phast\Logging\Log::context($context);
     }
 }
 /**
@@ -4566,6 +4362,497 @@ class HTMLInfo
         return $name;
     }
 }
+namespace Kibo\Phast\Parsing\HTML\HTMLStreamElements;
+
+class Element
+{
+    /**
+     * @var string
+     */
+    public $originalString;
+    /**
+     * @param string $originalString
+     */
+    public function setOriginalString($originalString)
+    {
+        $this->originalString = $originalString;
+    }
+    public function __get($name)
+    {
+        $method = 'get' . ucfirst($name);
+        if (method_exists($this, $method)) {
+            return call_user_func([$this, $method]);
+        }
+    }
+    public function __set($name, $value)
+    {
+        $method = 'set' . ucfirst($name);
+        if (method_exists($this, $method)) {
+            return call_user_func([$this, $method], $value);
+        }
+    }
+    public function toString()
+    {
+        return $this->__toString();
+    }
+    public function __toString()
+    {
+        return isset($this->originalString) ? $this->originalString : '';
+    }
+    public function dump()
+    {
+        return '<' . preg_replace('~^.*\\\\~', '', get_class($this)) . ' ' . $this->dumpValue() . '>';
+    }
+    public function dumpValue()
+    {
+        return \Kibo\Phast\Common\JSON::encode($this->originalString);
+    }
+}
+namespace Kibo\Phast\Parsing\HTML\HTMLStreamElements;
+
+class Junk extends \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Element
+{
+}
+namespace Kibo\Phast\Parsing\HTML\HTMLStreamElements;
+
+class Tag extends \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Element
+{
+    /**
+     * @var string
+     */
+    private $tagName;
+    /**
+     * @var array
+     */
+    private $attributes = array();
+    /**
+     * @var array
+     */
+    private $newAttributes = array();
+    /**
+     * @var \Iterator
+     */
+    private $attributeReader;
+    /**
+     * @var string
+     */
+    private $textContent = '';
+    /**
+     * @var string
+     */
+    private $closingTag = '';
+    private $dirty = false;
+    /**
+     * Tag constructor.
+     * @param $tagName
+     * @param array|\Traversable $attributes
+     */
+    public function __construct($tagName, $attributes = array())
+    {
+        $this->tagName = strtolower($tagName);
+        if ($attributes instanceof \Iterator) {
+            $this->attributeReader = $attributes;
+        } elseif (is_array($attributes)) {
+            $this->attributeReader = new \ArrayIterator($attributes);
+        } else {
+            throw new \InvalidArgumentException('Attributes must be array or Iterator');
+        }
+    }
+    /**
+     * @return string
+     */
+    public function getTagName()
+    {
+        return $this->tagName;
+    }
+    /**
+     * @param string $class
+     * @return bool
+     */
+    public function hasClass($class)
+    {
+        foreach ($this->getClasses() as $c) {
+            if (!strcasecmp($class, $c)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    /**
+     * @return string[]
+     */
+    public function getClasses()
+    {
+        return array_values(array_filter(preg_split('~\\s+~', $this->getAttribute('class')), 'strlen'));
+    }
+    /**
+     * @param string $attrName
+     * @return bool
+     */
+    public function hasAttribute($attrName)
+    {
+        return $this->getAttribute($attrName) !== null;
+    }
+    /**
+     * @param string $attrName
+     * @return mixed|null
+     */
+    public function getAttribute($attrName)
+    {
+        if (array_key_exists($attrName, $this->newAttributes)) {
+            return $this->newAttributes[$attrName];
+        }
+        if (!array_key_exists($attrName, $this->attributes)) {
+            $this->readUntilAttribute($attrName);
+        }
+        if (isset($this->attributes[$attrName])) {
+            return $this->attributes[$attrName];
+        }
+    }
+    /** @return string[] */
+    public function getAttributes()
+    {
+        $this->readUntilAttribute(null);
+        return array_filter($this->newAttributes + $this->attributes, function ($value) {
+            return $value !== null;
+        });
+    }
+    private function readUntilAttribute($attrName)
+    {
+        if (!$this->attributeReader) {
+            return;
+        }
+        while ($this->attributeReader->valid()) {
+            $name = strtolower($this->attributeReader->key());
+            $value = $this->attributeReader->current();
+            $this->attributeReader->next();
+            if (!isset($this->attributes[$name])) {
+                $this->attributes[$name] = $value;
+            }
+            if ($name == $attrName) {
+                return;
+            }
+        }
+        $this->attributeReader = null;
+    }
+    /**
+     * @param string $attrName
+     * @param string $value
+     */
+    public function setAttribute($attrName, $value)
+    {
+        if ($this->getAttribute($attrName) === $value) {
+            return;
+        }
+        $this->dirty = true;
+        $this->newAttributes[$attrName] = $value;
+    }
+    /**
+     * @param string $attrName
+     */
+    public function removeAttribute($attrName)
+    {
+        $this->dirty = true;
+        $this->newAttributes[$attrName] = null;
+    }
+    /**
+     * @return string
+     */
+    public function getTextContent()
+    {
+        return $this->textContent;
+    }
+    /**
+     * @param string $textContent
+     */
+    public function setTextContent($textContent)
+    {
+        $this->textContent = $textContent;
+    }
+    /**
+     * @param $closingTag
+     * @return Tag
+     */
+    public function withClosingTag($closingTag)
+    {
+        $new = clone $this;
+        $new->closingTag = $closingTag;
+        return $new;
+    }
+    /**
+     * @return string
+     */
+    public function getClosingTag()
+    {
+        return $this->closingTag;
+    }
+    public function __toString()
+    {
+        return $this->getOpening() . $this->textContent . $this->getClosing();
+    }
+    private function getOpening()
+    {
+        if ($this->dirty || !isset($this->originalString)) {
+            return $this->generateOpeningTag();
+        }
+        return parent::__toString();
+    }
+    private function getClosing()
+    {
+        if ($this->closingTag) {
+            return $this->closingTag;
+        }
+        if ($this->mustHaveClosing() && !$this->isFromParser()) {
+            return '</' . $this->tagName . '>';
+        }
+        return '';
+    }
+    private function generateOpeningTag()
+    {
+        $parts = ['<' . $this->tagName];
+        foreach ($this->getAttributes() as $name => $value) {
+            $parts[] = $this->generateAttribute($name, $value);
+        }
+        return join(' ', $parts) . '>';
+    }
+    private function generateAttribute($name, $value)
+    {
+        $result = $name;
+        if ($value != '') {
+            $result .= '=' . $this->quoteAttributeValue($value);
+        }
+        return $result;
+    }
+    private function quoteAttributeValue($value)
+    {
+        if (strpos($value, '"') === false) {
+            return '"' . htmlspecialchars($value) . '"';
+        }
+        return "'" . str_replace(['&', "'"], ['&amp;', '&#039;'], $value) . "'";
+    }
+    private function mustHaveClosing()
+    {
+        return !\Kibo\Phast\Parsing\HTML\HTMLInfo::isA($this->tagName, \Kibo\Phast\Parsing\HTML\HTMLInfo::VOID_TAG);
+    }
+    private function isFromParser()
+    {
+        return isset($this->originalString);
+    }
+    public function dumpValue()
+    {
+        $o = $this->tagName;
+        foreach ($this->attributes as $name => $_) {
+            $o .= " {$name}=\"" . $this->getAttribute($name) . '"';
+        }
+        if ($this->textContent) {
+            $o .= " content=[{$this->textContent}]";
+        }
+        return $o;
+    }
+}
+namespace Kibo\Phast\Parsing\HTML;
+
+class PCRETokenizer
+{
+    private $mainPattern = '~
+        # Allow duplicate names for subpatterns
+        (?J)
+
+        (
+            @@COMMENT |
+            @@SCRIPT |
+            @@STYLE |
+            @@CLOSING_TAG |
+            @@TAG
+        )
+    ~Xxsi';
+    private $attributePattern = '~
+        @attr
+    ~Xxsi';
+    private $subroutines = array('COMMENT' => '
+            <!--.*?-->
+        ', 'SCRIPT' => "\n            (?= <script[\\s>]) @@TAG\n            (?'body' .*? )\n            (?'closing_tag' </script/?+(?:\\s[^a-z>]*+)?+> )\n        ", 'STYLE' => "\n            (?= <style[\\s>]) @@TAG\n            (?'body' .*? )\n            (?'closing_tag' </style/?+(?:\\s[^a-z>]*+)?+> )\n        ", 'TAG' => "\n            < @@tag_name \\s*+ @@attrs? @tag_end\n        ", 'tag_name' => "\n            [^\\s>]++\n        ", 'attrs' => '
+            (?: @attr )*+
+        ', 'attr' => "\n            \\s*+\n            @@attr_name\n            (?: \\s*+ = \\s*+ @attr_value )?\n        ", 'attr_name' => "\n            [^\\s>][^\\s>=]*+\n        ", 'attr_value' => "\n            (?|\n                \"(?'attr_value'[^\"]*+)\" |\n                ' (?'attr_value' [^']*+) ' |\n                (?'attr_value' [^\\s>]*+)\n            )\n        ", 'tag_end' => "\n            \\s*+ >\n        ", 'CLOSING_TAG' => '
+            </ @@tag_name [^>]*+ >
+        ');
+    public function __construct()
+    {
+        $this->mainPattern = $this->compilePattern($this->mainPattern, $this->subroutines);
+        $this->attributePattern = $this->compilePattern($this->attributePattern, $this->subroutines);
+    }
+    public function tokenize($data)
+    {
+        $offset = 0;
+        while (preg_match($this->mainPattern, $data, $match, PREG_OFFSET_CAPTURE, $offset)) {
+            if ($match[0][1] > $offset) {
+                $element = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Junk();
+                $element->originalString = substr($data, $offset, $match[0][1] - $offset);
+                (yield $element);
+            }
+            if (!empty($match['COMMENT'][0])) {
+                $element = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Comment();
+                $element->originalString = $match[0][0];
+            } elseif (!empty($match['TAG'][0]) || !empty($match['SCRIPT'][0]) || !empty($match['STYLE'][0])) {
+                $attributes = $match['attrs'][0] === '' ? [] : $this->parseAttributes($match['attrs'][0]);
+                $element = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag($match['tag_name'][0], $attributes);
+                $element->originalString = $match['TAG'][0];
+                if (isset($match['body'][1]) && $match['body'][1] != -1) {
+                    $element->setTextContent($match['body'][0]);
+                    $element = $element->withClosingTag($match['closing_tag'][0]);
+                }
+            } elseif (!empty($match['CLOSING_TAG'][0])) {
+                $element = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\ClosingTag($match['tag_name'][0]);
+                $element->originalString = $match[0][0];
+            } else {
+                throw new \Kibo\Phast\Exceptions\RuntimeException("Unhandled match:\n" . \Kibo\Phast\Common\JSON::prettyEncode($match));
+            }
+            (yield $element);
+            $offset = $match[0][1] + strlen($match[0][0]);
+        }
+        if ($offset < strlen($data) - 1) {
+            $element = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Junk();
+            $element->originalString = substr($data, $offset);
+            (yield $element);
+        }
+    }
+    private function parseAttributes($str)
+    {
+        $matches = $this->repeatMatch($this->attributePattern, $str);
+        foreach ($matches as $match) {
+            (yield $match['attr_name'][0] => isset($match['attr_value'][0]) ? html_entity_decode($match['attr_value'][0], ENT_QUOTES, 'UTF-8') : '');
+        }
+    }
+    private function repeatMatch($pattern, $subject)
+    {
+        $offset = 0;
+        while (preg_match($pattern, $subject, $match, PREG_OFFSET_CAPTURE, $offset)) {
+            (yield $match);
+            $offset = $match[0][1] + strlen($match[0][0]);
+        }
+        if ($offset < strlen($subject) - 1) {
+            throw new \Kibo\Phast\Exceptions\RuntimeException('Unmatched part of subject: ' . substr($subject, $offset));
+        }
+    }
+    /**
+     * Replace subroutines in patterns
+     */
+    private function compilePattern($pattern, array $subroutines)
+    {
+        return preg_replace_callback('/@(@?)(\\w+)/', function ($match) use($subroutines) {
+            $capture = !empty($match[1]);
+            $ref = $match[2];
+            if (!isset($subroutines[$ref])) {
+                throw new \Kibo\Phast\Exceptions\RuntimeException("Unknown pattern '{$ref}' used, or circular reference");
+            }
+            $subroutine = $subroutines[$ref];
+            unset($subroutines[$ref]);
+            $replace = $this->compilePattern($subroutine, $subroutines);
+            if ($capture) {
+                $replace = "(?'{$ref}'{$replace})";
+            } else {
+                $replace = "(?:{$replace})";
+            }
+            return $replace;
+        }, $pattern);
+    }
+}
+namespace Kibo\Phast;
+
+class PhastDocumentFilters
+{
+    const DOCUMENT_PATTERN = "~\n        \\s* (<\\?xml[^>]*>)?\n        (\\s* <!--(.*?)-->)*\n        \\s* (<!doctype\\s+html[^>]*>)?\n        (\\s* <!--(.*?)-->)*\n        \\s* <html (?<amp> [^>]* \\s ( amp | \342\232\241 ) [\\s=>] )?\n        .*\n        ( </body> | </html> )\n    ~xsiA";
+    /**
+     * @return ?OutputBufferHandler
+     */
+    public static function deploy(array $userConfig = array())
+    {
+        $runtimeConfig = self::configure($userConfig);
+        if (!$runtimeConfig) {
+            return null;
+        }
+        $handler = new \Kibo\Phast\Common\OutputBufferHandler($runtimeConfig['documents']['maxBufferSizeToApply'], function ($html, $applyCheckBuffer) use($runtimeConfig) {
+            return self::applyWithRuntimeConfig($html, $runtimeConfig, $applyCheckBuffer);
+        });
+        $handler->install();
+        \Kibo\Phast\Logging\Log::info('Phast deployed!');
+        return $handler;
+    }
+    public static function apply($html, array $userConfig)
+    {
+        $runtimeConfig = self::configure($userConfig);
+        if (!$runtimeConfig) {
+            return $html;
+        }
+        return self::applyWithRuntimeConfig($html, $runtimeConfig);
+    }
+    private static function configure(array $userConfig)
+    {
+        $request = \Kibo\Phast\Services\ServiceRequest::fromHTTPRequest(\Kibo\Phast\HTTP\Request::fromGlobals());
+        $runtimeConfig = \Kibo\Phast\Environment\Configuration::fromDefaults()->withUserConfiguration(new \Kibo\Phast\Environment\Configuration($userConfig))->withServiceRequest($request)->getRuntimeConfig()->toArray();
+        \Kibo\Phast\Logging\Log::init($runtimeConfig['logging'], $request, 'dom-filters');
+        \Kibo\Phast\Services\ServiceRequest::setDefaultSerializationMode($runtimeConfig['serviceRequestFormat']);
+        if ($request->hasRequestSwitchesSet()) {
+            \Kibo\Phast\Logging\Log::info('Request has switches set! Sending "noindex" header!');
+            header('X-Robots-Tag: noindex');
+        }
+        if (!$runtimeConfig['switches']['phast']) {
+            \Kibo\Phast\Logging\Log::info('Phast is off. Skipping document filter deployment!');
+            return;
+        }
+        return $runtimeConfig;
+    }
+    private static function applyWithRuntimeConfig($buffer, $runtimeConfig, $applyCheckBuffer = null)
+    {
+        if (preg_match('~^\\s*{~', $buffer) && is_object($jsonData = json_decode($buffer))) {
+            return self::applyToJson($jsonData, $buffer, $runtimeConfig);
+        }
+        if (is_null($applyCheckBuffer)) {
+            $applyCheckBuffer = $buffer;
+        }
+        if (!self::shouldApply($applyCheckBuffer, $runtimeConfig)) {
+            \Kibo\Phast\Logging\Log::info("Buffer ({bufferSize} bytes) doesn't look like html! Not applying filters", ['bufferSize' => strlen($applyCheckBuffer)]);
+            return $buffer;
+        }
+        $compositeFilter = (new \Kibo\Phast\Filters\HTML\Composite\Factory())->make($runtimeConfig);
+        if (self::isAMP($applyCheckBuffer)) {
+            $compositeFilter->selectFilters(function ($filter) {
+                return $filter instanceof \Kibo\Phast\Filters\HTML\AMPCompatibleFilter;
+            });
+        }
+        return $compositeFilter->apply($buffer);
+    }
+    private static function applyToJson($jsonData, $buffer, $runtimeConfig)
+    {
+        if (!$runtimeConfig['optimizeJSONResponses']) {
+            return $buffer;
+        }
+        if (empty($jsonData->html) || !is_string($jsonData->html)) {
+            return $buffer;
+        }
+        $newHtml = self::applyWithRuntimeConfig($jsonData->html, $runtimeConfig);
+        if ($newHtml == $jsonData->html) {
+            return $buffer;
+        }
+        $jsonData->html = $newHtml;
+        $json = json_encode($jsonData);
+        if (!$json) {
+            return $buffer;
+        }
+        return $json;
+    }
+    private static function shouldApply($buffer, $runtimeConfig)
+    {
+        if ($runtimeConfig['optimizeHTMLDocumentsOnly']) {
+            return preg_match(self::DOCUMENT_PATTERN, $buffer);
+        }
+        return strpos($buffer, '<') !== false && !preg_match('~^\\s*+{\\s*+"~', $buffer);
+    }
+    private static function isAMP($buffer)
+    {
+        return preg_match(self::DOCUMENT_PATTERN, $buffer, $match) && !empty($match['amp']);
+    }
+}
 namespace Kibo\Phast;
 
 class PhastServices
@@ -4741,1450 +5028,301 @@ class PhastServices
         return false;
     }
 }
-namespace Kibo\Phast\Common;
+namespace Kibo\Phast\Retrievers;
 
-class JSON
+trait DynamicCacheSaltTrait
 {
-    public static function encode($value)
+    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url)
     {
-        return self::_encode($value, 0);
-    }
-    public static function prettyEncode($value)
-    {
-        return self::_encode($value, JSON_PRETTY_PRINT);
-    }
-    private static function _encode($value, $flags)
-    {
-        $flags |= JSON_UNESCAPED_SLASHES;
-        if (version_compare(PHP_VERSION, '7.2.0', '<')) {
-            return self::legacyEncode($value, $flags);
-        }
-        return json_encode($value, $flags | JSON_INVALID_UTF8_IGNORE | JSON_PARTIAL_OUTPUT_ON_ERROR);
-    }
-    private static function legacyEncode($value, $flags)
-    {
-        $result = json_encode($value, $flags);
-        if ($result !== false || json_last_error() !== JSON_ERROR_UTF8) {
-            return $result;
-        }
-        self::cleanUTF8($value);
-        return json_encode($value, $flags | JSON_PARTIAL_OUTPUT_ON_ERROR);
-    }
-    private static function cleanUTF8(&$value)
-    {
-        if (is_array($value)) {
-            array_walk_recursive($value, __METHOD__);
-        } elseif (is_string($value)) {
-            $value = preg_replace_callback('~
-                    [\\x00-\\x7F]++                      # ASCII
-                  | [\\xC2-\\xDF][\\x80-\\xBF]             # non-overlong 2-byte
-                  |  \\xE0[\\xA0-\\xBF][\\x80-\\xBF]        # excluding overlongs
-                  | [\\xE1-\\xEC\\xEE\\xEF][\\x80-\\xBF]{2}  # straight 3-byte
-                  |  \\xED[\\x80-\\x9F][\\x80-\\xBF]        # excluding surrogates
-                  |  \\xF0[\\x90-\\xBF][\\x80-\\xBF]{2}     # planes 1-3
-                  | [\\xF1-\\xF3][\\x80-\\xBF]{3}          # planes 4-15
-                  |  \\xF4[\\x80-\\x8F][\\x80-\\xBF]{2}     # plane 16
-                  | (.)
-                ~xs', function ($match) {
-                if (isset($match[1]) && strlen($match[1])) {
-                    return '';
-                }
-                return $match[0];
-            }, $value);
-        }
+        return md5($url->toString()) . '-' . floor(time() / 7200);
     }
 }
-namespace Kibo\Phast\Common;
+namespace Kibo\Phast\Retrievers;
 
-class Base64url
+class RemoteRetrieverFactory
 {
-    public static function encode($data)
+    public function make(array $config)
     {
-        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
-    }
-    public static function decode($data)
-    {
-        return base64_decode(str_pad(strtr($data, '-_', '+/'), strlen($data) % 4, '=', STR_PAD_RIGHT));
-    }
-    public static function shortHash($data)
-    {
-        return self::encode(substr(sha1($data, true), 0, 8));
+        return new \Kibo\Phast\Retrievers\RemoteRetriever((new \Kibo\Phast\HTTP\ClientFactory())->make($config));
     }
 }
-namespace Kibo\Phast\Common;
+namespace Kibo\Phast\Retrievers;
 
-class ObjectifiedFunctions
+interface Retriever
 {
     /**
-     * @param string $name
-     * @param array $arguments
+     * @param URL $url
+     * @return string|bool
      */
-    public function __call($name, array $arguments)
-    {
-        if (isset($this->{$name}) && is_callable($this->{$name})) {
-            $fn = $this->{$name};
-            return $fn(...$arguments);
-        }
-        if (function_exists($name)) {
-            return $name(...$arguments);
-        }
-        throw new \Kibo\Phast\Exceptions\UndefinedObjectifiedFunction("Undefined objectified function {$name}");
-    }
-}
-namespace Kibo\Phast\Common;
-
-class System
-{
-    private $functions;
-    public function __construct(\Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
-    {
-        if ($functions === null) {
-            $functions = new \Kibo\Phast\Common\ObjectifiedFunctions();
-        }
-        $this->functions = $functions;
-    }
-    public function getUserId()
-    {
-        try {
-            return (int) $this->functions->posix_geteuid();
-        } catch (\Kibo\Phast\Exceptions\UndefinedObjectifiedFunction $e) {
-            return 0;
-        }
-    }
-}
-namespace Kibo\Phast\Common;
-
-class JSMinifier extends \Kibo\Phast\JSMin\JSMin
-{
-    protected $removeLicenseHeaders;
-    public function __construct($input, $removeLicenseHeaders = false)
-    {
-        parent::__construct($input);
-        $this->removeLicenseHeaders = $removeLicenseHeaders;
-    }
-    protected function consumeMultipleLineComment()
-    {
-        parent::consumeMultipleLineComment();
-        if ($this->removeLicenseHeaders) {
-            $this->keptComment = preg_replace('~/\\*!.*?\\*/~s', '', $this->keptComment);
-        }
-    }
-}
-namespace Kibo\Phast\Common;
-
-class OutputBufferHandler
-{
-    use \Kibo\Phast\Logging\LoggingTrait;
-    const START_PATTERN = '~
-        (
-            \\s*+ <!doctype\\s++html\\b[^<>]*> |
-            \\s*+ <html\\b[^<>]*> |
-            \\s*+ <head> |
-            \\s*+ <!--.*?-->
-        )++
-    ~xsiA';
-    private $filterCb;
+    public function retrieve(\Kibo\Phast\ValueObjects\URL $url);
     /**
-     * @var ?string
+     * @param URL $url
+     * @return integer|bool
      */
-    private $buffer = '';
-    private $offset = 0;
+    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url);
+}
+namespace Kibo\Phast\Retrievers;
+
+class UniversalRetriever implements \Kibo\Phast\Retrievers\Retriever
+{
     /**
-     * @var integer
+     * @var Retriever[]
      */
-    private $maxBufferSizeToApply;
-    private $canceled = false;
-    public function __construct($maxBufferSizeToApply, callable $filterCb)
+    private $retrievers = array();
+    public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
     {
-        $this->maxBufferSizeToApply = $maxBufferSizeToApply;
-        $this->filterCb = $filterCb;
+        return $this->iterateRetrievers(function (\Kibo\Phast\Retrievers\Retriever $retriever) use($url) {
+            return $retriever->retrieve($url);
+        });
     }
-    public function install()
+    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url)
     {
-        $ignoreHandlers = ['default output handler', 'ob_gzhandler'];
-        if (!array_diff(ob_list_handlers(), $ignoreHandlers)) {
-            while (ob_get_level() && @ob_end_clean()) {
+        return $this->iterateRetrievers(function (\Kibo\Phast\Retrievers\Retriever $retriever) use($url) {
+            return $retriever->getCacheSalt($url);
+        });
+    }
+    private function iterateRetrievers(callable $callback)
+    {
+        foreach ($this->retrievers as $retriever) {
+            $result = $callback($retriever);
+            if ($result !== false) {
+                return $result;
             }
         }
-        ob_start([$this, 'handleChunk'], 2);
-        ob_implicit_flush(1);
+        return false;
     }
-    public function handleChunk($chunk, $phase)
+    public function addRetriever(\Kibo\Phast\Retrievers\Retriever $retriever)
     {
-        if ($this->buffer === null) {
-            return $chunk;
-        }
-        $this->buffer .= $chunk;
-        if ($this->canceled) {
-            return $this->stop();
-        }
-        if (strlen($this->buffer) > $this->maxBufferSizeToApply) {
-            $this->logger()->info('Buffer exceeds max. size ({buffersize} bytes). Not applying', ['buffersize' => $this->maxBufferSizeToApply]);
-            return $this->stop();
-        }
-        $output = '';
-        if (preg_match(self::START_PATTERN, $this->buffer, $match, 0, $this->offset)) {
-            $this->offset += strlen($match[0]);
-            $output .= $match[0];
-        }
-        if ($phase & PHP_OUTPUT_HANDLER_FINAL) {
-            $output .= $this->finalize();
-        }
-        if ($output !== '') {
-            @header_remove('Content-Length');
-        }
-        return $output;
-    }
-    private function finalize()
-    {
-        $input = substr($this->buffer, $this->offset);
-        $result = call_user_func($this->filterCb, $input, $this->buffer);
-        $this->buffer = null;
-        return $result;
-    }
-    private function stop()
-    {
-        $output = $this->buffer;
-        $this->buffer = null;
-        return $output;
-    }
-    public function cancel()
-    {
-        $this->canceled = true;
+        $this->retrievers[] = $retriever;
     }
 }
-namespace Kibo\Phast\ValueObjects;
+namespace Kibo\Phast\Security;
 
-class PhastJavaScript
+class ServiceSignature
 {
+    const AUTO_TOKEN_SIZE = 128;
+    const SIGNATURE_LENGTH = 16;
     /**
-     * @var string
+     * @var Cache
      */
-    private $filename;
+    private $cache;
     /**
-     * @var string
+     * @var array
      */
-    private $contents;
+    private $identities;
     /**
-     * @var string
+     * ServiceSignature constructor.
+     *
+     * @param Cache $cache
      */
-    private $configKey;
-    /**
-     * @var mixed
-     */
-    private $config;
-    /**
-     * @var ObjectifiedFunctions
-     */
-    private $funcs;
-    /**
-     * @param string $filename
-     * @param string $contents
-     */
-    private function __construct($filename, $contents)
+    public function __construct(\Kibo\Phast\Cache\Cache $cache)
     {
-        $this->filename = $filename;
-        $this->contents = $contents;
+        $this->cache = $cache;
     }
     /**
-     * @param string $filename
-     * @param ObjectifiedFunctions|null $funcs
+     * @param string|array $identities
      */
-    public static function fromFile($filename, \Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
+    public function setIdentities($identities)
     {
-        $funcs = $funcs ? $funcs : new \Kibo\Phast\Common\ObjectifiedFunctions();
-        $contents = $funcs->file_get_contents($filename);
-        if ($contents === false) {
-            throw new \RuntimeException("Failed to read script: {$filename}");
+        if (is_string($identities)) {
+            $this->identities = ['' => $identities];
+        } else {
+            $this->identities = $identities;
         }
-        $contents = (new \Kibo\Phast\Common\JSMinifier($contents))->min();
-        return new self($filename, $contents);
-    }
-    /**
-     * @param string $filename
-     * @param string $contents
-     */
-    public static function fromString($filename, $contents)
-    {
-        return new self($filename, $contents);
-    }
-    /**
-     * @return string
-     */
-    public function getFilename()
-    {
-        return $this->filename;
-    }
-    /**
-     * @return bool|string
-     */
-    public function getContents()
-    {
-        return $this->contents;
     }
     /**
      * @return string
      */
     public function getCacheSalt()
     {
-        $hash = md5($this->getContents(), true);
-        return substr(preg_replace('/^[a-z0-9]/i', '', base64_encode($hash)), 0, 16);
+        $identities = $this->getIdentities();
+        return md5(join('=>', array_merge(array_keys($identities), array_values($identities))));
     }
-    /**
-     * @param string $configKey
-     * @param mixed $config
-     */
-    public function setConfig($configKey, $config)
+    public function sign($value)
     {
-        $this->configKey = $configKey;
-        $this->config = $config;
+        $identities = $this->getIdentities();
+        $users = array_keys($identities);
+        list($user, $token) = [array_shift($users), array_shift($identities)];
+        return $user . substr(md5($token . $value), 0, self::SIGNATURE_LENGTH);
     }
-    /**
-     * @return bool
-     */
-    public function hasConfig()
+    public function verify($signature, $value)
     {
-        return isset($this->configKey);
+        $user = substr($signature, 0, -self::SIGNATURE_LENGTH);
+        $identities = $this->getIdentities();
+        if (!isset($identities[$user])) {
+            return false;
+        }
+        $token = $identities[$user];
+        $signer = new self($this->cache);
+        $signer->setIdentities([$user => $token]);
+        return $signature === $signer->sign($value);
     }
-    /**
-     * @return string
-     */
-    public function getConfigKey()
+    public static function generateToken()
     {
-        return $this->configKey;
+        $token = '';
+        for ($i = 0; $i < self::AUTO_TOKEN_SIZE; $i++) {
+            $token .= chr(mt_rand(33, 126));
+        }
+        return $token;
     }
-    /**
-     * @return mixed
-     */
-    public function getConfig()
+    private function getIdentities()
     {
-        return $this->config;
+        if (!isset($this->identities)) {
+            $token = $this->cache->get('security-token', function () {
+                return self::generateToken();
+            });
+            $this->identities = ['' => $token];
+        }
+        return $this->identities;
     }
 }
-namespace Kibo\Phast\ValueObjects;
+namespace Kibo\Phast\Security;
 
-class Resource
+class ServiceSignatureFactory
 {
-    const EXTENSION_TO_MIME_TYPE = array('gif' => 'image/gif', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'bmp' => 'image/bmp', 'webp' => 'image/webp', 'svg' => 'image/svg+xml', 'css' => 'text/css', 'js' => 'application/javascript', 'json' => 'application/json');
+    public function make(array $config)
+    {
+        $cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'signature');
+        $signature = new \Kibo\Phast\Security\ServiceSignature($cache);
+        if (isset($config['securityToken'])) {
+            $signature->setIdentities($config['securityToken']);
+        }
+        return $signature;
+    }
+}
+namespace Kibo\Phast\Services;
+
+abstract class BaseService
+{
+    use \Kibo\Phast\Logging\LoggingTrait;
     /**
-     * @var URL
+     * @var ServiceSignature
      */
-    private $url;
+    protected $signature;
+    /**
+     * @var string[]
+     */
+    protected $whitelist = array();
     /**
      * @var Retriever
      */
-    private $retriever;
+    protected $retriever;
     /**
-     * @var string
+     * @var ServiceFilter
      */
-    private $content;
-    /**
-     * @var string
-     */
-    private $mimeType;
-    /**
-     * @var Resource[]
-     */
-    private $dependencies = array();
-    private function __construct()
-    {
-    }
-    public static function makeWithContent(\Kibo\Phast\ValueObjects\URL $url, $content, $mimeType = null)
-    {
-        $instance = new self();
-        $instance->url = $url;
-        $instance->mimeType = $mimeType;
-        $instance->content = $content;
-        return $instance;
-    }
-    public static function makeWithRetriever(\Kibo\Phast\ValueObjects\URL $url, \Kibo\Phast\Retrievers\Retriever $retriever, $mimeType = null)
-    {
-        $instance = new self();
-        $instance->url = $url;
-        $instance->mimeType = $mimeType;
-        $instance->retriever = $retriever;
-        return $instance;
-    }
-    /**
-     * @return URL
-     */
-    public function getUrl()
-    {
-        return $this->url;
-    }
-    /**
-     * @return string
-     * @throws ItemNotFoundException
-     */
-    public function getContent()
-    {
-        if (!isset($this->content)) {
-            $this->content = $this->retriever->retrieve($this->url);
-            if ($this->content === false) {
-                throw new \Kibo\Phast\Exceptions\ItemNotFoundException("Could not get {$this->url}");
-            }
-        }
-        return $this->content;
-    }
-    /**
-     * @return string|null
-     */
-    public function getMimeType()
-    {
-        if (!isset($this->mimeType)) {
-            $ext = strtolower($this->url->getExtension());
-            $ext2mime = self::EXTENSION_TO_MIME_TYPE;
-            if (isset($ext2mime[$ext])) {
-                $this->mimeType = self::EXTENSION_TO_MIME_TYPE[$ext];
-            }
-        }
-        return $this->mimeType;
-    }
-    /**
-     * @return bool|int
-     */
-    public function getSize()
-    {
-        if (isset($this->retriever) && method_exists($this->retriever, 'getSize')) {
-            return $this->retriever->getSize($this->url);
-        }
-        if (isset($this->content)) {
-            return strlen($this->content);
-        }
-        return false;
-    }
-    public function toDataURL()
-    {
-        $mime = $this->getMimeType();
-        $content = $this->getContent();
-        return "data:{$mime};base64," . base64_encode($content);
-    }
-    /**
-     * @return Resource[]
-     */
-    public function getDependencies()
-    {
-        return $this->dependencies;
-    }
-    /**
-     * @return bool|int
-     */
-    public function getCacheSalt()
-    {
-        return isset($this->retriever) ? $this->retriever->getCacheSalt($this->url) : 0;
-    }
-    /**
-     * @param string $content
-     * @param string|null $mimeType
-     * @return Resource
-     */
-    public function withContent($content, $mimeType = null)
-    {
-        $new = clone $this;
-        $new->content = $content;
-        if (!is_null($mimeType)) {
-            $new->mimeType = $mimeType;
-        }
-        return $new;
-    }
-    /**
-     * @param Resource[] $dependencies
-     * @return Resource
-     */
-    public function withDependencies(array $dependencies)
-    {
-        $new = clone $this;
-        $new->dependencies = $dependencies;
-        return $new;
-    }
-}
-namespace Kibo\Phast\ValueObjects;
-
-class Query implements \IteratorAggregate
-{
-    private $tuples = array();
-    /**
-     * @param array $assoc
-     * @return Query
-     */
-    public static function fromAssoc($assoc)
-    {
-        $result = new static();
-        foreach ($assoc as $k => $v) {
-            $result->add($k, $v);
-        }
-        return $result;
-    }
-    /**
-     * @param string $string
-     * @return Query
-     */
-    public static function fromString($string)
-    {
-        $result = new static();
-        foreach (explode('&', $string) as $piece) {
-            if ($piece === '') {
-                continue;
-            }
-            $parts = array_map('urldecode', explode('=', $piece, 2));
-            $result->add($parts[0], isset($parts[1]) ? $parts[1] : '');
-        }
-        return $result;
-    }
-    public function add($key, $value)
-    {
-        $this->tuples[] = [(string) $key, (string) $value];
-    }
-    public function get($key, $default = null)
-    {
-        foreach ($this->tuples as $tuple) {
-            if ($tuple[0] === (string) $key) {
-                return $tuple[1];
-            }
-        }
-        return $default;
-    }
-    public function delete($key)
-    {
-        $this->tuples = array_filter($this->tuples, function ($tuple) use($key) {
-            return $tuple[0] !== (string) $key;
-        });
-    }
-    public function set($key, $value)
-    {
-        $this->delete($key);
-        $this->add($key, $value);
-    }
-    public function has($key)
-    {
-        foreach ($this->tuples as $tuple) {
-            if ($tuple[0] === (string) $key) {
-                return true;
-            }
-        }
-        return false;
-    }
-    public function update(\Kibo\Phast\ValueObjects\Query $source)
-    {
-        foreach ($source as $key => $value) {
-            $this->delete($key);
-        }
-        foreach ($source as $key => $value) {
-            $this->add($key, $value);
-        }
-    }
-    public function toAssoc()
-    {
-        $assoc = [];
-        foreach ($this->tuples as $tuple) {
-            if (!array_key_exists($tuple[0], $assoc)) {
-                $assoc[$tuple[0]] = $tuple[1];
-            }
-        }
-        return $assoc;
-    }
-    public function getIterator()
-    {
-        foreach ($this->tuples as $tuple) {
-            (yield $tuple[0] => $tuple[1]);
-        }
-    }
-    public function pop($key)
-    {
-        $value = $this->get($key);
-        $this->delete($key);
-        return $value;
-    }
-    public function getAll($key)
-    {
-        $result = [];
-        foreach ($this->tuples as $tuple) {
-            if ($tuple[0] === (string) $key) {
-                $result[] = $tuple[1];
-            }
-        }
-        return $result;
-    }
-}
-namespace Kibo\Phast\ValueObjects;
-
-class URL
-{
-    /**
-     * @var string
-     */
-    private $scheme;
-    /**
-     * @var string
-     */
-    private $host;
-    /**
-     * @var string
-     */
-    private $port;
-    /**
-     * @var string
-     */
-    private $user;
-    /**
-     * @var string
-     */
-    private $pass;
-    /**
-     * @var string
-     */
-    private $path;
-    /**
-     * @var string
-     */
-    private $query;
-    /**
-     * @var string
-     */
-    private $fragment;
-    private function __construct()
-    {
-    }
-    /**
-     * @param $string
-     * @return URL
-     */
-    public static function fromString($string)
-    {
-        $components = parse_url($string);
-        if (!$components) {
-            return new self();
-        }
-        return self::fromArray($components);
-    }
-    /**
-     * @param array $arr Should follow the format produced by parse_url()
-     * @return URL
-     * @see parse_url()
-     */
-    public static function fromArray(array $arr)
-    {
-        $url = new self();
-        foreach ($arr as $key => $value) {
-            $url->{$key} = $key == 'path' ? $url->normalizePath($value) : $value;
-        }
-        return $url;
-    }
-    /**
-     * If $this can be interpreted as relative to $base,
-     * will produce URL that is $base/$this.
-     * Otherwise the returned URL will point to the same place as $this
-     *
-     * @param URL $base
-     * @return URL
-     *
-     * @example this: www/htdocs + base: /var -> /var/www/htdocs
-     * @example this: /var + base: http://example.com -> http://example.com/var
-     * @example this: /var + base: /www -> /var
-     */
-    public function withBase(\Kibo\Phast\ValueObjects\URL $base)
-    {
-        $new = clone $this;
-        foreach (['scheme', 'host', 'port', 'user', 'pass', 'path'] as $key) {
-            if ($key == 'path') {
-                $new->path = $this->resolvePath($base->path, $this->path);
-            } elseif (!isset($this->{$key}) && isset($base->{$key})) {
-                $new->{$key} = $base->{$key};
-            } elseif (isset($this->{$key})) {
-                break;
-            }
-        }
-        return $new;
-    }
-    /**
-     * Tells whether $this can be interpreted as at the same host as $url
-     *
-     * @param URL $url
-     * @return bool
-     */
-    public function isLocalTo(\Kibo\Phast\ValueObjects\URL $url)
-    {
-        return empty($this->host) || $this->host === $url->host;
-    }
-    /**
-     * @return string
-     */
-    public function toString()
-    {
-        $pass = isset($this->pass) ? ':' . $this->pass : '';
-        $pass = isset($this->user) || isset($this->pass) ? "{$pass}@" : '';
-        return $this->encodeSpecialCharacters(implode('', [isset($this->scheme) ? $this->scheme . '://' : '', $this->user, $pass, $this->host, isset($this->port) ? ':' . $this->port : '', $this->path, isset($this->query) ? '?' . $this->query : '', isset($this->fragment) ? '#' . $this->fragment : '']));
-    }
-    private function encodeSpecialCharacters($string)
-    {
-        return preg_replace_callback('~[^' . preg_quote('!#$&\'()*+,/:;=?@[]', '~') . preg_quote('-_.~', '~') . 'A-Za-z0-9%' . ']~', function ($match) {
-            return rawurlencode($match[0]);
-        }, $string);
-    }
-    private function normalizePath($path)
-    {
-        $stack = [];
-        $head = null;
-        foreach (explode('/', $path) as $part) {
-            if ($part == '.' || $part == '') {
-                continue;
-            }
-            if (!is_null($head) && $part == '..' && $head != '..') {
-                array_pop($stack);
-                $head = empty($stack) ? null : $stack[count($stack) - 1];
-            } else {
-                $stack[] = $head = $part;
-            }
-        }
-        $normalized = substr($path, 0, 1) == '/' ? '/' : '';
-        if (!empty($stack)) {
-            $normalized .= join('/', $stack);
-            $normalized .= substr($path, -1) == '/' ? '/' : '';
-        }
-        return $normalized;
-    }
-    private function resolvePath($base, $requested)
-    {
-        if (!$requested) {
-            return $base;
-        }
-        if ($requested[0] == '/') {
-            return $requested;
-        }
-        if (substr($base, -1, 1) == '/') {
-            $usedBase = $base;
-        } else {
-            $usedBase = dirname($base);
-        }
-        return rtrim($usedBase, '/') . '/' . $requested;
-    }
-    /**
-     * @return string
-     */
-    public function getScheme()
-    {
-        return $this->scheme;
-    }
-    /**
-     * @return string
-     */
-    public function getHost()
-    {
-        return $this->host;
-    }
-    /**
-     * @return string
-     */
-    public function getPort()
-    {
-        return $this->port;
-    }
-    /**
-     * @return string
-     */
-    public function getUser()
-    {
-        return $this->user;
-    }
-    /**
-     * @return string
-     */
-    public function getPass()
-    {
-        return $this->pass;
-    }
-    /** @return string */
-    public function getDecodedPath()
-    {
-        return urldecode($this->path);
-    }
-    /**
-     * @return string
-     */
-    public function getPath()
-    {
-        return $this->path;
-    }
-    /**
-     * @return string
-     */
-    public function getQuery()
-    {
-        return $this->query;
-    }
-    /**
-     * @return string
-     */
-    public function getExtension()
-    {
-        $matches = [];
-        if (preg_match('/\\.([^.]*)$/', $this->path, $matches)) {
-            return $matches[1];
-        }
-        return '';
-    }
-    /**
-     * @return string
-     */
-    public function getFragment()
-    {
-        return $this->fragment;
-    }
-    /**
-     * @param string $path
-     * @return self
-     */
-    public function withPath($path)
-    {
-        $url = clone $this;
-        $url->path = (string) $path;
-        return $url;
-    }
-    /**
-     * @param string|null $query
-     * @return self
-     */
-    public function withQuery($query)
-    {
-        $url = clone $this;
-        if ($query === null) {
-            $url->query = null;
-        } else {
-            $url->query = (string) $query;
-        }
-        return $url;
-    }
-    /**
-     * @return self
-     */
-    public function withoutQuery()
-    {
-        return $this->withQuery(null);
-    }
-    public function __toString()
-    {
-        return $this->toString();
-    }
-    public function rewrite(\Kibo\Phast\ValueObjects\URL $from, \Kibo\Phast\ValueObjects\URL $to)
-    {
-        $str_from = rtrim($from->toString(), '/');
-        $str_to = rtrim($to->toString(), '/');
-        return \Kibo\Phast\ValueObjects\URL::fromString(preg_replace('~^' . preg_quote($str_from, '~') . '(?=$|/)~', $str_to, $this->toString()));
-    }
-}
-namespace Kibo\Phast\Logging;
-
-class LogLevel
-{
-    const EMERGENCY = 128;
-    const ALERT = 64;
-    const CRITICAL = 32;
-    const ERROR = 16;
-    const WARNING = 8;
-    const NOTICE = 4;
-    const INFO = 2;
-    const DEBUG = 1;
-    public static function toString($level)
-    {
-        switch ($level) {
-            case self::EMERGENCY:
-                return 'EMERGENCY';
-            case self::ALERT:
-                return 'ALERT';
-            case self::CRITICAL:
-                return 'CRITICAL';
-            case self::ERROR:
-                return 'ERROR';
-            case self::WARNING:
-                return 'WARNING';
-            case self::NOTICE:
-                return 'NOTICE';
-            case self::INFO:
-                return 'INFO';
-            case self::DEBUG:
-                return 'DEBUG';
-            default:
-                return 'UNKNOWN';
-        }
-    }
-}
-namespace Kibo\Phast\Logging;
-
-class Log
-{
-    /**
-     * @var Logger
-     */
-    private static $logger;
-    public static function setLogger(\Kibo\Phast\Logging\Logger $logger)
-    {
-        self::$logger = $logger;
-    }
-    public static function initWithDummy()
-    {
-        self::$logger = new \Kibo\Phast\Logging\Logger(new \Kibo\Phast\Logging\LogWriters\Dummy\Writer());
-    }
-    public static function init(array $config, \Kibo\Phast\Services\ServiceRequest $request, $service)
-    {
-        $writer = (new \Kibo\Phast\Logging\LogWriters\Factory())->make($config, $request);
-        $logger = new \Kibo\Phast\Logging\Logger($writer);
-        self::$logger = $logger->withContext(['documentRequestId' => $request->getDocumentRequestId(), 'requestId' => mt_rand(0, 99999999), 'service' => $service]);
-    }
-    /**
-     * @return Logger
-     */
-    public static function get()
-    {
-        if (!isset(self::$logger)) {
-            self::initWithDummy();
-        }
-        return self::$logger;
-    }
-    /**
-     * @param array $context
-     * @return Logger
-     */
-    public static function context(array $context)
-    {
-        return self::get()->withContext($context);
-    }
-    /**
-     * System is unusable.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public static function emergency($message, array $context = array())
-    {
-        self::get()->emergency($message, $context);
-    }
-    /**
-     * Action must be taken immediately.
-     *
-     * Example: Entire website down, database unavailable, etc. This should
-     * trigger the SMS alerts and wake you up.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public static function alert($message, array $context = array())
-    {
-        self::get()->alert($message, $context);
-    }
-    /**
-     * Critical conditions.
-     *
-     * Example: Application component unavailable, unexpected exception.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public static function critical($message, array $context = array())
-    {
-        self::get()->critical($message, $context);
-    }
-    /**
-     * Runtime errors that do not require immediate action but should typically
-     * be logged and monitored.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public static function error($message, array $context = array())
-    {
-        self::get()->error($message, $context);
-    }
-    /**
-     * Exceptional occurrences that are not errors.
-     *
-     * Example: Use of deprecated APIs, poor use of an API, undesirable things
-     * that are not necessarily wrong.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public static function warning($message, array $context = array())
-    {
-        self::get()->warning($message, $context);
-    }
-    /**
-     * Normal but significant events.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public static function notice($message, array $context = array())
-    {
-        self::get()->notice($message, $context);
-    }
-    /**
-     * Interesting events.
-     *
-     * Example: User logs in, SQL logs.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public static function info($message, array $context = array())
-    {
-        self::get()->info($message, $context);
-    }
-    /**
-     * Detailed debug information.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public static function debug($message, array $context = array())
-    {
-        self::get()->debug($message, $context);
-    }
-}
-namespace Kibo\Phast\Logging\LogWriters;
-
-class Factory
-{
-    public function make(array $config, \Kibo\Phast\Services\ServiceRequest $request)
-    {
-        if (isset($config['logWriters']) && count($config['logWriters']) > 1) {
-            $class = \Kibo\Phast\Logging\LogWriters\Composite\Writer::class;
-        } elseif (isset($config['logWriters'])) {
-            $config = array_pop($config['logWriters']);
-            $class = $config['class'];
-        } else {
-            $class = $config['class'];
-        }
-        $package = \Kibo\Phast\Environment\Package::fromPackageClass($class);
-        $writer = $package->getFactory()->make($config, $request);
-        if (isset($config['levelMask'])) {
-            $writer->setLevelMask($config['levelMask']);
-        }
-        return $writer;
-    }
-}
-namespace Kibo\Phast\Logging\LogWriters\JSONLFile;
-
-class Factory
-{
-    public function make(array $config, \Kibo\Phast\Services\ServiceRequest $request)
-    {
-        return new \Kibo\Phast\Logging\LogWriters\JSONLFile\Writer($config['logRoot'], $request->getDocumentRequestId());
-    }
-}
-namespace Kibo\Phast\Logging\LogWriters\Composite;
-
-class Factory
-{
-    public function make(array $config, \Kibo\Phast\Services\ServiceRequest $request)
-    {
-        $writer = new \Kibo\Phast\Logging\LogWriters\Composite\Writer();
-        $factory = new \Kibo\Phast\Logging\LogWriters\Factory();
-        foreach ($config['logWriters'] as $writerConfig) {
-            $writer->addWriter($factory->make($writerConfig, $request));
-        }
-        return $writer;
-    }
-}
-namespace Kibo\Phast\Logging\LogWriters\RotatingTextFile;
-
-class Factory
-{
-    public function make(array $config, \Kibo\Phast\Services\ServiceRequest $request)
-    {
-        return new \Kibo\Phast\Logging\LogWriters\RotatingTextFile\Writer($config);
-    }
-}
-namespace Kibo\Phast\Logging\LogWriters\PHPError;
-
-class Factory
-{
-    public function make(array $config, \Kibo\Phast\Services\ServiceRequest $request)
-    {
-        return new \Kibo\Phast\Logging\LogWriters\PHPError\Writer($config);
-    }
-}
-namespace Kibo\Phast\Logging\Common;
-
-trait JSONLFileLogTrait
-{
-    /**
-     * @var string
-     */
-    private $dir;
-    /**
-     * @var string
-     */
-    private $filename;
-    /**
-     * JSONLFileLogWriter constructor.
-     * @param string $dir
-     * @param string $suffix
-     */
-    public function __construct($dir, $suffix)
-    {
-        $this->dir = $dir;
-        $suffix = preg_replace('/[^0-9A-Za-z_-]/', '', (string) $suffix);
-        if (!empty($suffix)) {
-            $suffix = '-' . $suffix;
-        }
-        $this->filename = $this->dir . '/log' . $suffix . '.jsonl';
-    }
-}
-namespace Kibo\Phast\Logging;
-
-class LogEntry implements \JsonSerializable
-{
-    /**
-     * @var int
-     */
-    private $level;
-    /**
-     * @var string
-     */
-    private $message;
+    protected $filter;
     /**
      * @var array
      */
-    private $context;
+    protected $config;
     /**
-     * LogEntry constructor.
-     * @param int $level
-     * @param string $message
-     * @param array $context
+     * BaseService constructor.
+     * @param ServiceSignature $signature
+     * @param array $whitelist
+     * @param Retriever $retriever
+     * @param ServiceFilter $filter
+     * @param array $config
      */
-    public function __construct($level, $message, array $context)
+    public function __construct(\Kibo\Phast\Security\ServiceSignature $signature, array $whitelist, \Kibo\Phast\Retrievers\Retriever $retriever, \Kibo\Phast\Services\ServiceFilter $filter, array $config)
     {
-        $this->level = (int) $level;
-        $this->message = $message;
-        $this->context = $context;
+        $this->signature = $signature;
+        $this->whitelist = $whitelist;
+        $this->retriever = $retriever;
+        $this->filter = $filter;
+        $this->config = $config;
     }
     /**
-     * @return int
+     * @param ServiceRequest $request
+     * @return Response
      */
-    public function getLevel()
+    public function serve(\Kibo\Phast\Services\ServiceRequest $request)
     {
-        return $this->level;
+        $this->validateRequest($request);
+        $request = $this->getParams($request);
+        $resource = \Kibo\Phast\ValueObjects\Resource::makeWithRetriever(\Kibo\Phast\ValueObjects\URL::fromString(isset($request['src']) ? $request['src'] : ''), $this->retriever);
+        $filtered = $this->filter->apply($resource, $request);
+        return $this->makeResponse($filtered, $request);
     }
     /**
-     * @return string
-     */
-    public function getMessage()
-    {
-        return $this->message;
-    }
-    /**
+     * @param ServiceRequest $request
      * @return array
      */
-    public function getContext()
+    protected function getParams(\Kibo\Phast\Services\ServiceRequest $request)
     {
-        return $this->context;
+        return $request->getParams();
     }
-    public function toArray()
-    {
-        return ['level' => $this->level, 'message' => $this->message, 'context' => $this->context];
-    }
-    public function jsonSerialize()
-    {
-        return $this->toArray();
-    }
-}
-namespace Kibo\Phast\Logging;
-
-class Logger
-{
-    /**
-     * @var LogWriter
-     */
-    private $writer;
-    /**
-     * @var array
-     */
-    private $context = array();
-    /**
-     * @var ObjectifiedFunctions
-     */
-    private $functions;
-    /**
-     * Logger constructor.
-     * @param LogWriter $writer
-     */
-    public function __construct(\Kibo\Phast\Logging\LogWriter $writer, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
-    {
-        $this->writer = $writer;
-        $this->functions = is_null($functions) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $functions;
-    }
-    /**
-     * Returns a new logger with default context
-     * merged from the current logger and the passed array
-     *
-     * @param array $context
-     * @return Logger
-     */
-    public function withContext(array $context)
-    {
-        $logger = clone $this;
-        $logger->context = array_merge($this->context, $context);
-        return $logger;
-    }
-    /**
-     * System is unusable.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public function emergency($message, array $context = array())
-    {
-        $this->log(\Kibo\Phast\Logging\LogLevel::EMERGENCY, $message, $context);
-    }
-    /**
-     * Action must be taken immediately.
-     *
-     * Example: Entire website down, database unavailable, etc. This should
-     * trigger the SMS alerts and wake you up.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public function alert($message, array $context = array())
-    {
-        $this->log(\Kibo\Phast\Logging\LogLevel::ALERT, $message, $context);
-    }
-    /**
-     * Critical conditions.
-     *
-     * Example: Application component unavailable, unexpected exception.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public function critical($message, array $context = array())
-    {
-        $this->log(\Kibo\Phast\Logging\LogLevel::CRITICAL, $message, $context);
-    }
-    /**
-     * Runtime errors that do not require immediate action but should typically
-     * be logged and monitored.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public function error($message, array $context = array())
-    {
-        $this->log(\Kibo\Phast\Logging\LogLevel::ERROR, $message, $context);
-    }
-    /**
-     * Exceptional occurrences that are not errors.
-     *
-     * Example: Use of deprecated APIs, poor use of an API, undesirable things
-     * that are not necessarily wrong.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public function warning($message, array $context = array())
-    {
-        $this->log(\Kibo\Phast\Logging\LogLevel::WARNING, $message, $context);
-    }
-    /**
-     * Normal but significant events.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public function notice($message, array $context = array())
-    {
-        $this->log(\Kibo\Phast\Logging\LogLevel::NOTICE, $message, $context);
-    }
-    /**
-     * Interesting events.
-     *
-     * Example: User logs in, SQL logs.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public function info($message, array $context = array())
-    {
-        $this->log(\Kibo\Phast\Logging\LogLevel::INFO, $message, $context);
-    }
-    /**
-     * Detailed debug information.
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return void
-     */
-    public function debug($message, array $context = array())
-    {
-        $this->log(\Kibo\Phast\Logging\LogLevel::DEBUG, $message, $context);
-    }
-    protected function log($level, $message, array $context = array())
-    {
-        $context = array_merge(['timestamp' => $this->functions->microtime(true)], $context);
-        $this->writer->writeEntry(new \Kibo\Phast\Logging\LogEntry($level, $message, array_merge($this->context, $context)));
-    }
-}
-namespace Kibo\Phast\Logging;
-
-interface LogReader
-{
-    /**
-     * Reads LogMessage objects
-     *
-     * @return \Generator
-     */
-    public function readEntries();
-}
-namespace Kibo\Phast\Logging;
-
-trait LoggingTrait
-{
-    protected function logger($method = null, $line = null)
-    {
-        $context = ['class' => get_class($this)];
-        if (!is_null($method)) {
-            $context['method'] = $method;
-        }
-        if (!is_null($line)) {
-            $context['line'] = $line;
-        }
-        return \Kibo\Phast\Logging\Log::context($context);
-    }
-}
-namespace Kibo\Phast\Logging\LogReaders\JSONLFile;
-
-class Reader implements \Kibo\Phast\Logging\LogReader
-{
-    use \Kibo\Phast\Logging\Common\JSONLFileLogTrait;
-    public function readEntries()
-    {
-        $fp = @fopen($this->filename, 'r');
-        while ($fp && ($row = @fgets($fp))) {
-            $decoded = @json_decode($row, true);
-            if (!$decoded) {
-                continue;
-            }
-            (yield new \Kibo\Phast\Logging\LogEntry(@$decoded['level'], @$decoded['message'], @$decoded['context']));
-        }
-        @fclose($fp);
-        @unlink($this->filename);
-    }
-    public function __destruct()
-    {
-        if (!($dir = @opendir($this->dir))) {
-            return;
-        }
-        $tenMinutesAgo = time() - 600;
-        while ($file = @readdir($dir)) {
-            $filename = $this->dir . "/{$file}";
-            if (preg_match('/\\.jsonl$/', $file) && @filectime($filename) < $tenMinutesAgo) {
-                @unlink($filename);
-            }
-        }
-    }
-}
-namespace Kibo\Phast\Logging;
-
-interface LogWriter
-{
-    /**
-     * Set a bit-mask to filter entries that are actually written
-     *
-     * @param int $mask
-     * @return void
-     */
-    public function setLevelMask($mask);
-    /**
-     * Write an entry to the log
-     *
-     * @param LogEntry $entry
-     * @return void
-     */
-    public function writeEntry(\Kibo\Phast\Logging\LogEntry $entry);
-}
-namespace Kibo\Phast\Services;
-
-interface ServiceFilter
-{
     /**
      * @param Resource $resource
      * @param array $request
-     * @return Resource
+     * @return Response
      */
-    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request);
+    protected function makeResponse(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
+    {
+        $response = new \Kibo\Phast\HTTP\Response();
+        $response->setContent($resource->getContent());
+        return $response;
+    }
+    protected function validateRequest(\Kibo\Phast\Services\ServiceRequest $request)
+    {
+        $this->validateIntegrity($request);
+        try {
+            $this->validateToken($request);
+        } catch (\Kibo\Phast\Exceptions\UnauthorizedException $e) {
+            $this->validateWhitelisted($request);
+        }
+    }
+    protected function validateIntegrity(\Kibo\Phast\Services\ServiceRequest $request)
+    {
+        $params = $request->getParams();
+        if (!isset($params['src'])) {
+            throw new \Kibo\Phast\Exceptions\ItemNotFoundException('No source is set!');
+        }
+    }
+    protected function validateToken(\Kibo\Phast\Services\ServiceRequest $request)
+    {
+        if (!$request->verify($this->signature)) {
+            throw new \Kibo\Phast\Exceptions\UnauthorizedException('Invalid token in request: ' . $request->serialize(\Kibo\Phast\Services\ServiceRequest::FORMAT_QUERY));
+        }
+    }
+    protected function validateWhitelisted(\Kibo\Phast\Services\ServiceRequest $request)
+    {
+        $params = $request->getParams();
+        foreach ($this->whitelist as $pattern) {
+            if (preg_match($pattern, $params['src'])) {
+                return;
+            }
+        }
+        throw new \Kibo\Phast\Exceptions\UnauthorizedException('Not allowed url: ' . $params['src']);
+    }
 }
-namespace Kibo\Phast\Services;
+namespace Kibo\Phast\Services\Bundler;
+
+class BundlerParamsParser
+{
+    public function parse(\Kibo\Phast\Services\ServiceRequest $request)
+    {
+        $result = [];
+        foreach ($request->getParams() as $name => $value) {
+            if (strpos($name, '_') !== false) {
+                list($name, $key) = explode('_', $name, 2);
+                $result[$key][$name] = $value;
+            }
+        }
+        return $result;
+    }
+}
+namespace Kibo\Phast\Services\Bundler;
 
 class Factory
 {
-    /**
-     * @param string $service
-     * @param array $config
-     * @return BaseService
-     * @throws ItemNotFoundException
-     */
-    public function make($service, array $config)
+    use \Kibo\Phast\Services\ServiceFactoryTrait;
+    public function make(array $config)
     {
-        if (!preg_match('/^[a-z]+$/', $service)) {
-            throw new \Kibo\Phast\Exceptions\ItemNotFoundException('Bad service');
-        }
-        $class = __NAMESPACE__ . '\\' . ucfirst($service) . '\\Factory';
-        if (class_exists($class)) {
-            return (new $class())->make($config);
-        }
-        throw new \Kibo\Phast\Exceptions\ItemNotFoundException('Unknown service');
-    }
-}
-namespace Kibo\Phast\Services;
-
-trait ServiceFactoryTrait
-{
-    /**
-     * @param array $config
-     * @param $cacheNamespace
-     * @return UniversalRetriever
-     */
-    public function makeUniversalCachingRetriever(array $config, $cacheNamespace)
-    {
-        $retriever = new \Kibo\Phast\Retrievers\UniversalRetriever();
-        $retriever->addRetriever(new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']));
-        $retriever->addRetriever(new \Kibo\Phast\Retrievers\CachingRetriever(new \Kibo\Phast\Cache\File\Cache($config['cache'], $cacheNamespace), (new \Kibo\Phast\Retrievers\RemoteRetrieverFactory())->make($config)));
-        return $retriever;
-    }
-    public function makeCachingServiceFilter(array $config, \Kibo\Phast\Filters\Service\CompositeFilter $compositeFilter, $cacheNamespace)
-    {
-        return new \Kibo\Phast\Filters\Service\CachingServiceFilter(new \Kibo\Phast\Cache\File\Cache($config['cache'], $cacheNamespace), $compositeFilter, new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']));
+        $cssServiceFactory = new \Kibo\Phast\Services\Css\Factory();
+        $jsServiceFactory = new \Kibo\Phast\Services\Scripts\Factory();
+        $cssFilter = $this->makeCachingServiceFilter($config, $cssServiceFactory->makeFilter($config), 'bundler-css');
+        $jsFilter = $this->makeCachingServiceFilter($config, $jsServiceFactory->makeFilter($config), 'bundler-js');
+        return new \Kibo\Phast\Services\Bundler\Service((new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config), $cssServiceFactory->makeRetriever($config), $cssFilter, $jsServiceFactory->makeRetriever($config), $jsFilter, (new \Kibo\Phast\Services\Bundler\TokenRefMakerFactory())->make($config));
     }
 }
 namespace Kibo\Phast\Services\Bundler;
@@ -6305,18 +5443,89 @@ class Service
 }
 namespace Kibo\Phast\Services\Bundler;
 
-class BundlerParamsParser
+class ServiceParams
 {
-    public function parse(\Kibo\Phast\Services\ServiceRequest $request)
+    /**
+     * @var string
+     */
+    private $token;
+    /**
+     * @var array
+     */
+    private $params;
+    private function __construct()
     {
-        $result = [];
-        foreach ($request->getParams() as $name => $value) {
-            if (strpos($name, '_') !== false) {
-                list($name, $key) = explode('_', $name, 2);
-                $result[$key][$name] = $value;
-            }
+    }
+    /**
+     * @param array $params
+     * @return ServiceParams
+     */
+    public static function fromArray(array $params)
+    {
+        $instance = new self();
+        if (isset($params['token'])) {
+            $instance->token = $params['token'];
+            unset($params['token']);
         }
-        return $result;
+        $instance->params = $params;
+        return $instance;
+    }
+    /**
+     * @param ServiceSignature $signature
+     * @return ServiceParams
+     */
+    public function sign(\Kibo\Phast\Security\ServiceSignature $signature)
+    {
+        $new = new self();
+        $new->token = $this->makeToken($signature);
+        $new->params = $this->params;
+        return $new;
+    }
+    /**
+     * @param ServiceSignature $signature
+     * @return bool
+     */
+    public function verify(\Kibo\Phast\Security\ServiceSignature $signature)
+    {
+        if (!isset($this->token)) {
+            return false;
+        }
+        return $this->token == $this->makeToken($signature);
+    }
+    /**
+     * @return mixed
+     */
+    public function toArray()
+    {
+        $params = $this->params;
+        if ($this->token) {
+            $params['token'] = $this->token;
+        }
+        return $params;
+    }
+    public function serialize()
+    {
+        return \Kibo\Phast\Common\JSON::encode($this->toArray());
+    }
+    private function makeToken(\Kibo\Phast\Security\ServiceSignature $signature)
+    {
+        $params = $this->params;
+        if (isset($params['cacheMarker'])) {
+            unset($params['cacheMarker']);
+        }
+        ksort($params);
+        array_walk($params, function (&$item) {
+            $item = (string) $item;
+        });
+        return $signature->sign(json_encode($params));
+    }
+    public function replaceByTokenRef(\Kibo\Phast\Services\Bundler\TokenRefMaker $maker)
+    {
+        if (!isset($this->token)) {
+            return $this;
+        }
+        $ref = $maker->getRef($this->token, $this->toArray());
+        return $ref ? \Kibo\Phast\Services\Bundler\ServiceParams::fromArray(['ref' => $ref]) : $this;
     }
 }
 namespace Kibo\Phast\Services\Bundler;
@@ -6426,107 +5635,6 @@ class TokenRefMakerFactory
         return new \Kibo\Phast\Services\Bundler\TokenRefMaker($cache);
     }
 }
-namespace Kibo\Phast\Services\Bundler;
-
-class ServiceParams
-{
-    /**
-     * @var string
-     */
-    private $token;
-    /**
-     * @var array
-     */
-    private $params;
-    private function __construct()
-    {
-    }
-    /**
-     * @param array $params
-     * @return ServiceParams
-     */
-    public static function fromArray(array $params)
-    {
-        $instance = new self();
-        if (isset($params['token'])) {
-            $instance->token = $params['token'];
-            unset($params['token']);
-        }
-        $instance->params = $params;
-        return $instance;
-    }
-    /**
-     * @param ServiceSignature $signature
-     * @return ServiceParams
-     */
-    public function sign(\Kibo\Phast\Security\ServiceSignature $signature)
-    {
-        $new = new self();
-        $new->token = $this->makeToken($signature);
-        $new->params = $this->params;
-        return $new;
-    }
-    /**
-     * @param ServiceSignature $signature
-     * @return bool
-     */
-    public function verify(\Kibo\Phast\Security\ServiceSignature $signature)
-    {
-        if (!isset($this->token)) {
-            return false;
-        }
-        return $this->token == $this->makeToken($signature);
-    }
-    /**
-     * @return mixed
-     */
-    public function toArray()
-    {
-        $params = $this->params;
-        if ($this->token) {
-            $params['token'] = $this->token;
-        }
-        return $params;
-    }
-    public function serialize()
-    {
-        return \Kibo\Phast\Common\JSON::encode($this->toArray());
-    }
-    private function makeToken(\Kibo\Phast\Security\ServiceSignature $signature)
-    {
-        $params = $this->params;
-        if (isset($params['cacheMarker'])) {
-            unset($params['cacheMarker']);
-        }
-        ksort($params);
-        array_walk($params, function (&$item) {
-            $item = (string) $item;
-        });
-        return $signature->sign(json_encode($params));
-    }
-    public function replaceByTokenRef(\Kibo\Phast\Services\Bundler\TokenRefMaker $maker)
-    {
-        if (!isset($this->token)) {
-            return $this;
-        }
-        $ref = $maker->getRef($this->token, $this->toArray());
-        return $ref ? \Kibo\Phast\Services\Bundler\ServiceParams::fromArray(['ref' => $ref]) : $this;
-    }
-}
-namespace Kibo\Phast\Services\Bundler;
-
-class Factory
-{
-    use \Kibo\Phast\Services\ServiceFactoryTrait;
-    public function make(array $config)
-    {
-        $cssServiceFactory = new \Kibo\Phast\Services\Css\Factory();
-        $jsServiceFactory = new \Kibo\Phast\Services\Scripts\Factory();
-        $cssFilter = $this->makeCachingServiceFilter($config, $cssServiceFactory->makeFilter($config), 'bundler-css');
-        $jsFilter = $this->makeCachingServiceFilter($config, $jsServiceFactory->makeFilter($config), 'bundler-js');
-        return new \Kibo\Phast\Services\Bundler\Service((new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config), $cssServiceFactory->makeRetriever($config), $cssFilter, $jsServiceFactory->makeRetriever($config), $jsFilter, (new \Kibo\Phast\Services\Bundler\TokenRefMakerFactory())->make($config));
-    }
-}
 namespace Kibo\Phast\Services\Css;
 
 class Factory
@@ -6545,6 +5653,17 @@ class Factory
     public function makeFilter(array $config)
     {
         return (new \Kibo\Phast\Filters\CSS\Composite\Factory())->make($config);
+    }
+}
+namespace Kibo\Phast\Services\Css;
+
+class Service extends \Kibo\Phast\Services\BaseService
+{
+    protected function makeResponse(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
+    {
+        $response = parent::makeResponse($resource, $request);
+        $response->setHeader('Content-Type', 'text/css');
+        return $response;
     }
 }
 namespace Kibo\Phast\Services\Diagnostics;
@@ -6594,6 +5713,92 @@ class Service
         return (new \Kibo\Phast\Diagnostics\SystemDiagnostics())->run(require PHAST_CONFIG_FILE);
     }
 }
+namespace Kibo\Phast\Services;
+
+class Factory
+{
+    /**
+     * @param string $service
+     * @param array $config
+     * @return BaseService
+     * @throws ItemNotFoundException
+     */
+    public function make($service, array $config)
+    {
+        if (!preg_match('/^[a-z]+$/', $service)) {
+            throw new \Kibo\Phast\Exceptions\ItemNotFoundException('Bad service');
+        }
+        $class = __NAMESPACE__ . '\\' . ucfirst($service) . '\\Factory';
+        if (class_exists($class)) {
+            return (new $class())->make($config);
+        }
+        throw new \Kibo\Phast\Exceptions\ItemNotFoundException('Unknown service');
+    }
+}
+namespace Kibo\Phast\Services\Images;
+
+class Factory
+{
+    public function make(array $config)
+    {
+        if ($config['images']['api-mode']) {
+            $retriever = new \Kibo\Phast\Retrievers\PostDataRetriever();
+        } else {
+            $retriever = new \Kibo\Phast\Retrievers\UniversalRetriever();
+            $retriever->addRetriever(new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']));
+            $retriever->addRetriever((new \Kibo\Phast\Retrievers\RemoteRetrieverFactory())->make($config));
+        }
+        return new \Kibo\Phast\Services\Images\Service((new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config), $config['images']['whitelist'], $retriever, (new \Kibo\Phast\Filters\Image\Composite\Factory($config))->make(), $config);
+    }
+}
+namespace Kibo\Phast\Services\Images;
+
+class Service extends \Kibo\Phast\Services\BaseService
+{
+    protected function getParams(\Kibo\Phast\Services\ServiceRequest $request)
+    {
+        $params = parent::getParams($request);
+        if ($this->proxySupportsAccept($request->getHTTPRequest())) {
+            $params['varyAccept'] = true;
+            if ($this->browserSupportsWebp($request->getHTTPRequest())) {
+                $params['preferredType'] = \Kibo\Phast\Filters\Image\Image::TYPE_WEBP;
+                \Kibo\Phast\Logging\Log::info('WebP will be served if possible!');
+            }
+        }
+        return $params;
+    }
+    protected function makeResponse(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
+    {
+        $response = parent::makeResponse($resource, $request);
+        $srcUrl = $resource->getUrl();
+        $response->setHeader('Link', "<{$srcUrl}>; rel=\"canonical\"");
+        $response->setHeader('Content-Type', $resource->getMimeType());
+        if ($resource->getMimeType() != \Kibo\Phast\Filters\Image\Image::TYPE_PNG && @$request['varyAccept']) {
+            $response->setHeader('Vary', 'Accept');
+        }
+        return $response;
+    }
+    protected function validateIntegrity(\Kibo\Phast\Services\ServiceRequest $request)
+    {
+        if (!$this->config['images']['api-mode']) {
+            parent::validateIntegrity($request);
+        }
+    }
+    protected function validateWhitelisted(\Kibo\Phast\Services\ServiceRequest $request)
+    {
+        if (!$this->config['images']['api-mode']) {
+            parent::validateWhitelisted($request);
+        }
+    }
+    private function browserSupportsWebp(\Kibo\Phast\HTTP\Request $request)
+    {
+        return strpos($request->getHeader('accept'), 'image/webp') !== false;
+    }
+    private function proxySupportsAccept(\Kibo\Phast\HTTP\Request $request)
+    {
+        return !$request->isCloudflare();
+    }
+}
 namespace Kibo\Phast\Services\Scripts;
 
 class Factory
@@ -6616,126 +5821,48 @@ class Factory
         return $filter;
     }
 }
-namespace Kibo\Phast\Services\Images;
+namespace Kibo\Phast\Services\Scripts;
 
-class Factory
+class Service extends \Kibo\Phast\Services\BaseService
 {
-    public function make(array $config)
+    protected function makeResponse(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
     {
-        if ($config['images']['api-mode']) {
-            $retriever = new \Kibo\Phast\Retrievers\PostDataRetriever();
-        } else {
-            $retriever = new \Kibo\Phast\Retrievers\UniversalRetriever();
-            $retriever->addRetriever(new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']));
-            $retriever->addRetriever((new \Kibo\Phast\Retrievers\RemoteRetrieverFactory())->make($config));
-        }
-        return new \Kibo\Phast\Services\Images\Service((new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config), $config['images']['whitelist'], $retriever, (new \Kibo\Phast\Filters\Image\Composite\Factory($config))->make(), $config);
+        $response = parent::makeResponse($resource, $request);
+        $response->setHeader('Content-Type', 'application/javascript');
+        return $response;
     }
 }
 namespace Kibo\Phast\Services;
 
-abstract class BaseService
+trait ServiceFactoryTrait
 {
-    use \Kibo\Phast\Logging\LoggingTrait;
     /**
-     * @var ServiceSignature
-     */
-    protected $signature;
-    /**
-     * @var string[]
-     */
-    protected $whitelist = array();
-    /**
-     * @var Retriever
-     */
-    protected $retriever;
-    /**
-     * @var ServiceFilter
-     */
-    protected $filter;
-    /**
-     * @var array
-     */
-    protected $config;
-    /**
-     * BaseService constructor.
-     * @param ServiceSignature $signature
-     * @param array $whitelist
-     * @param Retriever $retriever
-     * @param ServiceFilter $filter
      * @param array $config
+     * @param $cacheNamespace
+     * @return UniversalRetriever
      */
-    public function __construct(\Kibo\Phast\Security\ServiceSignature $signature, array $whitelist, \Kibo\Phast\Retrievers\Retriever $retriever, \Kibo\Phast\Services\ServiceFilter $filter, array $config)
+    public function makeUniversalCachingRetriever(array $config, $cacheNamespace)
     {
-        $this->signature = $signature;
-        $this->whitelist = $whitelist;
-        $this->retriever = $retriever;
-        $this->filter = $filter;
-        $this->config = $config;
+        $retriever = new \Kibo\Phast\Retrievers\UniversalRetriever();
+        $retriever->addRetriever(new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']));
+        $retriever->addRetriever(new \Kibo\Phast\Retrievers\CachingRetriever(new \Kibo\Phast\Cache\File\Cache($config['cache'], $cacheNamespace), (new \Kibo\Phast\Retrievers\RemoteRetrieverFactory())->make($config)));
+        return $retriever;
     }
-    /**
-     * @param ServiceRequest $request
-     * @return Response
-     */
-    public function serve(\Kibo\Phast\Services\ServiceRequest $request)
+    public function makeCachingServiceFilter(array $config, \Kibo\Phast\Filters\Service\CompositeFilter $compositeFilter, $cacheNamespace)
     {
-        $this->validateRequest($request);
-        $request = $this->getParams($request);
-        $resource = \Kibo\Phast\ValueObjects\Resource::makeWithRetriever(\Kibo\Phast\ValueObjects\URL::fromString(isset($request['src']) ? $request['src'] : ''), $this->retriever);
-        $filtered = $this->filter->apply($resource, $request);
-        return $this->makeResponse($filtered, $request);
+        return new \Kibo\Phast\Filters\Service\CachingServiceFilter(new \Kibo\Phast\Cache\File\Cache($config['cache'], $cacheNamespace), $compositeFilter, new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']));
     }
-    /**
-     * @param ServiceRequest $request
-     * @return array
-     */
-    protected function getParams(\Kibo\Phast\Services\ServiceRequest $request)
-    {
-        return $request->getParams();
-    }
+}
+namespace Kibo\Phast\Services;
+
+interface ServiceFilter
+{
     /**
      * @param Resource $resource
      * @param array $request
-     * @return Response
+     * @return Resource
      */
-    protected function makeResponse(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
-    {
-        $response = new \Kibo\Phast\HTTP\Response();
-        $response->setContent($resource->getContent());
-        return $response;
-    }
-    protected function validateRequest(\Kibo\Phast\Services\ServiceRequest $request)
-    {
-        $this->validateIntegrity($request);
-        try {
-            $this->validateToken($request);
-        } catch (\Kibo\Phast\Exceptions\UnauthorizedException $e) {
-            $this->validateWhitelisted($request);
-        }
-    }
-    protected function validateIntegrity(\Kibo\Phast\Services\ServiceRequest $request)
-    {
-        $params = $request->getParams();
-        if (!isset($params['src'])) {
-            throw new \Kibo\Phast\Exceptions\ItemNotFoundException('No source is set!');
-        }
-    }
-    protected function validateToken(\Kibo\Phast\Services\ServiceRequest $request)
-    {
-        if (!$request->verify($this->signature)) {
-            throw new \Kibo\Phast\Exceptions\UnauthorizedException('Invalid token in request: ' . $request->serialize(\Kibo\Phast\Services\ServiceRequest::FORMAT_QUERY));
-        }
-    }
-    protected function validateWhitelisted(\Kibo\Phast\Services\ServiceRequest $request)
-    {
-        $params = $request->getParams();
-        foreach ($this->whitelist as $pattern) {
-            if (preg_match($pattern, $params['src'])) {
-                return;
-            }
-        }
-        throw new \Kibo\Phast\Exceptions\UnauthorizedException('Not allowed url: ' . $params['src']);
-    }
+    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request);
 }
 namespace Kibo\Phast\Services;
 
@@ -7077,127 +6204,265 @@ class ServiceRequest
         return $default;
     }
 }
-namespace Kibo\Phast\Security;
+namespace Kibo\Phast\ValueObjects;
 
-class ServiceSignature
+class PhastJavaScript
 {
-    const AUTO_TOKEN_SIZE = 128;
-    const SIGNATURE_LENGTH = 16;
     /**
-     * @var Cache
+     * @var string
      */
-    private $cache;
+    private $filename;
     /**
-     * @var array
+     * @var string
      */
-    private $identities;
+    private $contents;
     /**
-     * ServiceSignature constructor.
-     *
-     * @param Cache $cache
+     * @var string
      */
-    public function __construct(\Kibo\Phast\Cache\Cache $cache)
+    private $configKey;
+    /**
+     * @var mixed
+     */
+    private $config;
+    /**
+     * @var ObjectifiedFunctions
+     */
+    private $funcs;
+    /**
+     * @param string $filename
+     * @param string $contents
+     */
+    private function __construct($filename, $contents)
     {
-        $this->cache = $cache;
+        $this->filename = $filename;
+        $this->contents = $contents;
     }
     /**
-     * @param string|array $identities
+     * @param string $filename
+     * @param ObjectifiedFunctions|null $funcs
      */
-    public function setIdentities($identities)
+    public static function fromFile($filename, \Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
     {
-        if (is_string($identities)) {
-            $this->identities = ['' => $identities];
-        } else {
-            $this->identities = $identities;
+        $funcs = $funcs ? $funcs : new \Kibo\Phast\Common\ObjectifiedFunctions();
+        $contents = $funcs->file_get_contents($filename);
+        if ($contents === false) {
+            throw new \RuntimeException("Failed to read script: {$filename}");
         }
+        $contents = (new \Kibo\Phast\Common\JSMinifier($contents))->min();
+        return new self($filename, $contents);
+    }
+    /**
+     * @param string $filename
+     * @param string $contents
+     */
+    public static function fromString($filename, $contents)
+    {
+        return new self($filename, $contents);
+    }
+    /**
+     * @return string
+     */
+    public function getFilename()
+    {
+        return $this->filename;
+    }
+    /**
+     * @return bool|string
+     */
+    public function getContents()
+    {
+        return $this->contents;
     }
     /**
      * @return string
      */
     public function getCacheSalt()
     {
-        $identities = $this->getIdentities();
-        return md5(join('=>', array_merge(array_keys($identities), array_values($identities))));
+        $hash = md5($this->getContents(), true);
+        return substr(preg_replace('/^[a-z0-9]/i', '', base64_encode($hash)), 0, 16);
     }
-    public function sign($value)
+    /**
+     * @param string $configKey
+     * @param mixed $config
+     */
+    public function setConfig($configKey, $config)
     {
-        $identities = $this->getIdentities();
-        $users = array_keys($identities);
-        list($user, $token) = [array_shift($users), array_shift($identities)];
-        return $user . substr(md5($token . $value), 0, self::SIGNATURE_LENGTH);
+        $this->configKey = $configKey;
+        $this->config = $config;
     }
-    public function verify($signature, $value)
+    /**
+     * @return bool
+     */
+    public function hasConfig()
     {
-        $user = substr($signature, 0, -self::SIGNATURE_LENGTH);
-        $identities = $this->getIdentities();
-        if (!isset($identities[$user])) {
-            return false;
+        return isset($this->configKey);
+    }
+    /**
+     * @return string
+     */
+    public function getConfigKey()
+    {
+        return $this->configKey;
+    }
+    /**
+     * @return mixed
+     */
+    public function getConfig()
+    {
+        return $this->config;
+    }
+}
+namespace Kibo\Phast\ValueObjects;
+
+class Query implements \IteratorAggregate
+{
+    private $tuples = array();
+    /**
+     * @param array $assoc
+     * @return Query
+     */
+    public static function fromAssoc($assoc)
+    {
+        $result = new static();
+        foreach ($assoc as $k => $v) {
+            $result->add($k, $v);
         }
-        $token = $identities[$user];
-        $signer = new self($this->cache);
-        $signer->setIdentities([$user => $token]);
-        return $signature === $signer->sign($value);
+        return $result;
     }
-    public static function generateToken()
+    /**
+     * @param string $string
+     * @return Query
+     */
+    public static function fromString($string)
     {
-        $token = '';
-        for ($i = 0; $i < self::AUTO_TOKEN_SIZE; $i++) {
-            $token .= chr(mt_rand(33, 126));
+        $result = new static();
+        foreach (explode('&', $string) as $piece) {
+            if ($piece === '') {
+                continue;
+            }
+            $parts = array_map('urldecode', explode('=', $piece, 2));
+            $result->add($parts[0], isset($parts[1]) ? $parts[1] : '');
         }
-        return $token;
+        return $result;
     }
-    private function getIdentities()
+    public function add($key, $value)
     {
-        if (!isset($this->identities)) {
-            $token = $this->cache->get('security-token', function () {
-                return self::generateToken();
-            });
-            $this->identities = ['' => $token];
-        }
-        return $this->identities;
+        $this->tuples[] = [(string) $key, (string) $value];
     }
-}
-namespace Kibo\Phast\Security;
-
-class ServiceSignatureFactory
-{
-    public function make(array $config)
+    public function get($key, $default = null)
     {
-        $cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'signature');
-        $signature = new \Kibo\Phast\Security\ServiceSignature($cache);
-        if (isset($config['securityToken'])) {
-            $signature->setIdentities($config['securityToken']);
+        foreach ($this->tuples as $tuple) {
+            if ($tuple[0] === (string) $key) {
+                return $tuple[1];
+            }
         }
-        return $signature;
+        return $default;
+    }
+    public function delete($key)
+    {
+        $this->tuples = array_filter($this->tuples, function ($tuple) use($key) {
+            return $tuple[0] !== (string) $key;
+        });
+    }
+    public function set($key, $value)
+    {
+        $this->delete($key);
+        $this->add($key, $value);
+    }
+    public function has($key)
+    {
+        foreach ($this->tuples as $tuple) {
+            if ($tuple[0] === (string) $key) {
+                return true;
+            }
+        }
+        return false;
+    }
+    public function update(\Kibo\Phast\ValueObjects\Query $source)
+    {
+        foreach ($source as $key => $value) {
+            $this->delete($key);
+        }
+        foreach ($source as $key => $value) {
+            $this->add($key, $value);
+        }
+    }
+    public function toAssoc()
+    {
+        $assoc = [];
+        foreach ($this->tuples as $tuple) {
+            if (!array_key_exists($tuple[0], $assoc)) {
+                $assoc[$tuple[0]] = $tuple[1];
+            }
+        }
+        return $assoc;
+    }
+    public function getIterator()
+    {
+        foreach ($this->tuples as $tuple) {
+            (yield $tuple[0] => $tuple[1]);
+        }
+    }
+    public function pop($key)
+    {
+        $value = $this->get($key);
+        $this->delete($key);
+        return $value;
+    }
+    public function getAll($key)
+    {
+        $result = [];
+        foreach ($this->tuples as $tuple) {
+            if ($tuple[0] === (string) $key) {
+                $result[] = $tuple[1];
+            }
+        }
+        return $result;
     }
 }
-namespace Kibo\Phast\Exceptions;
+namespace Kibo\Phast\ValueObjects;
 
-class LogicException extends \LogicException
+class Resource
 {
-}
-namespace Kibo\Phast\Exceptions;
-
-class RuntimeException extends \RuntimeException
-{
-}
-namespace Kibo\Phast\Exceptions;
-
-class CachedExceptionException extends \Exception
-{
-}
-namespace Kibo\Phast\Exceptions;
-
-class ItemNotFoundException extends \Exception
-{
+    const EXTENSION_TO_MIME_TYPE = array('gif' => 'image/gif', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'bmp' => 'image/bmp', 'webp' => 'image/webp', 'svg' => 'image/svg+xml', 'css' => 'text/css', 'js' => 'application/javascript', 'json' => 'application/json');
     /**
      * @var URL
      */
     private $url;
-    public function __construct($message = '', $code = 0, \Throwable $previous = null, \Kibo\Phast\ValueObjects\URL $failed = null)
+    /**
+     * @var Retriever
+     */
+    private $retriever;
+    /**
+     * @var string
+     */
+    private $content;
+    /**
+     * @var string
+     */
+    private $mimeType;
+    /**
+     * @var Resource[]
+     */
+    private $dependencies = array();
+    private function __construct()
     {
-        parent::__construct($message, $code, $previous);
-        $this->url = $failed;
+    }
+    public static function makeWithContent(\Kibo\Phast\ValueObjects\URL $url, $content, $mimeType = null)
+    {
+        $instance = new self();
+        $instance->url = $url;
+        $instance->mimeType = $mimeType;
+        $instance->content = $content;
+        return $instance;
+    }
+    public static function makeWithRetriever(\Kibo\Phast\ValueObjects\URL $url, \Kibo\Phast\Retrievers\Retriever $retriever, $mimeType = null)
+    {
+        $instance = new self();
+        $instance->url = $url;
+        $instance->mimeType = $mimeType;
+        $instance->retriever = $retriever;
+        return $instance;
     }
     /**
      * @return URL
@@ -7206,218 +6471,594 @@ class ItemNotFoundException extends \Exception
     {
         return $this->url;
     }
-}
-namespace Kibo\Phast\Exceptions;
-
-class UnauthorizedException extends \Exception
-{
-}
-namespace Kibo\Phast\Exceptions;
-
-class UndefinedObjectifiedFunction extends \RuntimeException
-{
-}
-namespace Kibo\PhastPlugins\SDK;
-
-/**
- * Provides commonly needed URLs
- *
- * Interface HostURLs
- * @see URL
- */
-interface HostURLs
-{
     /**
-     * The URL at which static resource (JS, CSS, IMG)
-     * optimizations reside
-     *
-     * @return URL
+     * @return string
+     * @throws ItemNotFoundException
      */
-    public function getServicesURL();
-    /**
-     * The full URL of the root of the current site
-     *
-     * @return URL
-     */
-    public function getSiteURL();
-    /**
-     * The CDN equivalent of a specified URL
-     *
-     * @return URL
-     */
-    public function getCDNURL(\Kibo\Phast\ValueObjects\URL $url);
-    /**
-     * URL of the admin page at which
-     * the plugin's settings are located
-     *
-     * @return URL
-     */
-    public function getSettingsURL();
-    /**
-     * URL for admin panel AJAX communication
-     *
-     * @return URL
-     */
-    public function getAJAXEndPoint();
-    /**
-     * A URL to a publicly available image.
-     *
-     * @return URL
-     */
-    public function getTestImageURL();
-}
-namespace Kibo\PhastPlugins\SDK;
-
-/**
- * Services container for the Phast Plugins Services SDK
- *
- * Class SDK
- */
-class ServiceSDK
-{
-    /**
-     * @var ServiceHost
-     */
-    protected $host;
-    /**
-     * @var EnvironmentIdentifier
-     */
-    private $environmentIdentifier;
-    public function __construct(\Kibo\PhastPlugins\SDK\ServiceHost $host)
+    public function getContent()
     {
-        $this->host = $host;
-        $this->environmentIdentifier = new \Kibo\PhastPlugins\SDK\Configuration\EnvironmentIdentifier();
-    }
-    public function getServiceAPI()
-    {
-        return new \Kibo\PhastPlugins\SDK\APIs\Service($this->getServiceConfiguration());
-    }
-    public function getServiceConfiguration()
-    {
-        return new \Kibo\PhastPlugins\SDK\Configuration\ServiceConfiguration($this->getPHPFilesServiceConfigurationRepository(), $this->getEnvironmentIdentifier(), $this->getCacheRootManager(), [$this->host, 'onServiceConfigurationLoad']);
-    }
-    public function getCacheRootManager()
-    {
-        return new \Kibo\PhastPlugins\SDK\Caching\CacheRootManager($this->host->getCacheRootCandidatesProvider());
+        if (!isset($this->content)) {
+            $this->content = $this->retriever->retrieve($this->url);
+            if ($this->content === false) {
+                throw new \Kibo\Phast\Exceptions\ItemNotFoundException("Could not get {$this->url}");
+            }
+        }
+        return $this->content;
     }
     /**
-     * Returns a default implementation of the
-     * ServiceConfigurationRepository interface
-     *
-     * @see ServiceConfigurationRepository
-     * @return PHPFilesServiceConfigurationRepository
+     * @return string|null
      */
-    public function getPHPFilesServiceConfigurationRepository()
+    public function getMimeType()
     {
-        return new \Kibo\PhastPlugins\SDK\Configuration\PHPFilesServiceConfigurationRepository($this->getCacheRootManager());
+        if (!isset($this->mimeType)) {
+            $ext = strtolower($this->url->getExtension());
+            $ext2mime = self::EXTENSION_TO_MIME_TYPE;
+            if (isset($ext2mime[$ext])) {
+                $this->mimeType = self::EXTENSION_TO_MIME_TYPE[$ext];
+            }
+        }
+        return $this->mimeType;
     }
-    public function getEnvironmentIdentifier()
+    /**
+     * @return bool|int
+     */
+    public function getSize()
     {
-        return $this->environmentIdentifier;
+        if (isset($this->retriever) && method_exists($this->retriever, 'getSize')) {
+            return $this->retriever->getSize($this->url);
+        }
+        if (isset($this->content)) {
+            return strlen($this->content);
+        }
+        return false;
+    }
+    public function toDataURL()
+    {
+        $mime = $this->getMimeType();
+        $content = $this->getContent();
+        return "data:{$mime};base64," . base64_encode($content);
+    }
+    /**
+     * @return Resource[]
+     */
+    public function getDependencies()
+    {
+        return $this->dependencies;
+    }
+    /**
+     * @return bool|int
+     */
+    public function getCacheSalt()
+    {
+        return isset($this->retriever) ? $this->retriever->getCacheSalt($this->url) : 0;
+    }
+    /**
+     * @param string $content
+     * @param string|null $mimeType
+     * @return Resource
+     */
+    public function withContent($content, $mimeType = null)
+    {
+        $new = clone $this;
+        $new->content = $content;
+        if (!is_null($mimeType)) {
+            $new->mimeType = $mimeType;
+        }
+        return $new;
+    }
+    /**
+     * @param Resource[] $dependencies
+     * @return Resource
+     */
+    public function withDependencies(array $dependencies)
+    {
+        $new = clone $this;
+        $new->dependencies = $dependencies;
+        return $new;
     }
 }
-namespace Kibo\PhastPlugins\SDK;
+namespace Kibo\Phast\ValueObjects;
 
-/**
- * Services container for the Phast Plugins SDK
- *
- * Class SDK
- */
-class SDK extends \Kibo\PhastPlugins\SDK\ServiceSDK
+class URL
 {
     /**
-     * @var PluginHost
+     * @var string
      */
-    protected $host;
+    private $scheme;
     /**
-     * SDK constructor.
-     * @param PluginHost $host
+     * @var string
      */
-    public function __construct(\Kibo\PhastPlugins\SDK\PluginHost $host)
+    private $host;
+    /**
+     * @var string
+     */
+    private $port;
+    /**
+     * @var string
+     */
+    private $user;
+    /**
+     * @var string
+     */
+    private $pass;
+    /**
+     * @var string
+     */
+    private $path;
+    /**
+     * @var string
+     */
+    private $query;
+    /**
+     * @var string
+     */
+    private $fragment;
+    private function __construct()
     {
-        parent::__construct($host);
     }
     /**
-     * The current SDK version
+     * @param $string
+     * @return URL
+     */
+    public static function fromString($string)
+    {
+        $components = parse_url($string);
+        if (!$components) {
+            return new self();
+        }
+        return self::fromArray($components);
+    }
+    /**
+     * @param array $arr Should follow the format produced by parse_url()
+     * @return URL
+     * @see parse_url()
+     */
+    public static function fromArray(array $arr)
+    {
+        $url = new self();
+        foreach ($arr as $key => $value) {
+            $url->{$key} = $key == 'path' ? $url->normalizePath($value) : $value;
+        }
+        return $url;
+    }
+    /**
+     * If $this can be interpreted as relative to $base,
+     * will produce URL that is $base/$this.
+     * Otherwise the returned URL will point to the same place as $this
      *
+     * @param URL $base
+     * @return URL
+     *
+     * @example this: www/htdocs + base: /var -> /var/www/htdocs
+     * @example this: /var + base: http://example.com -> http://example.com/var
+     * @example this: /var + base: /www -> /var
+     */
+    public function withBase(\Kibo\Phast\ValueObjects\URL $base)
+    {
+        $new = clone $this;
+        foreach (['scheme', 'host', 'port', 'user', 'pass', 'path'] as $key) {
+            if ($key == 'path') {
+                $new->path = $this->resolvePath($base->path, $this->path);
+            } elseif (!isset($this->{$key}) && isset($base->{$key})) {
+                $new->{$key} = $base->{$key};
+            } elseif (isset($this->{$key})) {
+                break;
+            }
+        }
+        return $new;
+    }
+    /**
+     * Tells whether $this can be interpreted as at the same host as $url
+     *
+     * @param URL $url
+     * @return bool
+     */
+    public function isLocalTo(\Kibo\Phast\ValueObjects\URL $url)
+    {
+        return empty($this->host) || $this->host === $url->host;
+    }
+    /**
      * @return string
      */
-    public function getSDKVersion()
+    public function toString()
     {
-        return '8';
+        $pass = isset($this->pass) ? ':' . $this->pass : '';
+        $pass = isset($this->user) || isset($this->pass) ? "{$pass}@" : '';
+        return $this->encodeSpecialCharacters(implode('', [isset($this->scheme) ? $this->scheme . '://' : '', $this->user, $pass, $this->host, isset($this->port) ? ':' . $this->port : '', $this->path, isset($this->query) ? '?' . $this->query : '', isset($this->fragment) ? '#' . $this->fragment : '']));
+    }
+    private function encodeSpecialCharacters($string)
+    {
+        return preg_replace_callback('~[^' . preg_quote('!#$&\'()*+,/:;=?@[]', '~') . preg_quote('-_.~', '~') . 'A-Za-z0-9%' . ']~', function ($match) {
+            return rawurlencode($match[0]);
+        }, $string);
+    }
+    private function normalizePath($path)
+    {
+        $stack = [];
+        $head = null;
+        foreach (explode('/', $path) as $part) {
+            if ($part == '.' || $part == '') {
+                continue;
+            }
+            if (!is_null($head) && $part == '..' && $head != '..') {
+                array_pop($stack);
+                $head = empty($stack) ? null : $stack[count($stack) - 1];
+            } else {
+                $stack[] = $head = $part;
+            }
+        }
+        $normalized = substr($path, 0, 1) == '/' ? '/' : '';
+        if (!empty($stack)) {
+            $normalized .= join('/', $stack);
+            $normalized .= substr($path, -1) == '/' ? '/' : '';
+        }
+        return $normalized;
+    }
+    private function resolvePath($base, $requested)
+    {
+        if (!$requested) {
+            return $base;
+        }
+        if ($requested[0] == '/') {
+            return $requested;
+        }
+        if (substr($base, -1, 1) == '/') {
+            $usedBase = $base;
+        } else {
+            $usedBase = dirname($base);
+        }
+        return rtrim($usedBase, '/') . '/' . $requested;
     }
     /**
-     * The current plugin version.
-     * Composed from the host plugin name,
-     * the host plugin version
-     * and the SDK version
-     *
      * @return string
      */
-    public function getPluginVersion()
+    public function getScheme()
     {
-        return join('-', [$this->host->getPluginHostName(), $this->host->getPluginHostVersion(), $this->getSDKVersion()]);
+        return $this->scheme;
     }
     /**
-     * @return Phast
+     * @return string
      */
-    public function getPhastAPI()
+    public function getHost()
     {
-        return new \Kibo\PhastPlugins\SDK\APIs\Phast($this->getPhastConfiguration());
+        return $this->host;
     }
-    public function getAdminPanel()
+    /**
+     * @return string
+     */
+    public function getPort()
     {
-        return new \Kibo\PhastPlugins\SDK\AdminPanel\AdminPanel($this->host->getPhastUser(), $this->host->getHostURLs()->getAJAXEndPoint(), $this->getAdminPanelData(), $this->getTranslationsManager(), $this->host->isDev());
+        return $this->port;
     }
-    public function getAJAXRequestsDispatcher()
+    /**
+     * @return string
+     */
+    public function getUser()
     {
-        return new \Kibo\PhastPlugins\SDK\AJAX\RequestsDispatcher($this->host->getPhastUser(), $this);
+        return $this->user;
     }
-    public function getAdminPanelData()
+    /**
+     * @return string
+     */
+    public function getPass()
     {
-        return new \Kibo\PhastPlugins\SDK\AdminPanel\AdminPanelData($this->getPluginConfiguration(), $this->getServiceConfigurationGenerator(), $this->getPhastConfiguration(), $this->getCacheRootManager(), $this->host);
+        return $this->pass;
     }
-    public function getInstallNotice()
+    /** @return string */
+    public function getDecodedPath()
     {
-        return new \Kibo\PhastPlugins\SDK\AdminPanel\InstallNotice($this->getPluginConfiguration(), $this->host->getInstallNoticeRenderer(), $this->getTranslationsManager(), $this->host->getHostURLs()->getSettingsURL(), $this->host->getHostURLs()->getAJAXEndPoint());
+        return urldecode($this->path);
     }
-    public function getPluginConfiguration()
+    /**
+     * @return string
+     */
+    public function getPath()
     {
-        return new \Kibo\PhastPlugins\SDK\Configuration\PluginConfiguration($this->getPluginConfigurationRepository(), $this->getServiceConfigurationGenerator(), $this->getCacheRootManager(), $this->host->getPhastUser(), $this->host->getNonceChecker());
+        return $this->path;
     }
-    public function getPhastConfiguration()
+    /**
+     * @return string
+     */
+    public function getQuery()
     {
-        return new \Kibo\PhastPlugins\SDK\Configuration\PhastConfiguration($this->getServiceConfigurationGenerator(), $this->getServiceConfiguration(), $this->getPluginConfiguration(), [$this->host, 'onPhastConfigurationLoad']);
+        return $this->query;
     }
-    public function getAutoConfiguration()
+    /**
+     * @return string
+     */
+    public function getExtension()
     {
-        return new \Kibo\PhastPlugins\SDK\Configuration\AutoConfiguration($this->getPluginConfiguration(), $this->getPhastConfiguration(), $this->host->getHostURLs()->getServicesURL(), $this->host->getHostURLs()->getTestImageURL(), $this->host->getNonce(), $this->host->getHostURLs()->getAJAXEndPoint());
+        $matches = [];
+        if (preg_match('/\\.([^.]*)$/', $this->path, $matches)) {
+            return $matches[1];
+        }
+        return '';
     }
-    public function getTranslationsManager()
+    /**
+     * @return string
+     */
+    public function getFragment()
     {
-        return new \Kibo\PhastPlugins\SDK\AdminPanel\TranslationsManager($this->host->getLocale(), $this->host->getPluginName());
+        return $this->fragment;
     }
-    private function getServiceConfigurationGenerator()
+    /**
+     * @param string $path
+     * @return self
+     */
+    public function withPath($path)
     {
-        return new \Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationGenerator($this->getPHPFilesServiceConfigurationRepository(), $this->getEnvironmentIdentifier(), $this->getPluginVersion(), $this->host);
+        $url = clone $this;
+        $url->path = (string) $path;
+        return $url;
     }
-    public function updatePreviewCookie($enable = true)
+    /**
+     * @param string|null $query
+     * @return self
+     */
+    public function withQuery($query)
     {
-        if (headers_sent()) {
+        $url = clone $this;
+        if ($query === null) {
+            $url->query = null;
+        } else {
+            $url->query = (string) $query;
+        }
+        return $url;
+    }
+    /**
+     * @return self
+     */
+    public function withoutQuery()
+    {
+        return $this->withQuery(null);
+    }
+    public function __toString()
+    {
+        return $this->toString();
+    }
+    public function rewrite(\Kibo\Phast\ValueObjects\URL $from, \Kibo\Phast\ValueObjects\URL $to)
+    {
+        $str_from = rtrim($from->toString(), '/');
+        $str_to = rtrim($to->toString(), '/');
+        return \Kibo\Phast\ValueObjects\URL::fromString(preg_replace('~^' . preg_quote($str_from, '~') . '(?=$|/)~', $str_to, $this->toString()));
+    }
+}
+namespace Kibo\PhastPlugins\SDK\AJAX;
+
+/**
+ * Handles AJAX requests to the plugin admin.
+ * Use this class to handle requests to the plugin's admin AJAX end point
+ *
+ * Class RequestsDispatcher
+ */
+class RequestsDispatcher
+{
+    const KEY_ACTION = 'phast-plugins-action';
+    /**
+     * @var PhastUser
+     */
+    private $user;
+    /**
+     * @var SDK
+     */
+    private $sdk;
+    /**
+     * RequestsDispatcher constructor.
+     * @param PhastUser $user
+     * @param SDK $sdk
+     */
+    public function __construct(\Kibo\PhastPlugins\SDK\Security\PhastUser $user, \Kibo\PhastPlugins\SDK\SDK $sdk)
+    {
+        $this->user = $user;
+        $this->sdk = $sdk;
+    }
+    /**
+     * Handles ajax requests to plugin's admin AJAX end point
+     *
+     * @param array $request The $_POST data to the request
+     * @return mixed Must be json encoded and returned to the client
+     */
+    public function dispatch(array $request)
+    {
+        if (!$this->user->mayModifySettings()) {
             return false;
         }
-        $enabled = isset($_COOKIE['PHAST_PREVIEW']) && (bool) $_COOKIE['PHAST_PREVIEW'];
-        if (!$enabled && $enable) {
-            return setcookie('PHAST_PREVIEW', '1', 0, '/');
+        $action = isset($request[self::KEY_ACTION]) ? $request[self::KEY_ACTION] : '';
+        if ($action == 'save-settings') {
+            $this->sdk->getPluginConfiguration()->save($request);
+            return $this->makeResponse(true, $this->sdk->getAdminPanelData()->get());
         }
-        if ($enabled && !$enable) {
-            return setcookie('PHAST_PREVIEW', '0', 0, '/');
+        if ($action == 'dismiss-notice') {
+            $this->sdk->getPluginConfiguration()->hideActivationNotification();
+            return $this->makeResponse(true);
         }
-        return true;
+        return $this->makeResponse(false);
     }
-    private function getPluginConfigurationRepository()
+    private function makeResponse($success, $data = null)
     {
-        return new \Kibo\PhastPlugins\SDK\Configuration\PluginConfigurationRepository($this->host->getKeyValueStore());
+        return ['phast-success' => $success, 'phast-data' => $data];
+    }
+}
+namespace Kibo\PhastPlugins\SDK\APIs;
+
+/**
+ * Presents convenient methods for common tasks.
+ *
+ * Class Phast
+ */
+class Phast
+{
+    /**
+     * @var PhastConfiguration
+     */
+    private $config;
+    /**
+     * PhastAPI constructor.
+     * @param PhastConfiguration $config
+     */
+    public function __construct(\Kibo\PhastPlugins\SDK\Configuration\PhastConfiguration $config)
+    {
+        $this->config = $config;
+    }
+    /**
+     * Applies phast filters to $html
+     * with a configuration suited for full documents
+     *
+     * @param $html
+     * @return string
+     */
+    public function applyFiltersForDocument($html)
+    {
+        return \Kibo\Phast\PhastDocumentFilters::apply($html, $this->config->getForDocuments());
+    }
+    /**
+     * Applies phast filters to $html
+     * with a configuration suited for html snippets
+     *
+     * @param $html
+     * @return string
+     */
+    public function applyFiltersForSnippets($html)
+    {
+        return \Kibo\Phast\PhastDocumentFilters::apply($html, $this->config->getForHTMLSnippets());
+    }
+    /**
+     * Deploys phast output buffer filters
+     * with a configuration suited for full documents
+     */
+    public function deployOutputBufferForDocument()
+    {
+        return \Kibo\Phast\PhastDocumentFilters::deploy($this->config->getForDocuments());
+    }
+    /**
+     * Deploys phast output buffer filters
+     * with a configuration suited for html snippets
+     */
+    public function deployOutputBufferForSnippets()
+    {
+        return \Kibo\Phast\PhastDocumentFilters::deploy($this->config->getForHTMLSnippets());
+    }
+}
+namespace Kibo\PhastPlugins\SDK\APIs;
+
+/**
+ * Presents convenient methods for common tasks.
+ *
+ * Class Service
+ */
+class Service
+{
+    /**
+     * @var ServiceConfiguration
+     */
+    private $config;
+    /**
+     * Service constructor.
+     * @param ServiceConfiguration $config
+     */
+    public function __construct(\Kibo\PhastPlugins\SDK\Configuration\ServiceConfiguration $config)
+    {
+        $this->config = $config;
+    }
+    /**
+     * Configures the services and serves the request
+     */
+    public function serve()
+    {
+        \Kibo\Phast\PhastServices::serve(function () {
+            return $this->config->get();
+        });
+    }
+}
+namespace Kibo\PhastPlugins\SDK\AdminPanel;
+
+/**
+ * Represents the admin panel used for plugin configuration.
+ * Use this class for rendering the admin panel of the plugin.
+ *
+ * Class AdminPanel
+ */
+class AdminPanel
+{
+    /**
+     * @var PhastUser
+     */
+    private $user;
+    /**
+     * @var URL
+     */
+    private $ajaxEndPoint;
+    /**
+     * @var AdminPanelData
+     */
+    private $data;
+    /**
+     * @var TranslationsManager
+     */
+    private $translations;
+    private $isDev = 'prod';
+    private $scripts = array('prod' => array('main.js'), 'dev' => array('http://localhost:25903/main.js'));
+    /**
+     * AdminPanel constructor.
+     * @param PhastUser $user
+     * @param URL $ajaxEndPoint
+     * @param AdminPanelData $data
+     * @param TranslationsManager $translations
+     * @param bool $isDev
+     */
+    public function __construct(\Kibo\PhastPlugins\SDK\Security\PhastUser $user, \Kibo\Phast\ValueObjects\URL $ajaxEndPoint, \Kibo\PhastPlugins\SDK\AdminPanel\AdminPanelData $data, \Kibo\PhastPlugins\SDK\AdminPanel\TranslationsManager $translations, $isDev)
+    {
+        $this->user = $user;
+        $this->ajaxEndPoint = $ajaxEndPoint;
+        $this->data = $data;
+        $this->translations = $translations;
+        $this->isDev = (bool) $isDev;
+    }
+    /**
+     * Returns the HTML needed to display the admin panel
+     *
+     * @return string
+     */
+    public function render()
+    {
+        if (!$this->user->mayModifySettings()) {
+            return '';
+        }
+        $id = 'phast-plugins-sdk-admin-panel';
+        $template = $this->getResourcesString();
+        $template .= sprintf('
+                <div id="%1$s"></div>
+                <script>
+                try {
+                    window.PHAST_PLUGINS_SDK_ADMIN_PANEL.apply(window, %2$s)
+                } catch (e) {
+                    document.getElementById("%1$s").innerText = "Error: " + e.message
+                    throw e
+                }
+                </script>
+            ', $id, json_encode([$id, $this->ajaxEndPoint->toString(), $this->data->get(), $this->translations->getAll()]));
+        return $template;
+    }
+    private function getResourcesString()
+    {
+        return $this->isDev ? $this->getDevResourcesString() : $this->getProdResources();
+    }
+    private function getProdResources()
+    {
+        $resources = '';
+        $base = __DIR__ . '/static/';
+        foreach ($this->scripts['prod'] as $script) {
+            $resources .= '<script>' . file_get_contents($base . $script) . '</script>';
+        }
+        return $resources;
+    }
+    private function getDevResourcesString()
+    {
+        $resources = '';
+        foreach ($this->scripts['dev'] as $src) {
+            $resources .= "<script src=\"{$src}\"></script>";
+        }
+        return $resources;
     }
 }
 namespace Kibo\PhastPlugins\SDK\AdminPanel;
@@ -7644,97 +7285,6 @@ class Nonce implements \JsonSerializable
 }
 namespace Kibo\PhastPlugins\SDK\AdminPanel;
 
-/**
- * Represents the admin panel used for plugin configuration.
- * Use this class for rendering the admin panel of the plugin.
- *
- * Class AdminPanel
- */
-class AdminPanel
-{
-    /**
-     * @var PhastUser
-     */
-    private $user;
-    /**
-     * @var URL
-     */
-    private $ajaxEndPoint;
-    /**
-     * @var AdminPanelData
-     */
-    private $data;
-    /**
-     * @var TranslationsManager
-     */
-    private $translations;
-    private $isDev = 'prod';
-    private $scripts = array('prod' => array('main.js'), 'dev' => array('http://localhost:25903/main.js'));
-    /**
-     * AdminPanel constructor.
-     * @param PhastUser $user
-     * @param URL $ajaxEndPoint
-     * @param AdminPanelData $data
-     * @param TranslationsManager $translations
-     * @param bool $isDev
-     */
-    public function __construct(\Kibo\PhastPlugins\SDK\Security\PhastUser $user, \Kibo\Phast\ValueObjects\URL $ajaxEndPoint, \Kibo\PhastPlugins\SDK\AdminPanel\AdminPanelData $data, \Kibo\PhastPlugins\SDK\AdminPanel\TranslationsManager $translations, $isDev)
-    {
-        $this->user = $user;
-        $this->ajaxEndPoint = $ajaxEndPoint;
-        $this->data = $data;
-        $this->translations = $translations;
-        $this->isDev = (bool) $isDev;
-    }
-    /**
-     * Returns the HTML needed to display the admin panel
-     *
-     * @return string
-     */
-    public function render()
-    {
-        if (!$this->user->mayModifySettings()) {
-            return '';
-        }
-        $id = 'phast-plugins-sdk-admin-panel';
-        $template = $this->getResourcesString();
-        $template .= sprintf('
-                <div id="%1$s"></div>
-                <script>
-                try {
-                    window.PHAST_PLUGINS_SDK_ADMIN_PANEL.apply(window, %2$s)
-                } catch (e) {
-                    document.getElementById("%1$s").innerText = "Error: " + e.message
-                    throw e
-                }
-                </script>
-            ', $id, json_encode([$id, $this->ajaxEndPoint->toString(), $this->data->get(), $this->translations->getAll()]));
-        return $template;
-    }
-    private function getResourcesString()
-    {
-        return $this->isDev ? $this->getDevResourcesString() : $this->getProdResources();
-    }
-    private function getProdResources()
-    {
-        $resources = '';
-        $base = __DIR__ . '/static/';
-        foreach ($this->scripts['prod'] as $script) {
-            $resources .= '<script>' . file_get_contents($base . $script) . '</script>';
-        }
-        return $resources;
-    }
-    private function getDevResourcesString()
-    {
-        $resources = '';
-        foreach ($this->scripts['dev'] as $src) {
-            $resources .= "<script src=\"{$src}\"></script>";
-        }
-        return $resources;
-    }
-}
-namespace Kibo\PhastPlugins\SDK\AdminPanel;
-
 class TranslationsManager
 {
     const DEFAULT_LOCALE = 'en';
@@ -7792,6 +7342,200 @@ class TranslationsManager
         $params = array_combine($keys, array_values($arguments));
         $params['@:plugin-name'] = $this->pluginName;
         return strtr($string, $params);
+    }
+}
+namespace Kibo\PhastPlugins\SDK;
+
+class Autoloader
+{
+    private static $instance;
+    private $psr4 = array();
+    public static function getInstance()
+    {
+        if (!isset(self::$instance)) {
+            self::$instance = new self();
+            self::$instance->install();
+        }
+        return self::$instance;
+    }
+    public function install()
+    {
+        spl_autoload_register(function ($class) {
+            $this->autoload($class);
+        });
+    }
+    public function addPSR4($namespace, $dir)
+    {
+        $this->psr4[] = [$namespace, $dir];
+        return $this;
+    }
+    private function autoload($class)
+    {
+        foreach ($this->psr4 as $psr4) {
+            list($namespace, $dir) = $psr4;
+            if (strcasecmp($namespace . '\\', substr($class, 0, strlen($namespace) + 1))) {
+                continue;
+            }
+            $relativeName = substr($class, strlen($namespace) + 1);
+            $relativePath = str_replace('\\', '/', $relativeName) . '.php';
+            $fullPath = $dir . '/' . $relativePath;
+            if (file_exists($fullPath)) {
+                include $fullPath;
+                return;
+            }
+        }
+    }
+}
+namespace Kibo\PhastPlugins\SDK\Caching;
+
+interface CacheRootCandidatesProvider
+{
+    /**
+     * Return a list of folders that will potentially be used
+     * for storing cache and service configuration files.
+     * The directories will be checked for write access
+     * in the order they were provided. The first one writable
+     * will be used.
+     *
+     * @return string[]
+     */
+    public function getCacheRootCandidates();
+}
+namespace Kibo\PhastPlugins\SDK\Caching;
+
+class CacheRootManager
+{
+    /**
+     * @var CacheRootCandidatesProvider
+     */
+    private $rootsProvider;
+    /**
+     * CacheRootManager constructor.
+     * @param CacheRootCandidatesProvider $rootsProvider
+     */
+    public function __construct(\Kibo\PhastPlugins\SDK\Caching\CacheRootCandidatesProvider $rootsProvider)
+    {
+        $this->rootsProvider = $rootsProvider;
+    }
+    public function getCacheRootCandidates()
+    {
+        return $this->rootsProvider->getCacheRootCandidates();
+    }
+    public function getCacheRoot()
+    {
+        $key = $this->getKey();
+        $candidates = $this->getCacheRootCandidates();
+        if ($result = $this->findExistingCacheRoot($key, $candidates)) {
+            return $result;
+        }
+        if ($this->createNewCacheRoot($key, $candidates)) {
+            return $this->findExistingCacheRoot($key, $candidates);
+        }
+        return false;
+    }
+    public function hasCacheRoot()
+    {
+        return (bool) $this->getCacheRoot();
+    }
+    public function getAllCacheRoots()
+    {
+        return $this->findAllExistingCacheRoots($this->getKey(), $this->getCacheRootCandidates());
+    }
+    private function getKey()
+    {
+        return md5(@$_SERVER['DOCUMENT_ROOT']) . '.' . (new \Kibo\Phast\Common\System())->getUserId();
+    }
+    private function findExistingCacheRoot($key, $candidates)
+    {
+        foreach ($this->findAllExistingCacheRoots($key, $candidates) as $checkDir) {
+            if (!is_writable($checkDir)) {
+                continue;
+            }
+            if (function_exists('posix_geteuid') && fileowner($checkDir) !== posix_geteuid()) {
+                continue;
+            }
+            $this->createIndexFile($checkDir);
+            return $checkDir;
+        }
+        return false;
+    }
+    private function findAllExistingCacheRoots($key, $candidates)
+    {
+        foreach ($this->getCacheRootCandidates() as $dir) {
+            $checkDirs = ["{$dir}/{$key}", "{$dir}/phastpress.{$key}", "{$dir}/phast.{$key}"];
+            foreach ($checkDirs as $checkDir) {
+                if (!is_dir($checkDir)) {
+                    continue;
+                }
+                (yield $checkDir);
+            }
+        }
+    }
+    private function createNewCacheRoot($key, $candidates)
+    {
+        foreach ($this->getCacheRootCandidates() as $dir) {
+            if (@mkdir("{$dir}/phast.{$key}", 0777, true)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    private function createIndexFile($dir)
+    {
+        $path = "{$dir}/index.html";
+        if (!@file_exists($path)) {
+            @touch($path);
+        }
+    }
+}
+namespace Kibo\PhastPlugins\SDK\Common;
+
+/**
+ * Contains common implementations for methods
+ * of the PluginHost interface
+ *
+ * @see PluginHost
+ * Trait PluginHostTrait
+ */
+trait PluginHostTrait
+{
+    public function getPluginName()
+    {
+        return 'Phast';
+    }
+    public function isDev()
+    {
+        return $this->getPluginHostVersion() === '$VER' . 'SION$';
+    }
+    public function onPhastConfigurationLoad(array $config)
+    {
+        return $config;
+    }
+    public function getLocale()
+    {
+        return 'en';
+    }
+    public function getInstallNoticeRenderer()
+    {
+        return new \Kibo\PhastPlugins\SDK\AdminPanel\DefaultInstallNoticeRenderer();
+    }
+}
+namespace Kibo\PhastPlugins\SDK\Common;
+
+trait PreviewCookieTrait
+{
+    public function seesPreviewMode()
+    {
+        return isset($_COOKIE['PHAST_PREVIEW']) && (bool) $_COOKIE['PHAST_PREVIEW'];
+    }
+}
+namespace Kibo\PhastPlugins\SDK\Common;
+
+trait ServiceHostTrait
+{
+    public function onServiceConfigurationLoad(array $config)
+    {
+        return $config;
     }
 }
 namespace Kibo\PhastPlugins\SDK\Configuration;
@@ -7867,167 +7611,6 @@ class AutoConfiguration
 }
 namespace Kibo\PhastPlugins\SDK\Configuration;
 
-class ServiceConfigurationGenerator
-{
-    /**
-     * @var ServiceConfigurationRepository
-     */
-    private $repository;
-    /**
-     * @var EnvironmentIdentifier
-     */
-    private $environmentIdentifier;
-    /**
-     * @var URL
-     */
-    private $servicesUrl;
-    /**
-     * @var URL
-     */
-    private $cdnServicesUrl;
-    /**
-     * @var string
-     */
-    private $pluginVersion;
-    /**
-     * @var string
-     */
-    private $cdnHost;
-    /**
-     * @var ?string
-     */
-    private $securityTokenRoot;
-    public function __construct(\Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationRepository $repository, \Kibo\PhastPlugins\SDK\Configuration\EnvironmentIdentifier $environmentIdentifier, $pluginVersion, \Kibo\PhastPlugins\SDK\PluginHost $host)
-    {
-        $this->repository = $repository;
-        $this->environmentIdentifier = $environmentIdentifier;
-        $this->pluginVersion = $pluginVersion;
-        $this->securityTokenRoot = $host->getSecurityTokenRoot();
-        $hostUrls = $host->getHostUrls();
-        $this->servicesUrl = $hostUrls->getServicesURL();
-        $this->cdnServicesUrl = $hostUrls->getCDNURL($hostUrls->getServicesURL());
-        $this->cdnHost = $hostUrls->getCDNURL($hostUrls->getSiteURL())->getHost();
-    }
-    public function generateIfNotExists(\Kibo\PhastPlugins\SDK\Configuration\PluginConfiguration $pluginConfig)
-    {
-        if (!$this->repository->has()) {
-            return $this->generate($pluginConfig);
-        }
-        $config = $this->repository->get();
-        $envId = $this->environmentIdentifier->getValue();
-        if (empty($config['plugin_version']) || $config['plugin_version'] != $this->pluginVersion || empty($config['alternativeServicesUrls'][$envId]) || $config['alternativeServicesUrls'][$envId] != $this->getServicesURLString($pluginConfig)) {
-            return $this->generate($pluginConfig);
-        }
-        return true;
-    }
-    public function generate(\Kibo\PhastPlugins\SDK\Configuration\PluginConfiguration $pluginConfig)
-    {
-        $previousConfig = $this->repository->get();
-        $plugin_config = $pluginConfig->get();
-        $plugin_version = $this->pluginVersion;
-        $config = ['plugin_version' => $plugin_version, 'servicesUrl' => $this->getServicesURLString($pluginConfig), 'securityToken' => $this->getSecurityToken($previousConfig), 'images' => ['filters' => [\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class => ['enabled' => $plugin_config['img-optimization-api'], 'plugin-version' => $plugin_version]]], 'styles' => ['filters' => [\Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['enabled' => $plugin_config['img-optimization-css']]]], 'serviceRequestFormat' => $plugin_config['pathinfo-query-format'] ? \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH : \Kibo\Phast\Services\ServiceRequest::FORMAT_QUERY, 'compressServiceResponse' => isset($plugin_config['compress-service-response']) ? !!$plugin_config['compress-service-response'] : true, 'cdnHost' => $this->cdnHost];
-        if (isset($previousConfig['alternativeServicesUrls'])) {
-            $config['alternativeServicesUrls'] = $previousConfig['alternativeServicesUrls'];
-        } else {
-            $config['alternativeServicesUrls'] = [];
-        }
-        $id = $this->environmentIdentifier->getValue();
-        unset($config['alternativeServicesUrls'][$id]);
-        $config['alternativeServicesUrls'][$id] = $this->getServicesURLString($pluginConfig);
-        $config['alternativeServicesUrls'] = array_slice($config['alternativeServicesUrls'], -1000);
-        return $this->repository->store($config);
-    }
-    private function getSecurityToken($previousConfig)
-    {
-        if (!empty($previousConfig['securityToken'])) {
-            return $previousConfig['securityToken'];
-        }
-        if (!empty($this->securityTokenRoot)) {
-            return base64_encode(hash_hmac('sha224', 'Phast security token', $this->securityTokenRoot, true));
-        }
-        return \Kibo\Phast\Security\ServiceSignature::generateToken();
-    }
-    private function getServicesURLString(\Kibo\PhastPlugins\SDK\Configuration\PluginConfiguration $pluginConfig)
-    {
-        $plugin_config = $pluginConfig->get();
-        if ($plugin_config['pathinfo-query-format']) {
-            return (string) $this->cdnServicesUrl;
-        }
-        return (string) $this->servicesUrl;
-    }
-}
-namespace Kibo\PhastPlugins\SDK\Configuration;
-
-/**
- * Represents the configuration
- * that needs to be passed to be returned
- * by the callback passed to
- * \Kibo\Phast\PhastServices::serve()
- *
- * @see \Kibo\Phast\PhastServices::serve()
- * Class ServiceConfiguration
- */
-class ServiceConfiguration
-{
-    /**
-     * @var ServiceConfigurationRepository
-     */
-    private $repository;
-    /**
-     * @var EnvironmentIdentifier
-     */
-    private $environmentIdentifier;
-    /**
-     * @var CacheRootManager
-     */
-    private $cacheRootManager;
-    /**
-     * @var callable
-     */
-    private $onLoadCb;
-    /**
-     * ServiceConfiguration constructor.
-     * @param ServiceConfigurationRepository $repository
-     * @param CacheRootManager $cacheRootManager
-     * @param callable $onLoadCb
-     */
-    public function __construct(\Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationRepository $repository, \Kibo\PhastPlugins\SDK\Configuration\EnvironmentIdentifier $environmentIdentifier, \Kibo\PhastPlugins\SDK\Caching\CacheRootManager $cacheRootManager, callable $onLoadCb)
-    {
-        $this->repository = $repository;
-        $this->environmentIdentifier = $environmentIdentifier;
-        $this->cacheRootManager = $cacheRootManager;
-        $this->onLoadCb = $onLoadCb;
-    }
-    /**
-     * Returns the configuration as config
-     *
-     * @return array|bool|mixed
-     */
-    public function get()
-    {
-        $config = $this->repository->get();
-        $envId = $this->environmentIdentifier->getValue();
-        if (isset($config['alternativeServicesUrls'][$envId])) {
-            $config['servicesUrl'] = $config['alternativeServicesUrls'][$envId];
-        }
-        if (!empty($config['cdnHost'])) {
-            $config['retrieverMap'][$config['cdnHost']] = \Kibo\Phast\HTTP\Request::fromGlobals()->getDocumentRoot();
-        }
-        $config['cache'] = ['cacheRoot' => $this->cacheRootManager->getCacheRoot()];
-        $apiFilterName = \Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class;
-        $api_enabled = $config['images']['filters'][$apiFilterName]['enabled'];
-        if (!$api_enabled) {
-            unset($config['images']['filters'][$apiFilterName]);
-            return call_user_func($this->onLoadCb, $config);
-        }
-        $config['images']['filters'][$apiFilterName]['host-name'] = $_SERVER['HTTP_HOST'];
-        $config['images']['filters'][$apiFilterName]['request-uri'] = $_SERVER['REQUEST_URI'];
-        $config['images']['filters'][$apiFilterName]['api-url'] = 'https://optimize.phast.io/?service=images';
-        return call_user_func($this->onLoadCb, $config);
-    }
-}
-namespace Kibo\PhastPlugins\SDK\Configuration;
-
 class EnvironmentIdentifier
 {
     private $value;
@@ -8039,6 +7622,28 @@ class EnvironmentIdentifier
     {
         return $this->value;
     }
+}
+namespace Kibo\PhastPlugins\SDK\Configuration;
+
+/**
+ * A key-value store for use within the plugin's admin panel
+ *
+ * Interface KeyValueStore
+ */
+interface KeyValueStore
+{
+    /**
+     * @param string $key
+     * @return string|null The previously stored value or
+     *          null if there was no value stored for this key
+     */
+    public function get($key);
+    /**
+     * @param string $key
+     * @param string $value
+     * @return void
+     */
+    public function set($key, $value);
 }
 namespace Kibo\PhastPlugins\SDK\Configuration;
 
@@ -8155,102 +7760,6 @@ class PhastConfiguration
 namespace Kibo\PhastPlugins\SDK\Configuration;
 
 /**
- * Manages serialization of the phast service configuration.
- * Must be as fast as possible, having as little
- * dependency on the host system as possible (ideally - none).
- *
- * Interface ServiceConfigurationRepository
- */
-interface ServiceConfigurationRepository
-{
-    /**
-     * Store the given config
-     *
-     * @param array $config
-     * @return bool TRUE on success, FALSE on failure
-     */
-    public function store(array $config);
-    /**
-     * Returns the previously stored config
-     *
-     * @return array|bool - The config on success or
-     *      FALSE on failure or if no config has been stored
-     */
-    public function get();
-    /**
-     * Tells whether a config has been previously stored
-     *
-     * @return bool
-     */
-    public function has();
-}
-namespace Kibo\PhastPlugins\SDK\Configuration;
-
-class PluginConfigurationRepository
-{
-    /**
-     * @var KeyValueStore
-     */
-    private $store;
-    /**
-     * JSONKeyValueStore constructor.
-     * @param KeyValueStore $store
-     */
-    public function __construct(\Kibo\PhastPlugins\SDK\Configuration\KeyValueStore $store)
-    {
-        $this->store = $store;
-    }
-    /**
-     * @param mixed $key
-     * @param null $default
-     * @return mixed|null
-     */
-    public function get($key, $default = null)
-    {
-        $value = $this->store->get($key);
-        if (!is_string($value) || $value === 'null') {
-            return $default;
-        }
-        $deserialised = @json_decode($value, true);
-        if (is_null($deserialised)) {
-            return $default;
-        }
-        return $deserialised;
-    }
-    /**
-     * @param mixed $key
-     * @param mixed $value
-     */
-    public function set($key, $value)
-    {
-        $this->store->set($key, json_encode($value));
-    }
-}
-namespace Kibo\PhastPlugins\SDK\Configuration;
-
-/**
- * A key-value store for use within the plugin's admin panel
- *
- * Interface KeyValueStore
- */
-interface KeyValueStore
-{
-    /**
-     * @param string $key
-     * @return string|null The previously stored value or
-     *          null if there was no value stored for this key
-     */
-    public function get($key);
-    /**
-     * @param string $key
-     * @param string $value
-     * @return void
-     */
-    public function set($key, $value);
-}
-namespace Kibo\PhastPlugins\SDK\Configuration;
-
-/**
  * Represents the configuration of the plugin
  *
  * Class PluginConfiguration
@@ -8359,357 +7868,238 @@ class PluginConfiguration
 }
 namespace Kibo\PhastPlugins\SDK\Configuration;
 
-/**
- * A default implementation of the ServiceConfigurationRepository interface
- *
- * Class PHPFilesServiceConfigurationRepository
- */
-class PHPFilesServiceConfigurationRepository implements \Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationRepository
+class PluginConfigurationRepository
 {
+    /**
+     * @var KeyValueStore
+     */
+    private $store;
+    /**
+     * JSONKeyValueStore constructor.
+     * @param KeyValueStore $store
+     */
+    public function __construct(\Kibo\PhastPlugins\SDK\Configuration\KeyValueStore $store)
+    {
+        $this->store = $store;
+    }
+    /**
+     * @param mixed $key
+     * @param null $default
+     * @return mixed|null
+     */
+    public function get($key, $default = null)
+    {
+        $value = $this->store->get($key);
+        if (!is_string($value) || $value === 'null') {
+            return $default;
+        }
+        $deserialised = @json_decode($value, true);
+        if (is_null($deserialised)) {
+            return $default;
+        }
+        return $deserialised;
+    }
+    /**
+     * @param mixed $key
+     * @param mixed $value
+     */
+    public function set($key, $value)
+    {
+        $this->store->set($key, json_encode($value));
+    }
+}
+namespace Kibo\PhastPlugins\SDK\Configuration;
+
+/**
+ * Represents the configuration
+ * that needs to be passed to be returned
+ * by the callback passed to
+ * \Kibo\Phast\PhastServices::serve()
+ *
+ * @see \Kibo\Phast\PhastServices::serve()
+ * Class ServiceConfiguration
+ */
+class ServiceConfiguration
+{
+    /**
+     * @var ServiceConfigurationRepository
+     */
+    private $repository;
+    /**
+     * @var EnvironmentIdentifier
+     */
+    private $environmentIdentifier;
     /**
      * @var CacheRootManager
      */
     private $cacheRootManager;
     /**
-     * PHPFilesServiceConfigurationRepository constructor.
-     * @param CacheRootManager $cacheRootManager
+     * @var callable
      */
-    public function __construct(\Kibo\PhastPlugins\SDK\Caching\CacheRootManager $cacheRootManager)
+    private $onLoadCb;
+    /**
+     * ServiceConfiguration constructor.
+     * @param ServiceConfigurationRepository $repository
+     * @param CacheRootManager $cacheRootManager
+     * @param callable $onLoadCb
+     */
+    public function __construct(\Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationRepository $repository, \Kibo\PhastPlugins\SDK\Configuration\EnvironmentIdentifier $environmentIdentifier, \Kibo\PhastPlugins\SDK\Caching\CacheRootManager $cacheRootManager, callable $onLoadCb)
     {
+        $this->repository = $repository;
+        $this->environmentIdentifier = $environmentIdentifier;
         $this->cacheRootManager = $cacheRootManager;
+        $this->onLoadCb = $onLoadCb;
     }
-    public function store(array $config)
-    {
-        return $this->storeInPHPFile($this->getServiceConfigurationFilePath(), $config) !== false;
-    }
+    /**
+     * Returns the configuration as config
+     *
+     * @return array|bool|mixed
+     */
     public function get()
     {
-        $json = $this->readFromPHPFile($this->getServiceConfigurationFilePath());
-        if (!$json) {
-            return false;
+        $config = $this->repository->get();
+        $envId = $this->environmentIdentifier->getValue();
+        if (isset($config['alternativeServicesUrls'][$envId])) {
+            $config['servicesUrl'] = $config['alternativeServicesUrls'][$envId];
         }
-        if (strpos($json, 'a:') === 0) {
-            $config = unserialize($json);
+        if (!empty($config['cdnHost'])) {
+            $config['retrieverMap'][$config['cdnHost']] = \Kibo\Phast\HTTP\Request::fromGlobals()->getDocumentRoot();
+        }
+        $config['cache'] = ['cacheRoot' => $this->cacheRootManager->getCacheRoot()];
+        $apiFilterName = \Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class;
+        $api_enabled = $config['images']['filters'][$apiFilterName]['enabled'];
+        if (!$api_enabled) {
+            unset($config['images']['filters'][$apiFilterName]);
+            return call_user_func($this->onLoadCb, $config);
+        }
+        $config['images']['filters'][$apiFilterName]['host-name'] = $_SERVER['HTTP_HOST'];
+        $config['images']['filters'][$apiFilterName]['request-uri'] = $_SERVER['REQUEST_URI'];
+        $config['images']['filters'][$apiFilterName]['api-url'] = 'https://optimize.phast.io/?service=images';
+        return call_user_func($this->onLoadCb, $config);
+    }
+}
+namespace Kibo\PhastPlugins\SDK\Configuration;
+
+class ServiceConfigurationGenerator
+{
+    /**
+     * @var ServiceConfigurationRepository
+     */
+    private $repository;
+    /**
+     * @var EnvironmentIdentifier
+     */
+    private $environmentIdentifier;
+    /**
+     * @var URL
+     */
+    private $servicesUrl;
+    /**
+     * @var URL
+     */
+    private $cdnServicesUrl;
+    /**
+     * @var string
+     */
+    private $pluginVersion;
+    /**
+     * @var string
+     */
+    private $cdnHost;
+    /**
+     * @var ?string
+     */
+    private $securityTokenRoot;
+    public function __construct(\Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationRepository $repository, \Kibo\PhastPlugins\SDK\Configuration\EnvironmentIdentifier $environmentIdentifier, $pluginVersion, \Kibo\PhastPlugins\SDK\PluginHost $host)
+    {
+        $this->repository = $repository;
+        $this->environmentIdentifier = $environmentIdentifier;
+        $this->pluginVersion = $pluginVersion;
+        $this->securityTokenRoot = $host->getSecurityTokenRoot();
+        $hostUrls = $host->getHostUrls();
+        $this->servicesUrl = $hostUrls->getServicesURL();
+        $this->cdnServicesUrl = $hostUrls->getCDNURL($hostUrls->getServicesURL());
+        $this->cdnHost = $hostUrls->getCDNURL($hostUrls->getSiteURL())->getHost();
+    }
+    public function generateIfNotExists(\Kibo\PhastPlugins\SDK\Configuration\PluginConfiguration $pluginConfig)
+    {
+        if (!$this->repository->has()) {
+            return $this->generate($pluginConfig);
+        }
+        $config = $this->repository->get();
+        $envId = $this->environmentIdentifier->getValue();
+        if (empty($config['plugin_version']) || $config['plugin_version'] != $this->pluginVersion || empty($config['alternativeServicesUrls'][$envId]) || $config['alternativeServicesUrls'][$envId] != $this->getServicesURLString($pluginConfig)) {
+            return $this->generate($pluginConfig);
+        }
+        return true;
+    }
+    public function generate(\Kibo\PhastPlugins\SDK\Configuration\PluginConfiguration $pluginConfig)
+    {
+        $previousConfig = $this->repository->get();
+        $plugin_config = $pluginConfig->get();
+        $plugin_version = $this->pluginVersion;
+        $config = ['plugin_version' => $plugin_version, 'servicesUrl' => $this->getServicesURLString($pluginConfig), 'securityToken' => $this->getSecurityToken($previousConfig), 'images' => ['filters' => [\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class => ['enabled' => $plugin_config['img-optimization-api'], 'plugin-version' => $plugin_version]]], 'styles' => ['filters' => [\Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['enabled' => $plugin_config['img-optimization-css']]]], 'serviceRequestFormat' => $plugin_config['pathinfo-query-format'] ? \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH : \Kibo\Phast\Services\ServiceRequest::FORMAT_QUERY, 'compressServiceResponse' => isset($plugin_config['compress-service-response']) ? !!$plugin_config['compress-service-response'] : true, 'cdnHost' => $this->cdnHost];
+        if (isset($previousConfig['alternativeServicesUrls'])) {
+            $config['alternativeServicesUrls'] = $previousConfig['alternativeServicesUrls'];
         } else {
-            $config = json_decode($json, true);
+            $config['alternativeServicesUrls'] = [];
         }
-        if ($config === null) {
-            return false;
-        }
-        return $config;
+        $id = $this->environmentIdentifier->getValue();
+        unset($config['alternativeServicesUrls'][$id]);
+        $config['alternativeServicesUrls'][$id] = $this->getServicesURLString($pluginConfig);
+        $config['alternativeServicesUrls'] = array_slice($config['alternativeServicesUrls'], -1000);
+        return $this->repository->store($config);
     }
-    public function has()
+    private function getSecurityToken($previousConfig)
     {
-        return !!$this->get();
+        if (!empty($previousConfig['securityToken'])) {
+            return $previousConfig['securityToken'];
+        }
+        if (!empty($this->securityTokenRoot)) {
+            return base64_encode(hash_hmac('sha224', 'Phast security token', $this->securityTokenRoot, true));
+        }
+        return \Kibo\Phast\Security\ServiceSignature::generateToken();
     }
-    private function getServiceConfigurationFilePath()
+    private function getServicesURLString(\Kibo\PhastPlugins\SDK\Configuration\PluginConfiguration $pluginConfig)
     {
-        return $this->getCacheStoredFilePath('service-config');
-    }
-    private function getCacheStoredFilePath($filename)
-    {
-        $dir = $this->cacheRootManager->getCacheRoot();
-        if (!$dir) {
-            return false;
+        $plugin_config = $pluginConfig->get();
+        if ($plugin_config['pathinfo-query-format']) {
+            return (string) $this->cdnServicesUrl;
         }
-        $legacyName = "{$dir}/{$filename}.php";
-        if (@file_exists($legacyName)) {
-            return $legacyName;
-        }
-        foreach (@scandir($dir) as $file) {
-            if (!preg_match('~^' . preg_quote($filename, '~') . '-[a-zA-Z0-9]{16}$~', $file)) {
-                continue;
-            }
-            $path = "{$dir}/{$file}";
-            if (@is_file($path)) {
-                return $path;
-            }
-        }
-        return "{$dir}/service-config-{$this->generateRandomName()}";
-    }
-    private function generateRandomName()
-    {
-        $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        $o = '';
-        for ($i = 0; $i < 16; $i++) {
-            $o .= $chars[mt_rand(0, strlen($chars) - 1)];
-        }
-        return $o;
-    }
-    private function readFromPHPFile($filename)
-    {
-        $content = @file_get_contents($filename);
-        if (!$content) {
-            return false;
-        }
-        if (!preg_match('/^[^>]*>\\n([a-f0-9]{40})\\n(.*)$/s', $content, $match)) {
-            return false;
-        }
-        if (sha1($match[2]) != $match[1]) {
-            return false;
-        }
-        return $match[2];
-    }
-    private function storeInPHPFile($filename, $value)
-    {
-        $value = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n";
-        $content = "<?php exit; ?>\n" . sha1($value) . "\n" . $value;
-        return @file_put_contents($filename, $content, LOCK_EX);
+        return (string) $this->servicesUrl;
     }
 }
-namespace Kibo\PhastPlugins\SDK\APIs;
+namespace Kibo\PhastPlugins\SDK\Configuration;
 
 /**
- * Presents convenient methods for common tasks.
+ * Manages serialization of the phast service configuration.
+ * Must be as fast as possible, having as little
+ * dependency on the host system as possible (ideally - none).
  *
- * Class Service
+ * Interface ServiceConfigurationRepository
  */
-class Service
+interface ServiceConfigurationRepository
 {
     /**
-     * @var ServiceConfiguration
-     */
-    private $config;
-    /**
-     * Service constructor.
-     * @param ServiceConfiguration $config
-     */
-    public function __construct(\Kibo\PhastPlugins\SDK\Configuration\ServiceConfiguration $config)
-    {
-        $this->config = $config;
-    }
-    /**
-     * Configures the services and serves the request
-     */
-    public function serve()
-    {
-        \Kibo\Phast\PhastServices::serve(function () {
-            return $this->config->get();
-        });
-    }
-}
-namespace Kibo\PhastPlugins\SDK\APIs;
-
-/**
- * Presents convenient methods for common tasks.
- *
- * Class Phast
- */
-class Phast
-{
-    /**
-     * @var PhastConfiguration
-     */
-    private $config;
-    /**
-     * PhastAPI constructor.
-     * @param PhastConfiguration $config
-     */
-    public function __construct(\Kibo\PhastPlugins\SDK\Configuration\PhastConfiguration $config)
-    {
-        $this->config = $config;
-    }
-    /**
-     * Applies phast filters to $html
-     * with a configuration suited for full documents
+     * Store the given config
      *
-     * @param $html
-     * @return string
+     * @param array $config
+     * @return bool TRUE on success, FALSE on failure
      */
-    public function applyFiltersForDocument($html)
-    {
-        return \Kibo\Phast\PhastDocumentFilters::apply($html, $this->config->getForDocuments());
-    }
+    public function store(array $config);
     /**
-     * Applies phast filters to $html
-     * with a configuration suited for html snippets
+     * Returns the previously stored config
      *
-     * @param $html
-     * @return string
+     * @return array|bool - The config on success or
+     *      FALSE on failure or if no config has been stored
      */
-    public function applyFiltersForSnippets($html)
-    {
-        return \Kibo\Phast\PhastDocumentFilters::apply($html, $this->config->getForHTMLSnippets());
-    }
+    public function get();
     /**
-     * Deploys phast output buffer filters
-     * with a configuration suited for full documents
-     */
-    public function deployOutputBufferForDocument()
-    {
-        return \Kibo\Phast\PhastDocumentFilters::deploy($this->config->getForDocuments());
-    }
-    /**
-     * Deploys phast output buffer filters
-     * with a configuration suited for html snippets
-     */
-    public function deployOutputBufferForSnippets()
-    {
-        return \Kibo\Phast\PhastDocumentFilters::deploy($this->config->getForHTMLSnippets());
-    }
-}
-namespace Kibo\PhastPlugins\SDK\Caching;
-
-interface CacheRootCandidatesProvider
-{
-    /**
-     * Return a list of folders that will potentially be used
-     * for storing cache and service configuration files.
-     * The directories will be checked for write access
-     * in the order they were provided. The first one writable
-     * will be used.
+     * Tells whether a config has been previously stored
      *
-     * @return string[]
+     * @return bool
      */
-    public function getCacheRootCandidates();
-}
-namespace Kibo\PhastPlugins\SDK\Caching;
-
-class CacheRootManager
-{
-    /**
-     * @var CacheRootCandidatesProvider
-     */
-    private $rootsProvider;
-    /**
-     * CacheRootManager constructor.
-     * @param CacheRootCandidatesProvider $rootsProvider
-     */
-    public function __construct(\Kibo\PhastPlugins\SDK\Caching\CacheRootCandidatesProvider $rootsProvider)
-    {
-        $this->rootsProvider = $rootsProvider;
-    }
-    public function getCacheRootCandidates()
-    {
-        return $this->rootsProvider->getCacheRootCandidates();
-    }
-    public function getCacheRoot()
-    {
-        $key = $this->getKey();
-        $candidates = $this->getCacheRootCandidates();
-        if ($result = $this->findExistingCacheRoot($key, $candidates)) {
-            return $result;
-        }
-        if ($this->createNewCacheRoot($key, $candidates)) {
-            return $this->findExistingCacheRoot($key, $candidates);
-        }
-        return false;
-    }
-    public function hasCacheRoot()
-    {
-        return (bool) $this->getCacheRoot();
-    }
-    public function getAllCacheRoots()
-    {
-        return $this->findAllExistingCacheRoots($this->getKey(), $this->getCacheRootCandidates());
-    }
-    private function getKey()
-    {
-        return md5(@$_SERVER['DOCUMENT_ROOT']) . '.' . (new \Kibo\Phast\Common\System())->getUserId();
-    }
-    private function findExistingCacheRoot($key, $candidates)
-    {
-        foreach ($this->findAllExistingCacheRoots($key, $candidates) as $checkDir) {
-            if (!is_writable($checkDir)) {
-                continue;
-            }
-            if (function_exists('posix_geteuid') && fileowner($checkDir) !== posix_geteuid()) {
-                continue;
-            }
-            $this->createIndexFile($checkDir);
-            return $checkDir;
-        }
-        return false;
-    }
-    private function findAllExistingCacheRoots($key, $candidates)
-    {
-        foreach ($this->getCacheRootCandidates() as $dir) {
-            $checkDirs = ["{$dir}/{$key}", "{$dir}/phastpress.{$key}", "{$dir}/phast.{$key}"];
-            foreach ($checkDirs as $checkDir) {
-                if (!is_dir($checkDir)) {
-                    continue;
-                }
-                (yield $checkDir);
-            }
-        }
-    }
-    private function createNewCacheRoot($key, $candidates)
-    {
-        foreach ($this->getCacheRootCandidates() as $dir) {
-            if (@mkdir("{$dir}/phast.{$key}", 0777, true)) {
-                return true;
-            }
-        }
-        return false;
-    }
-    private function createIndexFile($dir)
-    {
-        $path = "{$dir}/index.html";
-        if (!@file_exists($path)) {
-            @touch($path);
-        }
-    }
-}
-namespace Kibo\PhastPlugins\SDK;
-
-class Autoloader
-{
-    private static $instance;
-    private $psr4 = array();
-    public static function getInstance()
-    {
-        if (!isset(self::$instance)) {
-            self::$instance = new self();
-            self::$instance->install();
-        }
-        return self::$instance;
-    }
-    public function install()
-    {
-        spl_autoload_register(function ($class) {
-            $this->autoload($class);
-        });
-    }
-    public function addPSR4($namespace, $dir)
-    {
-        $this->psr4[] = [$namespace, $dir];
-        return $this;
-    }
-    private function autoload($class)
-    {
-        foreach ($this->psr4 as $psr4) {
-            list($namespace, $dir) = $psr4;
-            if (strcasecmp($namespace . '\\', substr($class, 0, strlen($namespace) + 1))) {
-                continue;
-            }
-            $relativeName = substr($class, strlen($namespace) + 1);
-            $relativePath = str_replace('\\', '/', $relativeName) . '.php';
-            $fullPath = $dir . '/' . $relativePath;
-            if (file_exists($fullPath)) {
-                include $fullPath;
-                return;
-            }
-        }
-    }
-}
-namespace Kibo\PhastPlugins\SDK;
-
-interface ServiceHost
-{
-    /**
-     * @return CacheRootCandidatesProvider
-     */
-    public function getCacheRootCandidatesProvider();
-    /**
-     * Called right after the service configuration
-     * has been loaded. Use it to modify the config
-     * and take any other needed action before
-     * the service is started.
-     *
-     * @param array $config - The configuration that has been loaded
-     * @return array - The configuration to use for the services
-     */
-    public function onServiceConfigurationLoad(array $config);
+    public function has();
 }
 namespace Kibo\PhastPlugins\SDK\Generated;
 
@@ -8719,61 +8109,72 @@ class Translations
 ')), 'Backend' => array('install-notice' => 'Thank you for using <b>@:plugin-name</b>. Optimizations are <b>{pluginState}</b>. Go to <b><a href="{settingsUrl}">Settings</a></b> to configure <b>@:plugin-name</b>.
 ', 'status' => array('on' => 'on', 'off' => 'off', 'admin' => 'on for administrators')), 'Information' => array('additional' => 'Additional information'), 'Notification' => array('error' => 'error', 'warning' => 'warning', 'information' => 'information', 'success' => 'success'), 'OnOffSwitch' => array('on' => 'On', 'off' => 'Off'), 'SavingStatus' => array('saving' => 'Saving', 'saved' => 'Saved'), 'Settings' => array('common' => array('tip' => 'Tip:', 'on' => 'On:', 'off' => 'Off:'), 'sections' => array('plugin' => array('title' => 'Plugin', 'enabled' => array('name' => '@:plugin-name optimizations', 'description' => array('main' => 'Test your site {without} and {with}', 'without' => 'without @:plugin-name', 'with' => 'with @:plugin-name')), 'admin-only' => array('name' => 'Only optimize for administrators', 'description' => array('on' => 'Only privileged users will be served with optimized version', 'off' => 'All users will be served with optimized version', 'tip' => 'Use this to preview your site before launching the optimizations')), 'pathinfo' => array('name' => 'Remove query string from processed resources', 'description' => array('start' => 'Make sure that processed resources don\'t have query strings, for a higher score in GTmetrix.', 'on' => 'Use the path for requests for processed resources. This requires a server that supports "PATH_INFO".', 'off' => 'Use the GET parameters for requests for processed resources.')), 'footer-link' => array('name' => 'Let the world know about @:plugin-name', 'description' => 'Add a "Optimized by @:plugin-name" notice to the footer of your site and help spread the word.'), 'compress-service-response' => array('name' => 'Enable gzip compression on processed resources', 'description' => 'This compresses the optimized and bundled JavaScript and CSS generated by PhastPress. Disable this if your server already compresses PhastPress responses.')), 'images' => array('title' => 'Images', 'tags' => array('name' => 'Optimize images in tags', 'description' => 'Compress images with optimal settings. {newline} Resize images to fit {width}x{height} pixels or to the appropriate size for {imgTag} tags with {widthAttr} or {heightAttr}. {newline} Reload changed images while still leveraging browser caching.'), 'css' => array('name' => 'Optimize images in CSS', 'description' => array(0 => 'Compress images in stylesheets with optional settings and resizes the to fit {width}x{height} pixels.', 1 => 'Reload changed images while still leveraging browser caching.')), 'api' => array('name' => 'Use the Phast Image Optimization API', 'description' => array(0 => 'Optimize your images on our servers free of charge.', 1 => 'This will give you the best possible results without installing any software and will reduce the load on your hosting.')), 'lazy' => array('name' => 'Lazy load images', 'description' => array(0 => 'This adds the loading=lazy attribute to img tags so that images are only load once they are visible on the page.', 1 => 'This helps pass the "Defer offscreen images" audit in PageSpeed Insights.'))), 'html-filters' => array('title' => 'HTML, CSS & JS', 'css' => array('name' => 'Optimize CSS', 'description' => array(0 => 'Incline critical styles first and prevent unused styles from blocking the page load.', 1 => 'Minify stylesheets and leverage browser caching.', 2 => 'Inline Google Fonts CSS to speed up font loading.')), 'async-js' => array('name' => 'Load scripts asynchronously', 'description' => 'Allow the page to finish loading before all scripts have been executed.'), 'minify-js' => array('name' => 'Minify scripts and improve caching', 'description' => array(0 => 'Minify scripts and set long cache durations.', 1 => 'Reload changed scripts while still leveraging browser caching.')), 'iframe' => array('name' => 'Lazy load IFrames', 'description' => 'This adds the loading=lazy attribute to iframe tags so that IFrames are only loaded once they are visible on the page.'), 'minify-html' => array('name' => 'Minify HTML', 'description' => 'Remove unnecessary whitespace from the HTML code of the page.'), 'minify-inline-scripts' => array('name' => 'Minify inline scripts and JSON', 'description' => 'Remove unnecessary whitespace from inline scripts and JSON data.'))))));
 }
-namespace Kibo\PhastPlugins\SDK\AJAX;
+namespace Kibo\PhastPlugins\SDK;
 
 /**
- * Handles AJAX requests to the plugin admin.
- * Use this class to handle requests to the plugin's admin AJAX end point
+ * Provides commonly needed URLs
  *
- * Class RequestsDispatcher
+ * Interface HostURLs
+ * @see URL
  */
-class RequestsDispatcher
+interface HostURLs
 {
-    const KEY_ACTION = 'phast-plugins-action';
     /**
-     * @var PhastUser
-     */
-    private $user;
-    /**
-     * @var SDK
-     */
-    private $sdk;
-    /**
-     * RequestsDispatcher constructor.
-     * @param PhastUser $user
-     * @param SDK $sdk
-     */
-    public function __construct(\Kibo\PhastPlugins\SDK\Security\PhastUser $user, \Kibo\PhastPlugins\SDK\SDK $sdk)
-    {
-        $this->user = $user;
-        $this->sdk = $sdk;
-    }
-    /**
-     * Handles ajax requests to plugin's admin AJAX end point
+     * The URL at which static resource (JS, CSS, IMG)
+     * optimizations reside
      *
-     * @param array $request The $_POST data to the request
-     * @return mixed Must be json encoded and returned to the client
+     * @return URL
      */
-    public function dispatch(array $request)
-    {
-        if (!$this->user->mayModifySettings()) {
-            return false;
-        }
-        $action = isset($request[self::KEY_ACTION]) ? $request[self::KEY_ACTION] : '';
-        if ($action == 'save-settings') {
-            $this->sdk->getPluginConfiguration()->save($request);
-            return $this->makeResponse(true, $this->sdk->getAdminPanelData()->get());
-        }
-        if ($action == 'dismiss-notice') {
-            $this->sdk->getPluginConfiguration()->hideActivationNotification();
-            return $this->makeResponse(true);
-        }
-        return $this->makeResponse(false);
-    }
-    private function makeResponse($success, $data = null)
-    {
-        return ['phast-success' => $success, 'phast-data' => $data];
-    }
+    public function getServicesURL();
+    /**
+     * The full URL of the root of the current site
+     *
+     * @return URL
+     */
+    public function getSiteURL();
+    /**
+     * The CDN equivalent of a specified URL
+     *
+     * @return URL
+     */
+    public function getCDNURL(\Kibo\Phast\ValueObjects\URL $url);
+    /**
+     * URL of the admin page at which
+     * the plugin's settings are located
+     *
+     * @return URL
+     */
+    public function getSettingsURL();
+    /**
+     * URL for admin panel AJAX communication
+     *
+     * @return URL
+     */
+    public function getAJAXEndPoint();
+    /**
+     * A URL to a publicly available image.
+     *
+     * @return URL
+     */
+    public function getTestImageURL();
+}
+namespace Kibo\PhastPlugins\SDK\Security;
+
+/**
+ * Checks whether posted data to the server
+ * contains the expected nonce.
+ *
+ * Interface NonceChecker
+ */
+interface NonceChecker
+{
+    /**
+     * Performs the check
+     *
+     * @param array $data The data posted to the server
+     * @return bool TRUE if all is well, FALSE otherwise
+     */
+    public function checkNonce(array $data);
 }
 namespace Kibo\PhastPlugins\SDK\Security;
 
@@ -8798,100 +8199,73 @@ interface PhastUser
      */
     public function seesPreviewMode();
 }
-namespace Kibo\PhastPlugins\SDK\Security;
+namespace Kibo\PhastPlugins\SDK;
 
-/**
- * Checks whether posted data to the server
- * contains the expected nonce.
- *
- * Interface NonceChecker
- */
-interface NonceChecker
+interface ServiceHost
 {
     /**
-     * Performs the check
-     *
-     * @param array $data The data posted to the server
-     * @return bool TRUE if all is well, FALSE otherwise
+     * @return CacheRootCandidatesProvider
      */
-    public function checkNonce(array $data);
+    public function getCacheRootCandidatesProvider();
+    /**
+     * Called right after the service configuration
+     * has been loaded. Use it to modify the config
+     * and take any other needed action before
+     * the service is started.
+     *
+     * @param array $config - The configuration that has been loaded
+     * @return array - The configuration to use for the services
+     */
+    public function onServiceConfigurationLoad(array $config);
 }
-namespace Kibo\PhastPlugins\SDK\Common;
+namespace Kibo\PhastPlugins\SDK;
 
 /**
- * Contains common implementations for methods
- * of the PluginHost interface
+ * Services container for the Phast Plugins Services SDK
  *
- * @see PluginHost
- * Trait PluginHostTrait
+ * Class SDK
  */
-trait PluginHostTrait
+class ServiceSDK
 {
-    public function getPluginName()
+    /**
+     * @var ServiceHost
+     */
+    protected $host;
+    /**
+     * @var EnvironmentIdentifier
+     */
+    private $environmentIdentifier;
+    public function __construct(\Kibo\PhastPlugins\SDK\ServiceHost $host)
     {
-        return 'Phast';
+        $this->host = $host;
+        $this->environmentIdentifier = new \Kibo\PhastPlugins\SDK\Configuration\EnvironmentIdentifier();
     }
-    public function isDev()
+    public function getServiceAPI()
     {
-        return $this->getPluginHostVersion() === '$VER' . 'SION$';
+        return new \Kibo\PhastPlugins\SDK\APIs\Service($this->getServiceConfiguration());
     }
-    public function onPhastConfigurationLoad(array $config)
+    public function getServiceConfiguration()
     {
-        return $config;
+        return new \Kibo\PhastPlugins\SDK\Configuration\ServiceConfiguration($this->getPHPFilesServiceConfigurationRepository(), $this->getEnvironmentIdentifier(), $this->getCacheRootManager(), [$this->host, 'onServiceConfigurationLoad']);
     }
-    public function getLocale()
+    public function getCacheRootManager()
     {
-        return 'en';
+        return new \Kibo\PhastPlugins\SDK\Caching\CacheRootManager($this->host->getCacheRootCandidatesProvider());
     }
-    public function getInstallNoticeRenderer()
+    /**
+     * Returns a default implementation of the
+     * ServiceConfigurationRepository interface
+     *
+     * @see ServiceConfigurationRepository
+     * @return PHPFilesServiceConfigurationRepository
+     */
+    public function getPHPFilesServiceConfigurationRepository()
     {
-        return new \Kibo\PhastPlugins\SDK\AdminPanel\DefaultInstallNoticeRenderer();
+        return new \Kibo\PhastPlugins\SDK\Configuration\PHPFilesServiceConfigurationRepository($this->getCacheRootManager());
     }
-}
-namespace Kibo\PhastPlugins\SDK\Common;
-
-trait ServiceHostTrait
-{
-    public function onServiceConfigurationLoad(array $config)
+    public function getEnvironmentIdentifier()
     {
-        return $config;
-    }
-}
-namespace Kibo\PhastPlugins\SDK\Common;
-
-trait PreviewCookieTrait
-{
-    public function seesPreviewMode()
-    {
-        return isset($_COOKIE['PHAST_PREVIEW']) && (bool) $_COOKIE['PHAST_PREVIEW'];
-    }
-}
-namespace Kibo\Phast\Environment\Exceptions;
-
-class PackageHasNoDiagnosticsException extends \Kibo\Phast\Exceptions\LogicException
-{
-}
-namespace Kibo\Phast\Environment\Exceptions;
-
-class PackageHasNoFactoryException extends \Kibo\Phast\Exceptions\LogicException
-{
-}
-namespace Kibo\Phast\Cache\File;
-
-class DiagnosticsLogWriter implements \Kibo\Phast\Logging\LogWriter
-{
-    public function setLevelMask($mask)
-    {
-    }
-    public function writeEntry(\Kibo\Phast\Logging\LogEntry $entry)
-    {
-        if ($entry->getLevel() > 2) {
-            $needles = array_map(function ($key) {
-                return '{' . $key . '}';
-            }, array_keys($entry->getContext()));
-            $message = str_replace($needles, $entry->getContext(), $entry->getMessage());
-            throw new \Kibo\Phast\Exceptions\RuntimeException("Error: Level: {$entry->getLevel()}, Msg: {$message}");
-        }
+        return $this->environmentIdentifier;
     }
 }
 namespace Kibo\Phast\Cache\File;
@@ -8913,6 +8287,632 @@ class Diagnostics implements \Kibo\Phast\Diagnostics\Diagnostics
         }
     }
 }
+namespace Kibo\Phast\Cache\File;
+
+class DiagnosticsLogWriter implements \Kibo\Phast\Logging\LogWriter
+{
+    public function setLevelMask($mask)
+    {
+    }
+    public function writeEntry(\Kibo\Phast\Logging\LogEntry $entry)
+    {
+        if ($entry->getLevel() > 2) {
+            $needles = array_map(function ($key) {
+                return '{' . $key . '}';
+            }, array_keys($entry->getContext()));
+            $message = str_replace($needles, $entry->getContext(), $entry->getMessage());
+            throw new \Kibo\Phast\Exceptions\RuntimeException("Error: Level: {$entry->getLevel()}, Msg: {$message}");
+        }
+    }
+}
+namespace Kibo\Phast\Cache\File;
+
+class DiskCleanup extends \Kibo\Phast\Cache\File\ProbabilisticExecutor
+{
+    /**
+     * @var integer
+     */
+    private $maxSize;
+    /**
+     * @var float
+     */
+    private $portionToFree;
+    public function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    {
+        $this->maxSize = $config['diskCleanup']['maxSize'];
+        $this->probability = $config['diskCleanup']['probability'];
+        $this->portionToFree = $config['diskCleanup']['portionToFree'];
+        parent::__construct($config, $functions);
+    }
+    protected function execute()
+    {
+        $usedSpace = $this->calculateUsedSpace();
+        $neededSpace = round($this->portionToFree * $this->maxSize);
+        $bytesToDelete = $usedSpace - $this->maxSize + $neededSpace;
+        $deletedBytes = 0;
+        /** @var \SplFileInfo $file */
+        foreach ($this->getCacheFiles($this->cacheRoot) as $file) {
+            if ($deletedBytes >= $bytesToDelete) {
+                break;
+            }
+            $deletedBytes += $file->getSize();
+            @unlink($file->getRealPath());
+        }
+    }
+    private function calculateUsedSpace()
+    {
+        $size = 0;
+        /** @var \SplFileInfo $file */
+        foreach ($this->getCacheFiles($this->cacheRoot) as $file) {
+            $size += $file->getSize();
+        }
+        return $size;
+    }
+}
+namespace Kibo\Phast\Cache\File;
+
+class GarbageCollector extends \Kibo\Phast\Cache\File\ProbabilisticExecutor
+{
+    /**
+     * @var integer
+     */
+    private $shardingDepth;
+    /**
+     * @var integer
+     */
+    private $gcMaxAge;
+    /**
+     * @var integer
+     */
+    private $gcMaxItems;
+    public function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    {
+        $this->shardingDepth = $config['shardingDepth'];
+        $this->gcMaxAge = $config['garbageCollection']['maxAge'];
+        $this->gcMaxItems = $config['garbageCollection']['maxItems'];
+        $this->probability = $config['garbageCollection']['probability'];
+        parent::__construct($config, $functions);
+    }
+    protected function execute()
+    {
+        $files = $this->getCacheFiles($this->cacheRoot);
+        $deleted = 0;
+        /** @var \SplFileInfo $file */
+        foreach ($this->filterOldFiles($files) as $file) {
+            @$this->functions->unlink($file->getRealPath());
+            $deleted++;
+            if ($deleted == $this->gcMaxItems) {
+                break;
+            }
+        }
+    }
+    /**
+     * @param \Iterator $files
+     * @return \Generator
+     */
+    private function filterOldFiles(\Iterator $files)
+    {
+        $maxTimeModified = time() - $this->gcMaxAge;
+        /** @var \SplFileInfo $file */
+        foreach ($files as $file) {
+            if ($file->getMTime() < $maxTimeModified) {
+                (yield $file);
+            }
+        }
+    }
+}
+namespace Kibo\Phast\Common;
+
+class JSMinifier extends \Kibo\Phast\JSMin\JSMin
+{
+    protected $removeLicenseHeaders;
+    public function __construct($input, $removeLicenseHeaders = false)
+    {
+        parent::__construct($input);
+        $this->removeLicenseHeaders = $removeLicenseHeaders;
+    }
+    protected function consumeMultipleLineComment()
+    {
+        parent::consumeMultipleLineComment();
+        if ($this->removeLicenseHeaders) {
+            $this->keptComment = preg_replace('~/\\*!.*?\\*/~s', '', $this->keptComment);
+        }
+    }
+}
+namespace Kibo\Phast\Environment\Exceptions;
+
+class PackageHasNoDiagnosticsException extends \Kibo\Phast\Exceptions\LogicException
+{
+}
+namespace Kibo\Phast\Environment\Exceptions;
+
+class PackageHasNoFactoryException extends \Kibo\Phast\Exceptions\LogicException
+{
+}
+namespace Kibo\Phast\Filters\CSS\CSSMinifier;
+
+class Filter implements \Kibo\Phast\Services\ServiceFilter
+{
+    /**
+     * @param Resource $resource
+     * @param array $request
+     * @return Resource
+     */
+    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
+    {
+        $content = $resource->getContent();
+        // Normalize whitespace
+        $content = preg_replace('~\\s+~', ' ', $content);
+        // Remove whitespace before and after operators
+        $chars = [',', '{', '}', ';'];
+        foreach ($chars as $char) {
+            $content = str_replace("{$char} ", $char, $content);
+            $content = str_replace(" {$char}", $char, $content);
+        }
+        // Remove whitespace after colons
+        $content = str_replace(': ', ':', $content);
+        return $resource->withContent(trim($content));
+    }
+}
+namespace Kibo\Phast\Filters\CSS\CSSURLRewriter;
+
+class Filter implements \Kibo\Phast\Services\ServiceFilter
+{
+    /**
+     * @param Resource $resource
+     * @param array $request
+     * @return Resource
+     */
+    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
+    {
+        $baseUrl = $resource->getUrl();
+        $callback = function ($match) use($baseUrl) {
+            if (preg_match('~^[a-z]+:|^#~i', $match[3])) {
+                return $match[0];
+            }
+            return $match[1] . \Kibo\Phast\ValueObjects\URL::fromString($match[3])->withBase($baseUrl) . $match[4];
+        };
+        $cssContent = preg_replace_callback('~
+                \\b
+                ( url\\( \\s*+ ([\'"]?) )
+                ([A-Za-z0-9_/.:?&=+%,#@-]+)
+                ( \\2 \\s*+ \\) )
+            ~x', $callback, $resource->getContent());
+        $cssContent = preg_replace_callback('~
+                ( @import \\s+ ([\'"]) )
+                ([A-Za-z0-9_/.:?&=+%,#@-]+)
+                ( \\2 )
+            ~x', $callback, $cssContent);
+        return $resource->withContent($cssContent);
+    }
+}
+namespace Kibo\Phast\Filters\CSS\CommentsRemoval;
+
+class Filter implements \Kibo\Phast\Services\ServiceFilter
+{
+    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
+    {
+        $content = preg_replace('~/\\*[^*]*\\*+([^/*][^*]*\\*+)*/~', '', $resource->getContent());
+        return $resource->withContent($content);
+    }
+}
+namespace Kibo\Phast\Filters\CSS\FontSwap;
+
+class Filter implements \Kibo\Phast\Services\ServiceFilter
+{
+    const FONT_FACE_REGEXP = '/(@font-face\\s*\\{)([^}]*)/i';
+    const ICON_FONT_FAMILIES = array('Font Awesome', 'GeneratePress', 'Dashicons', 'Ionicons');
+    private $fontDisplayBlockPattern;
+    public function __construct()
+    {
+        $this->fontDisplayBlockPattern = $this->getFontDisplayBlockPattern();
+    }
+    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
+    {
+        $css = $resource->getContent();
+        $filtered = preg_replace_callback(self::FONT_FACE_REGEXP, function ($match) {
+            list($block, $start, $contents) = $match;
+            $mode = preg_match($this->fontDisplayBlockPattern, $contents) ? 'block' : 'swap';
+            return $start . 'font-display:' . $mode . ';' . $contents;
+        }, $css);
+        return $resource->withContent($filtered);
+    }
+    private function getFontDisplayBlockPattern()
+    {
+        $patterns = [];
+        foreach (self::ICON_FONT_FAMILIES as $family) {
+            $chars = str_split($family);
+            $chars = array_map(function ($char) {
+                return preg_quote($char, '~');
+            }, $chars);
+            $patterns[] = implode('\\s*', $chars);
+        }
+        return '~' . implode('|', $patterns) . '~i';
+    }
+}
+namespace Kibo\Phast\Filters\HTML;
+
+abstract class BaseHTMLStreamFilter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
+{
+    /**
+     * @var HTMLPageContext
+     */
+    protected $context;
+    /**
+     * @var \Traversable
+     */
+    protected $elements;
+    /**
+     * @param Tag $tag
+     * @return Element[]|\Generator
+     */
+    protected abstract function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag);
+    public function transformElements(\Traversable $elements, \Kibo\Phast\Filters\HTML\HTMLPageContext $context)
+    {
+        $this->context = $context;
+        $this->elements = $elements;
+        $this->beforeLoop();
+        foreach ($this->elements as $element) {
+            if ($element instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag && $this->isTagOfInterest($element)) {
+                foreach ($this->handleTag($element) as $item) {
+                    (yield $item);
+                }
+            } else {
+                (yield $element);
+            }
+        }
+        $this->afterLoop();
+    }
+    /**
+     * @param Tag $tag
+     * @return bool
+     */
+    protected function isTagOfInterest(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
+    {
+        return true;
+    }
+    protected function beforeLoop()
+    {
+    }
+    protected function afterLoop()
+    {
+    }
+}
+namespace Kibo\Phast\Filters\HTML\BaseURLSetter;
+
+class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
+{
+    protected function isTagOfInterest(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
+    {
+        return $tag->getTagName() == 'base' && $tag->hasAttribute('href');
+    }
+    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
+    {
+        $base = \Kibo\Phast\ValueObjects\URL::fromString($tag->getAttribute('href'));
+        $current = $this->context->getBaseUrl();
+        $this->context->setBaseUrl($base->withBase($current));
+        (yield $tag);
+    }
+}
+namespace Kibo\Phast\Filters\HTML\CSSInlining;
+
+class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
+{
+    public function make(array $config)
+    {
+        $localRetriever = new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']);
+        $retriever = new \Kibo\Phast\Retrievers\UniversalRetriever();
+        $retriever->addRetriever($localRetriever);
+        $retriever->addRetriever(new \Kibo\Phast\Retrievers\CachingRetriever(new \Kibo\Phast\Cache\File\Cache($config['cache'], 'css')));
+        if (!isset($config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class]['serviceUrl'])) {
+            $config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class]['serviceUrl'] = $config['servicesUrl'];
+        }
+        return new \Kibo\Phast\Filters\HTML\CSSInlining\Filter((new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config), \Kibo\Phast\ValueObjects\URL::fromString($config['documents']['baseUrl']), $config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class], $localRetriever, $retriever, new \Kibo\Phast\Filters\HTML\CSSInlining\OptimizerFactory($config), (new \Kibo\Phast\Filters\CSS\Composite\Factory())->make($config), (new \Kibo\Phast\Services\Bundler\TokenRefMakerFactory())->make($config), $config['cspNonce']);
+    }
+}
+namespace Kibo\Phast\Filters\HTML\CSSInlining;
+
+class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
+{
+    use \Kibo\Phast\Logging\LoggingTrait;
+    const CSS_IMPORTS_REGEXP = '~
+        @import \\s++
+        ( url \\( )?+                # url() is optional
+        ( (?(1) ["\']?+ | ["\'] ) ) # without url() a quote is necessary
+        \\s*+ (?<url>[A-Za-z0-9_/.:?&=+%,-]++) \\s*+
+        \\2                          # match ending quote
+        (?(1)\\))                    # match closing paren if url( was used
+        \\s*+ ;
+    ~xi';
+    /**
+     * @var ServiceSignature
+     */
+    private $signature;
+    /**
+     * @var int
+     */
+    private $maxInlineDepth = 2;
+    /**
+     * @var URL
+     */
+    private $baseURL;
+    /**
+     * @var string[]
+     */
+    private $whitelist = array();
+    /**
+     * @var string
+     */
+    private $serviceUrl;
+    /**
+     * @var int
+     */
+    private $optimizerSizeDiffThreshold;
+    /**
+     * @var Retriever
+     */
+    private $localRetriever;
+    /**
+     * @var Retriever
+     */
+    private $retriever;
+    /**
+     * @var OptimizerFactory
+     */
+    private $optimizerFactory;
+    /**
+     * @var ServiceFilter
+     */
+    private $cssFilter;
+    /**
+     * @var Optimizer
+     */
+    private $optimizer;
+    /**
+     * @var TokenRefMaker
+     */
+    private $tokenRefMaker;
+    /**
+     * @var string[]
+     */
+    private $cacheMarkers = array();
+    /**
+     * @var string
+     */
+    private $cspNonce;
+    public function __construct(\Kibo\Phast\Security\ServiceSignature $signature, \Kibo\Phast\ValueObjects\URL $baseURL, array $config, \Kibo\Phast\Retrievers\Retriever $localRetriever, \Kibo\Phast\Retrievers\Retriever $retriever, \Kibo\Phast\Filters\HTML\CSSInlining\OptimizerFactory $optimizerFactory, \Kibo\Phast\Services\ServiceFilter $cssFilter, \Kibo\Phast\Services\Bundler\TokenRefMaker $tokenRefMaker, $cspNonce)
+    {
+        $this->signature = $signature;
+        $this->baseURL = $baseURL;
+        $this->serviceUrl = \Kibo\Phast\ValueObjects\URL::fromString((string) $config['serviceUrl']);
+        $this->optimizerSizeDiffThreshold = (int) $config['optimizerSizeDiffThreshold'];
+        $this->localRetriever = $localRetriever;
+        $this->retriever = $retriever;
+        $this->optimizerFactory = $optimizerFactory;
+        $this->cssFilter = $cssFilter;
+        $this->tokenRefMaker = $tokenRefMaker;
+        $this->cspNonce = $cspNonce;
+        foreach ($config['whitelist'] as $key => $value) {
+            if (!is_array($value)) {
+                $this->whitelist[$value] = ['ieCompatible' => true];
+                $key = $value;
+            } else {
+                $this->whitelist[$key] = $value;
+            }
+        }
+    }
+    protected function beforeLoop()
+    {
+        $this->elements = iterator_to_array($this->elements);
+        $this->optimizer = $this->optimizerFactory->makeForElements(new \ArrayIterator($this->elements));
+    }
+    protected function isTagOfInterest(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
+    {
+        return $tag->getTagName() == 'style' || $tag->getTagName() == 'link' && $tag->getAttribute('rel') == 'stylesheet' && $tag->hasAttribute('href');
+    }
+    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
+    {
+        if ($tag->getTagName() == 'link') {
+            return $this->inlineLink($tag, $this->context->getBaseUrl());
+        }
+        return $this->inlineStyle($tag);
+    }
+    protected function afterLoop()
+    {
+        $this->addIEFallbackScript();
+        $this->addInlinedRetrieverScript();
+    }
+    private function inlineLink(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $link, \Kibo\Phast\ValueObjects\URL $baseUrl)
+    {
+        $href = trim($link->getAttribute('href'));
+        if (trim($href, '/') == '') {
+            return [$link];
+        }
+        $location = \Kibo\Phast\ValueObjects\URL::fromString($href)->withBase($baseUrl);
+        if (!$this->findInWhitelist($location) && !$this->localRetriever->getCacheSalt($location)) {
+            return [$link];
+        }
+        $media = $link->getAttribute('media');
+        if (preg_match('~^\\s*(this\\.)?media\\s*=\\s*(?<q>[\'"])(?<m>((?!\\k<q>).)+?)\\k<q>\\s*(;|$)~', $link->getAttribute('onload'), $match)) {
+            $media = $match['m'];
+        }
+        $elements = $this->inlineURL($location, $media);
+        return is_null($elements) ? [$link] : $elements;
+    }
+    private function inlineStyle(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $style)
+    {
+        $processed = $this->cssFilter->apply(\Kibo\Phast\ValueObjects\Resource::makeWithContent($this->baseURL, $style->textContent), [])->getContent();
+        $elements = $this->inlineCSS($this->baseURL, $processed, $style->getAttribute('media'), false);
+        if (($id = $style->getAttribute('id')) != '') {
+            if (sizeof($elements) == 1) {
+                $elements[0]->setAttribute('id', $id);
+            } else {
+                foreach ($elements as $element) {
+                    $element->setAttribute('data-phast-original-id', $id);
+                }
+            }
+        }
+        return $elements;
+    }
+    private function findInWhitelist(\Kibo\Phast\ValueObjects\URL $url)
+    {
+        $stringUrl = (string) $url;
+        foreach ($this->whitelist as $pattern => $settings) {
+            if (preg_match($pattern, $stringUrl)) {
+                return $settings;
+            }
+        }
+        return false;
+    }
+    /**
+     * @param URL $url
+     * @param string $media
+     * @param boolean $ieCompatible
+     * @param int $currentLevel
+     * @param string[] $seen
+     * @return Tag[]|null
+     * @throws \Kibo\Phast\Exceptions\ItemNotFoundException
+     */
+    private function inlineURL(\Kibo\Phast\ValueObjects\URL $url, $media, $ieCompatible = true, $currentLevel = 0, $seen = array())
+    {
+        $whitelistEntry = $this->findInWhitelist($url);
+        if (!$whitelistEntry) {
+            $whitelistEntry = !!$this->localRetriever->getCacheSalt($url);
+        }
+        if (!$whitelistEntry) {
+            $this->logger()->info('Not inlining {url}. Not in whitelist', ['url' => $url]);
+            return [$this->makeLink($url, $media)];
+        }
+        if (isset($whitelistEntry['ieCompatible']) && !$whitelistEntry['ieCompatible']) {
+            $ieFallbackUrl = $ieCompatible ? $url : null;
+            $ieCompatible = false;
+        } else {
+            $ieFallbackUrl = null;
+        }
+        if (in_array($url, $seen)) {
+            return [];
+        }
+        if ($currentLevel > $this->maxInlineDepth) {
+            return $this->addIEFallback($ieFallbackUrl, [$this->makeLink($url, $media)]);
+        }
+        $seen[] = $url;
+        $this->logger()->info('Inlining {url}.', ['url' => (string) $url]);
+        $content = $this->retriever->retrieve($url);
+        if ($content === false) {
+            return $this->addIEFallback($ieFallbackUrl, [$this->makeServiceLink($url, $media)]);
+        }
+        $content = $this->cssFilter->apply(\Kibo\Phast\ValueObjects\Resource::makeWithContent($url, $content), [])->getContent();
+        $this->cacheMarkers[$url->toString()] = \Kibo\Phast\Common\Base64url::shortHash(implode("\0", [$this->retriever->getCacheSalt($url), $content]));
+        $optimized = $this->optimizer->optimizeCSS($content);
+        if ($optimized === null) {
+            $this->logger()->error('CSS optimizer failed for {url}', ['url' => (string) $url]);
+            return null;
+        }
+        $isOptimized = false;
+        if (strlen($content) - strlen($optimized) > $this->optimizerSizeDiffThreshold) {
+            $content = $optimized;
+            $isOptimized = true;
+        }
+        $elements = $this->inlineCSS($url, $content, $media, $isOptimized, $ieCompatible, $currentLevel, $seen);
+        $this->addIEFallback($ieFallbackUrl, $elements);
+        return $elements;
+    }
+    private function inlineCSS(\Kibo\Phast\ValueObjects\URL $url, $content, $media, $optimized, $ieCompatible = true, $currentLevel = 0, $seen = array())
+    {
+        $urlMatches = $this->getImportedURLs($content);
+        $elements = [];
+        foreach ($urlMatches as $match) {
+            $matchedUrl = \Kibo\Phast\ValueObjects\URL::fromString($match['url'])->withBase($url);
+            $replacement = $this->inlineURL($matchedUrl, $media, $ieCompatible, $currentLevel + 1, $seen);
+            if ($replacement !== null) {
+                $content = str_replace($match[0], '', $content);
+                $elements = array_merge($elements, $replacement);
+            }
+        }
+        $elements[] = $this->makeStyle($url, $content, $media, $optimized);
+        return $elements;
+    }
+    private function addIEFallback(\Kibo\Phast\ValueObjects\URL $fallbackUrl = null, array $elements = null)
+    {
+        if ($fallbackUrl === null || !$elements) {
+            return $elements;
+        }
+        foreach ($elements as $element) {
+            $element->setAttribute('data-phast-nested-inlined', '');
+        }
+        $element->setAttribute('data-phast-ie-fallback-url', (string) $fallbackUrl);
+        $element->removeAttribute('data-phast-nested-inlined');
+        $this->logger()->info('Set {url} as IE fallback URL', ['url' => (string) $fallbackUrl]);
+        return $elements;
+    }
+    private function addIEFallbackScript()
+    {
+        $this->logger()->info('Adding IE fallback script');
+        $this->context->addPhastJavaScript(\Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/CSSInlining/ie-fallback.js', "(function(){var a=function(){if(!(\"FontFace\"in window)){return false}var b=new FontFace(\"t\",'url( \"data:font/woff2;base64,d09GMgABAAAAAADwAAoAAAAAAiQAAACoAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAALAogOAE2AiQDBgsGAAQgBSAHIBuDAciO1EZ3I/mL5/+5/rfPnTt9/9Qa8H4cUUZxaRbh36LiKJoVh61XGzw6ufkpoeZBW4KphwFYIJGHB4LAY4hby++gW+6N1EN94I49v86yCpUdYgqeZrOWN34CMQg2tAmthdli0eePIwAKNIIRS4AGZFzdX9lbBUAQlm//f262/61o8PlYO/D1/X4FrWFFgdCQD9DpGJSxmFyjOAGUU4P0qigcNb82GAAA\" ) format( \"woff2\" )',{});b.load()[\"catch\"](function(){});return b.status==\"loading\"||b.status==\"loaded\"}();if(a){return}console.log(\"[Phast] Browser does not support WOFF2, falling back to original stylesheets\");Array.prototype.forEach.call(document.querySelectorAll(\"style[data-phast-ie-fallback-url]\"),function(c){var d=document.createElement(\"link\");if(c.hasAttribute(\"media\")){d.setAttribute(\"media\",c.getAttribute(\"media\"))}d.setAttribute(\"rel\",\"stylesheet\");d.setAttribute(\"href\",c.getAttribute(\"data-phast-ie-fallback-url\"));c.parentNode.insertBefore(d,c);c.parentNode.removeChild(c)});Array.prototype.forEach.call(document.querySelectorAll(\"style[data-phast-nested-inlined]\"),function(e){e.parentNode.removeChild(e)})})();\n"));
+    }
+    private function addInlinedRetrieverScript()
+    {
+        $this->logger()->info('Adding inlined retriever script');
+        $this->context->addPhastJavaScript(\Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/CSSInlining/inlined-css-retriever.js', "phast.stylesLoading=0;var resourceLoader=phast.ResourceLoader.instance;phast.forEachSelectedElement(\"style[data-phast-params]\",function(a){var b=a.getAttribute(\"data-phast-params\");var c=phast.ResourceLoader.RequestParams.fromString(b);phast.stylesLoading++;resourceLoader.get(c).then(function(d){a.textContent=d;a.removeAttribute(\"data-phast-params\")}).catch(function(e){console.warn(\"[Phast] Failed to load CSS\",c,e);var f=a.getAttribute(\"data-phast-original-src\");if(!f){console.error(\"[Phast] No data-phast-original-src on <style>!\",a);return}console.info(\"[Phast] Falling back to <link> element for\",f);var g=document.createElement(\"link\");g.href=f;g.media=a.media;g.rel=\"stylesheet\";g.addEventListener(\"load\",function(){if(a.parentNode){a.parentNode.removeChild(a)}});a.parentNode.insertBefore(g,a.nextSibling)}).finally(function(){phast.stylesLoading--;if(phast.stylesLoading===0&&phast.onStylesLoaded){phast.onStylesLoaded()}})});(function(){var h=[];phast.forEachSelectedElement(\"style[data-phast-original-id]\",function(i){var j=i.getAttribute(\"data-phast-original-id\");if(h[j]){return}h[j]=true;console.warn(\"[Phast] The style element with id\",j,\"has been split into multiple style tags due to @import statements and the id attribute has been removed. Normally, this does not cause any issues.\")})})();\n"));
+    }
+    private function getImportedURLs($cssContent)
+    {
+        preg_match_all(self::CSS_IMPORTS_REGEXP, $cssContent, $matches, PREG_SET_ORDER);
+        return $matches;
+    }
+    private function makeStyle(\Kibo\Phast\ValueObjects\URL $url, $content, $media, $optimized, $stripImports = true)
+    {
+        $style = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag('style');
+        if ($media !== '' && $media !== 'all') {
+            $style->setAttribute('media', $media);
+        }
+        if ($optimized) {
+            $style->setAttribute('data-phast-original-src', $url->toString());
+            $style->setAttribute('data-phast-params', $this->makeServiceParams($url, $stripImports));
+        }
+        if ($this->cspNonce) {
+            $style->setAttribute('nonce', $this->cspNonce);
+        }
+        $content = preg_replace('~(</)(style)~i', '$1 $2', $content);
+        $style->setTextContent($content);
+        return $style;
+    }
+    private function makeLink(\Kibo\Phast\ValueObjects\URL $url, $media)
+    {
+        $link = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag('link', ['rel' => 'stylesheet', 'href' => (string) $url]);
+        if ($media !== '') {
+            $link->setAttribute('media', $media);
+        }
+        return $link;
+    }
+    private function makeServiceLink(\Kibo\Phast\ValueObjects\URL $location, $media)
+    {
+        $url = $this->makeServiceURL($location);
+        return $this->makeLink(\Kibo\Phast\ValueObjects\URL::fromString($url), $media);
+    }
+    protected function makeServiceParams(\Kibo\Phast\ValueObjects\URL $originalLocation, $stripImports = false)
+    {
+        if (isset($this->cacheMarkers[$originalLocation->toString()])) {
+            $cacheMarker = $this->cacheMarkers[$originalLocation->toString()];
+        } else {
+            $cacheMarker = $this->retriever->getCacheSalt($originalLocation);
+        }
+        $src = $originalLocation;
+        if ($this->localRetriever->getCacheSalt($src)) {
+            $src = $originalLocation->withoutQuery();
+        }
+        $params = ['src' => (string) $src, 'cacheMarker' => $cacheMarker];
+        if ($stripImports) {
+            $params['strip-imports'] = 1;
+        }
+        return \Kibo\Phast\Services\Bundler\ServiceParams::fromArray($params)->sign($this->signature)->replaceByTokenRef($this->tokenRefMaker)->serialize();
+    }
+    protected function makeServiceURL(\Kibo\Phast\ValueObjects\URL $originalLocation)
+    {
+        $params = ['service' => 'css', 'src' => (string) $originalLocation, 'cacheMarker' => $this->retriever->getCacheSalt($originalLocation)];
+        return (new \Kibo\Phast\Services\ServiceRequest())->withUrl($this->serviceUrl)->withParams($params)->sign($this->signature)->serialize();
+    }
+}
 namespace Kibo\Phast\Filters\HTML\CommentsRemoval;
 
 class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
@@ -8924,6 +8924,93 @@ class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
                 (yield $element);
             }
         }
+    }
+}
+namespace Kibo\Phast\Filters\HTML\DelayedIFrameLoading;
+
+class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
+{
+    use \Kibo\Phast\Logging\LoggingTrait;
+    protected function isTagOfInterest(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
+    {
+        return $tag->getTagName() == 'iframe' && $tag->hasAttribute('src');
+    }
+    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
+    {
+        if (!$tag->hasAttribute('loading')) {
+            $tag->setAttribute('loading', 'lazy');
+        }
+        (yield $tag);
+    }
+}
+namespace Kibo\Phast\Filters\HTML\Diagnostics;
+
+class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
+{
+    public function make(array $config)
+    {
+        $url = isset($config['documents']['filters'][\Kibo\Phast\Filters\HTML\Diagnostics\Filter::class]['serviceUrl']) ? $config['documents']['filters'][\Kibo\Phast\Filters\HTML\Diagnostics\Filter::class]['serviceUrl'] : $config['servicesUrl'] . '?service=diagnostics';
+        return new \Kibo\Phast\Filters\HTML\Diagnostics\Filter($url);
+    }
+}
+namespace Kibo\Phast\Filters\HTML\Diagnostics;
+
+class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
+{
+    private $serviceUrl;
+    public function __construct($serviceUrl)
+    {
+        $this->serviceUrl = $serviceUrl;
+    }
+    public function transformElements(\Traversable $elements, \Kibo\Phast\Filters\HTML\HTMLPageContext $context)
+    {
+        $url = (new \Kibo\Phast\Services\ServiceRequest())->withUrl(\Kibo\Phast\ValueObjects\URL::fromString($this->serviceUrl))->serialize();
+        $script = \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/Diagnostics/diagnostics.js', "window.addEventListener(\"load\",function(){var a=phast.config.diagnostics.serviceUrl;var b=new XMLHttpRequest;b.open(\"GET\",a);b.responseType=\"json\";b.onload=function(){var c=b.response;var d={};var e=[];c.forEach(function(g){var h=g.context.requestId;if(!d[h]){d[h]={title:g.context.service,timestamp:g.context.timestamp,errorsCnt:0,warningsCnt:0,longestPrefixLength:0,entries:[]};e.push(d[h])}if(g.level>8){d[h].errorsCnt++}else if(g.level===8){d[h].warningsCnt++}var i=(g.context.timestamp-d[h].timestamp).toFixed(3);if(g.context.class){i+=\" \"+g.context.class}if(g.context.class&&g.context.method){i+=\"::\"}if(g.context.method){i+=g.context.method+\"()\"}if(g.context.line){i+=\" Line: \"+g.context.line}var j=g.message.replace(/\\{([a-z0-9_.]*)\\}/gi,function(l,m){return g.context[m]});var k;if(g.level>8){k=console.error}else if(g.level===8){k=console.warn}else if(g.level>1){k=console.info}else{k=console.log}d[h].entries.push({prefix:i,message:j,cb:k});if(i.length>d[h].longestPrefixLength){d[h].longestPrefixLength=i.length}});if(e.length===0){return}e.sort(function(n,o){return n.timestamp<o.timestamp?-1:1});var f=e[0].timestamp;console.group(\"Phast diagnostics log\");e.forEach(function(p){var q=(p.timestamp-f).toFixed(3);var r=q+\" - \"+p.title+\" (entries: \"+p.entries.length;if(p.errorsCnt>0){r+=\", errors: \"+p.errorsCnt}if(p.warningsCnt>0){r+=\", warnings: \"+p.warningsCnt}r+=\")\";console.groupCollapsed(r);p.entries.forEach(function(s){var t=s.prefix;var u=p.longestPrefixLength-t.length;for(var v=0;v<u;v++){t+=\" \"}s.cb(t+\" \"+s.message)});console.groupEnd()});console.groupEnd()};b.send()});\n");
+        $script->setConfig('diagnostics', ['serviceUrl' => $url]);
+        $context->addPhastJavaScript($script);
+        foreach ($elements as $element) {
+            (yield $element);
+        }
+    }
+}
+namespace Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS;
+
+class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
+{
+    /**
+     * @var ImageURLRewriter
+     */
+    protected $rewriter;
+    /**
+     * Filter constructor.
+     * @param ImageURLRewriter $rewriter
+     */
+    public function __construct(\Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageURLRewriter $rewriter)
+    {
+        $this->rewriter = $rewriter;
+    }
+    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
+    {
+        if ($tag->hasAttribute('style')) {
+            $tag->setAttribute('style', $this->rewriter->rewriteStyle($tag->getAttribute('style')));
+        }
+        (yield $tag);
+    }
+}
+namespace Kibo\Phast\Filters\HTML\LazyImageLoading;
+
+class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
+{
+    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
+    {
+        if (!$tag->hasAttribute('loading')) {
+            $tag->setAttribute('loading', 'lazy');
+        }
+        (yield $tag);
+    }
+    protected function isTagOfInterest(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
+    {
+        return $tag->getTagName() == 'img';
     }
 }
 namespace Kibo\Phast\Filters\HTML\ScriptsDeferring;
@@ -8977,184 +9064,224 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
         }
     }
 }
-namespace Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags;
-
-class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
-{
-    public function make(array $config)
-    {
-        return new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter((new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageURLRewriterFactory())->make($config, \Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter::class));
-    }
-}
-namespace Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS;
-
-class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
-{
-    public function make(array $config)
-    {
-        return new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter((new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageURLRewriterFactory())->make($config, \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class));
-    }
-}
-namespace Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS;
+namespace Kibo\Phast\Filters\HTML\ScriptsProxyService;
 
 class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
 {
+    use \Kibo\Phast\Filters\HTML\Helpers\JSDetectorTrait, \Kibo\Phast\Logging\LoggingTrait;
     /**
-     * @var ImageURLRewriter
+     * @var array
      */
-    protected $rewriter;
+    private $config;
     /**
-     * Filter constructor.
-     * @param ImageURLRewriter $rewriter
+     * @var ServiceSignature
      */
-    public function __construct(\Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageURLRewriter $rewriter)
+    private $signature;
+    /**
+     * @var LocalRetriever
+     */
+    private $retriever;
+    private $tokenRefMaker;
+    /**
+     * @var ObjectifiedFunctions
+     */
+    private $functions;
+    /**
+     * @var bool
+     */
+    private $didInject = false;
+    public function __construct(array $config, \Kibo\Phast\Security\ServiceSignature $signature, \Kibo\Phast\Retrievers\LocalRetriever $retriever, \Kibo\Phast\Services\Bundler\TokenRefMaker $tokenRefMaker, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
     {
-        $this->rewriter = $rewriter;
+        $this->config = $config;
+        $this->signature = $signature;
+        $this->retriever = $retriever;
+        $this->tokenRefMaker = $tokenRefMaker;
+        $this->functions = is_null($functions) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $functions;
     }
-    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
+    protected function isTagOfInterest(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $tag)
     {
-        if ($tag->hasAttribute('style')) {
-            $tag->setAttribute('style', $this->rewriter->rewriteStyle($tag->getAttribute('style')));
+        return $tag->getTagName() == 'script' && $this->isJSElement($tag);
+    }
+    protected function handleTag(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $script)
+    {
+        $this->rewriteScriptSource($script);
+        if (!$this->didInject) {
+            $this->addScript();
+            $this->didInject = true;
         }
-        (yield $tag);
+        (yield $script);
     }
-}
-namespace Kibo\Phast\Filters\HTML\PhastScriptsCompiler;
-
-class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
-{
-    public function make(array $config)
+    private function rewriteScriptSource(\Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag $element)
     {
-        $cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'phast-scripts');
-        $compiler = new \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\PhastJavaScriptCompiler($cache, $config['servicesUrl'], $config['serviceRequestFormat']);
-        return new \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter($compiler, $config['cspNonce']);
-    }
-}
-namespace Kibo\Phast\Filters\HTML\ScriptsProxyService;
-
-class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
-{
-    public function make(array $config)
-    {
-        if (!isset($config['documents']['filters'][\Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class]['serviceUrl'])) {
-            $config['documents']['filters'][\Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class]['serviceUrl'] = $config['servicesUrl'];
+        if (!$element->hasAttribute('src')) {
+            return;
         }
-        $filterConfig = $config['documents']['filters'][\Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class];
-        $filterConfig['match'] = $config['scripts']['whitelist'];
-        return new \Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter($filterConfig, (new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config), new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']), (new \Kibo\Phast\Services\Bundler\TokenRefMakerFactory())->make($config));
-    }
-}
-namespace Kibo\Phast\Filters\HTML\CSSInlining;
-
-class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
-{
-    public function make(array $config)
-    {
-        $localRetriever = new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']);
-        $retriever = new \Kibo\Phast\Retrievers\UniversalRetriever();
-        $retriever->addRetriever($localRetriever);
-        $retriever->addRetriever(new \Kibo\Phast\Retrievers\CachingRetriever(new \Kibo\Phast\Cache\File\Cache($config['cache'], 'css')));
-        if (!isset($config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class]['serviceUrl'])) {
-            $config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class]['serviceUrl'] = $config['servicesUrl'];
+        $src = trim($element->getAttribute('src'));
+        $url = $this->getAbsoluteURL($src);
+        $cacheMarker = $this->retriever->getCacheSalt($url);
+        if (!$cacheMarker) {
+            return;
         }
-        return new \Kibo\Phast\Filters\HTML\CSSInlining\Filter((new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config), \Kibo\Phast\ValueObjects\URL::fromString($config['documents']['baseUrl']), $config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class], $localRetriever, $retriever, new \Kibo\Phast\Filters\HTML\CSSInlining\OptimizerFactory($config), (new \Kibo\Phast\Filters\CSS\Composite\Factory())->make($config), (new \Kibo\Phast\Services\Bundler\TokenRefMakerFactory())->make($config), $config['cspNonce']);
+        $cacheMarker .= '-' . \Kibo\Phast\Filters\JavaScript\Minification\JSMinifierFilter::VERSION;
+        $element->setAttribute('src', $this->makeProxiedURL($url, $cacheMarker));
+        $element->setAttribute('data-phast-original-src', (string) $url);
+        $element->setAttribute('data-phast-params', $this->makeServiceParams($url, $cacheMarker));
     }
-}
-namespace Kibo\Phast\Filters\HTML\Diagnostics;
-
-class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
-{
-    public function make(array $config)
+    private function makeProxiedURL(\Kibo\Phast\ValueObjects\URL $url, $cacheMarker)
     {
-        $url = isset($config['documents']['filters'][\Kibo\Phast\Filters\HTML\Diagnostics\Filter::class]['serviceUrl']) ? $config['documents']['filters'][\Kibo\Phast\Filters\HTML\Diagnostics\Filter::class]['serviceUrl'] : $config['servicesUrl'] . '?service=diagnostics';
-        return new \Kibo\Phast\Filters\HTML\Diagnostics\Filter($url);
+        $params = ['service' => 'scripts', 'src' => (string) $url->withoutQuery(), 'cacheMarker' => $cacheMarker];
+        return (new \Kibo\Phast\Services\ServiceRequest())->withUrl(\Kibo\Phast\ValueObjects\URL::fromString($this->config['serviceUrl']))->withParams($params)->serialize();
+    }
+    private function makeServiceParams(\Kibo\Phast\ValueObjects\URL $url, $cacheMarker)
+    {
+        return \Kibo\Phast\Services\Bundler\ServiceParams::fromArray(['src' => (string) $url->withoutQuery(), 'cacheMarker' => $cacheMarker, 'isScript' => '1'])->sign($this->signature)->replaceByTokenRef($this->tokenRefMaker)->serialize();
+    }
+    private function addScript()
+    {
+        $config = ['serviceUrl' => $this->config['serviceUrl'], 'pathInfo' => \Kibo\Phast\Services\ServiceRequest::getDefaultSerializationMode() === \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH, 'urlRefreshTime' => $this->config['urlRefreshTime'], 'whitelist' => $this->config['match']];
+        $script = \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/ScriptsProxyService/rewrite-function.js', "var config=phast.config[\"script-proxy-service\"];var urlPattern=/^(https?:)?\\/\\//;var cacheMarker=Math.floor((new Date).getTime()/1e3/config.urlRefreshTime);var whitelist=compileWhitelistPatterns(config.whitelist);phast.scripts.push(function(){overrideDOMMethod(\"appendChild\");overrideDOMMethod(\"insertBefore\")});function compileWhitelistPatterns(a){var b=/^(.)(.*)\\1([a-z]*)\$/i;var c=[];a.forEach(function(d){var e=b.exec(d);if(!e){window.console&&window.console.log(\"Phast: Not a pattern:\",d);return}try{c.push(new RegExp(e[2],e[3]))}catch(f){window.console&&window.console.log(\"Phast: Failed to compile pattern:\",d)}});return c}function checkWhitelist(g){for(var h=0;h<whitelist.length;h++){if(whitelist[h].exec(g)){return true}}return false}function overrideDOMMethod(i){var j=Element.prototype[i];var k=function(){var l=processNode(arguments[0]);var m=j.apply(this,arguments);l();return m};Element.prototype[i]=k;window.addEventListener(\"load\",function(){if(Element.prototype[i]===k){delete Element.prototype[i]}})}function processNode(n){if(!n||n.nodeType!==Node.ELEMENT_NODE||n.tagName!==\"SCRIPT\"||!urlPattern.test(n.src)||n.src.substr(0,config.serviceUrl.length)===config.serviceUrl||!checkWhitelist(n.src)){return function(){}}var o=n.src;n.src=phast.buildServiceUrl(config,{service:\"scripts\",src:o,cacheMarker:cacheMarker});return function(){n.src=o}}\n");
+        $script->setConfig('script-proxy-service', $config);
+        $this->context->addPhastJavaScript($script);
+    }
+    private function getAbsoluteURL($url)
+    {
+        return \Kibo\Phast\ValueObjects\URL::fromString($url)->withBase($this->context->getBaseUrl());
     }
 }
-namespace Kibo\Phast\Filters\Image\Exceptions;
+namespace Kibo\Phast\Filters\Image\CommonDiagnostics;
 
-class ImageProcessingException extends \Kibo\Phast\Exceptions\RuntimeException
-{
-}
-namespace Kibo\Phast\Filters\Image\ImageImplementations;
-
-class DummyImage extends \Kibo\Phast\Filters\Image\ImageImplementations\BaseImage implements \Kibo\Phast\Filters\Image\Image
+class DiagnosticsRetriever implements \Kibo\Phast\Retrievers\Retriever
 {
     /**
      * @var string
      */
-    private $imageString;
-    private $transformationString;
+    private $file;
     /**
-     * DummyImage constructor.
-     *
-     * @param int $width
-     * @param int $height
+     * DiagnosticsRetriever constructor.
+     * @param string $file
      */
-    public function __construct($width = null, $height = null)
+    public function __construct($file)
     {
-        $this->width = $width;
-        $this->height = $height;
+        $this->file = $file;
     }
+    public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
+    {
+        return file_get_contents($this->file);
+    }
+    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url)
+    {
+        return '';
+    }
+}
+namespace Kibo\Phast\Filters\Image\ImageAPIClient;
+
+class Factory implements \Kibo\Phast\Filters\Image\ImageFilterFactory
+{
+    public function make(array $config)
+    {
+        $signature = new \Kibo\Phast\Security\ServiceSignature(new \Kibo\Phast\Cache\File\Cache($config['cache'], 'api-service-signature'));
+        return new \Kibo\Phast\Filters\Image\ImageAPIClient\Filter($config['images']['filters'][\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class], $signature, (new \Kibo\Phast\HTTP\ClientFactory())->make($config));
+    }
+}
+namespace Kibo\Phast\Filters\Image\ImageAPIClient;
+
+class Filter implements \Kibo\Phast\Filters\Image\ImageFilter
+{
     /**
-     * @return int
+     * @var array
      */
-    public function getWidth()
-    {
-        return $this->width;
-    }
+    private $config;
     /**
-     * @return int
+     * @var ServiceSignature
      */
-    public function getHeight()
-    {
-        return $this->height;
-    }
+    private $signature;
     /**
+     * @var Client
+     */
+    private $client;
+    /**
+     * Filter constructor.
+     * @param array $config
+     * @param ServiceSignature $signature
+     * @param Client $client
+     */
+    public function __construct(array $config, \Kibo\Phast\Security\ServiceSignature $signature, \Kibo\Phast\HTTP\Client $client)
+    {
+        $this->config = $config;
+        $this->signature = $signature;
+        $this->client = $client;
+        $this->signature->setIdentities('');
+    }
+    public function getCacheSalt(array $request)
+    {
+        $result = 'api-call';
+        foreach (['width', 'height', 'preferredType'] as $key) {
+            if (isset($request[$key])) {
+                $result .= "-{$key}-{$request[$key]}";
+            }
+        }
+        return $result;
+    }
+    public function transformImage(\Kibo\Phast\Filters\Image\Image $image, array $request)
+    {
+        $url = $this->getRequestURL($request);
+        $headers = $this->getRequestHeaders($image, $request);
+        $data = $image->getAsString();
+        try {
+            $response = $this->client->post(\Kibo\Phast\ValueObjects\URL::fromString($url), $data, $headers);
+        } catch (\Exception $e) {
+            throw new \Kibo\Phast\Filters\Image\Exceptions\ImageProcessingException('Request exception: ' . get_class($e) . ' MSG: ' . $e->getMessage() . ' Code: ' . $e->getCode());
+        }
+        if (strlen($response->getContent()) === 0) {
+            throw new \Kibo\Phast\Filters\Image\Exceptions\ImageProcessingException('Image API response is empty');
+        }
+        $newImage = new \Kibo\Phast\Filters\Image\ImageImplementations\DummyImage();
+        $newImage->setImageString($response->getContent());
+        $headers = [];
+        foreach ($response->getHeaders() as $name => $value) {
+            $headers[strtolower($name)] = $value;
+        }
+        $newImage->setType($headers['content-type']);
+        return $newImage;
+    }
+    private function getRequestURL(array $request)
+    {
+        $params = [];
+        foreach (['width', 'height'] as $key) {
+            if (isset($request[$key])) {
+                $params[$key] = $request[$key];
+            }
+        }
+        return (new \Kibo\Phast\Services\ServiceRequest())->withUrl(\Kibo\Phast\ValueObjects\URL::fromString($this->config['api-url']))->withParams($params)->sign($this->signature)->serialize(\Kibo\Phast\Services\ServiceRequest::FORMAT_QUERY);
+    }
+    private function getRequestHeaders(\Kibo\Phast\Filters\Image\Image $image, array $request)
+    {
+        $headers = ['X-Phast-Image-API-Client' => $this->getRequestToken(), 'Content-Type' => 'application/octet-stream'];
+        if (isset($request['preferredType']) && $request['preferredType'] == \Kibo\Phast\Filters\Image\Image::TYPE_WEBP) {
+            $headers['Accept'] = 'image/webp';
+        }
+        return $headers;
+    }
+    private function getRequestToken()
+    {
+        $token_parts = [];
+        foreach (['host-name', 'request-uri', 'plugin-version'] as $key) {
+            $token_parts[$key] = $this->config[$key];
+        }
+        $token_parts['php'] = PHP_VERSION;
+        return json_encode($token_parts);
+    }
+}
+namespace Kibo\Phast\Filters\Service;
+
+interface CachedResultServiceFilter extends \Kibo\Phast\Services\ServiceFilter
+{
+    /**
+     * @param Resource $resource
+     * @param array $request
      * @return string
      */
-    public function getType()
-    {
-        return $this->type;
-    }
-    /**
-     * @param string $type
-     */
-    public function setType($type)
-    {
-        $this->type = $type;
-    }
-    /**
-     * @return int
-     */
-    public function getCompression()
-    {
-        return $this->compression;
-    }
-    /**
-     * @return string
-     */
-    public function getAsString()
-    {
-        return $this->imageString;
-    }
-    /**
-     * @param string $imageString
-     */
-    public function setImageString($imageString)
-    {
-        $this->imageString = $imageString;
-    }
-    /**
-     * @param mixed $transformationString
-     */
-    public function setTransformationString($transformationString)
-    {
-        $this->transformationString = $transformationString;
-    }
-    protected function __clone()
-    {
-        $this->imageString = $this->transformationString;
-    }
+    public function getCacheSalt(\Kibo\Phast\ValueObjects\Resource $resource, array $request);
 }
 namespace Kibo\Phast\Filters\Service;
 
@@ -9255,17 +9382,6 @@ class CachingServiceFilter implements \Kibo\Phast\Services\ServiceFilter
 }
 namespace Kibo\Phast\Filters\Service;
 
-interface CachedResultServiceFilter extends \Kibo\Phast\Services\ServiceFilter
-{
-    /**
-     * @param Resource $resource
-     * @param array $request
-     * @return string
-     */
-    public function getCacheSalt(\Kibo\Phast\ValueObjects\Resource $resource, array $request);
-}
-namespace Kibo\Phast\Filters\Service;
-
 class CompositeFilter implements \Kibo\Phast\Filters\Service\CachedResultServiceFilter
 {
     use \Kibo\Phast\Logging\LoggingTrait;
@@ -9305,167 +9421,6 @@ class CompositeFilter implements \Kibo\Phast\Filters\Service\CachedResultService
         return $result;
     }
 }
-namespace Kibo\Phast\Filters\CSS\CSSMinifier;
-
-class Filter implements \Kibo\Phast\Services\ServiceFilter
-{
-    /**
-     * @param Resource $resource
-     * @param array $request
-     * @return Resource
-     */
-    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
-    {
-        $content = $resource->getContent();
-        // Normalize whitespace
-        $content = preg_replace('~\\s+~', ' ', $content);
-        // Remove whitespace before and after operators
-        $chars = [',', '{', '}', ';'];
-        foreach ($chars as $char) {
-            $content = str_replace("{$char} ", $char, $content);
-            $content = str_replace(" {$char}", $char, $content);
-        }
-        // Remove whitespace after colons
-        $content = str_replace(': ', ':', $content);
-        return $resource->withContent(trim($content));
-    }
-}
-namespace Kibo\Phast\Filters\CSS\CSSURLRewriter;
-
-class Filter implements \Kibo\Phast\Services\ServiceFilter
-{
-    /**
-     * @param Resource $resource
-     * @param array $request
-     * @return Resource
-     */
-    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
-    {
-        $baseUrl = $resource->getUrl();
-        $callback = function ($match) use($baseUrl) {
-            if (preg_match('~^[a-z]+:|^#~i', $match[3])) {
-                return $match[0];
-            }
-            return $match[1] . \Kibo\Phast\ValueObjects\URL::fromString($match[3])->withBase($baseUrl) . $match[4];
-        };
-        $cssContent = preg_replace_callback('~
-                \\b
-                ( url\\( \\s*+ ([\'"]?) )
-                ([A-Za-z0-9_/.:?&=+%,#@-]+)
-                ( \\2 \\s*+ \\) )
-            ~x', $callback, $resource->getContent());
-        $cssContent = preg_replace_callback('~
-                ( @import \\s+ ([\'"]) )
-                ([A-Za-z0-9_/.:?&=+%,#@-]+)
-                ( \\2 )
-            ~x', $callback, $cssContent);
-        return $resource->withContent($cssContent);
-    }
-}
-namespace Kibo\Phast\Filters\CSS\ImageURLRewriter;
-
-class Filter implements \Kibo\Phast\Filters\Service\CachedResultServiceFilter
-{
-    /**
-     * @var ImageURLRewriter
-     */
-    private $rewriter;
-    /**
-     * Filter constructor.
-     * @param ImageURLRewriter $rewriter
-     */
-    public function __construct(\Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageURLRewriter $rewriter)
-    {
-        $this->rewriter = $rewriter;
-    }
-    public function getCacheSalt(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
-    {
-        return $this->rewriter->getCacheSalt();
-    }
-    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
-    {
-        $content = $this->rewriter->rewriteStyle($resource->getContent());
-        $dependencies = $this->rewriter->getInlinedResources();
-        return $resource->withContent($content)->withDependencies($dependencies);
-    }
-}
-namespace Kibo\Phast\Filters\CSS\Composite;
-
-class Filter extends \Kibo\Phast\Filters\Service\CompositeFilter implements \Kibo\Phast\Filters\Service\CachedResultServiceFilter
-{
-    public function __construct()
-    {
-        $this->addFilter(new \Kibo\Phast\Filters\CSS\CommentsRemoval\Filter());
-    }
-}
-namespace Kibo\Phast\Filters\CSS\FontSwap;
-
-class Filter implements \Kibo\Phast\Services\ServiceFilter
-{
-    const FONT_FACE_REGEXP = '/(@font-face\\s*\\{)([^}]*)/i';
-    const ICON_FONT_FAMILIES = array('Font Awesome', 'GeneratePress', 'Dashicons', 'Ionicons');
-    private $fontDisplayBlockPattern;
-    public function __construct()
-    {
-        $this->fontDisplayBlockPattern = $this->getFontDisplayBlockPattern();
-    }
-    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
-    {
-        $css = $resource->getContent();
-        $filtered = preg_replace_callback(self::FONT_FACE_REGEXP, function ($match) {
-            list($block, $start, $contents) = $match;
-            $mode = preg_match($this->fontDisplayBlockPattern, $contents) ? 'block' : 'swap';
-            return $start . 'font-display:' . $mode . ';' . $contents;
-        }, $css);
-        return $resource->withContent($filtered);
-    }
-    private function getFontDisplayBlockPattern()
-    {
-        $patterns = [];
-        foreach (self::ICON_FONT_FAMILIES as $family) {
-            $chars = str_split($family);
-            $chars = array_map(function ($char) {
-                return preg_quote($char, '~');
-            }, $chars);
-            $patterns[] = implode('\\s*', $chars);
-        }
-        return '~' . implode('|', $patterns) . '~i';
-    }
-}
-namespace Kibo\Phast\Filters\CSS\ImportsStripper;
-
-class Filter implements \Kibo\Phast\Filters\Service\CachedResultServiceFilter
-{
-    use \Kibo\Phast\Logging\LoggingTrait;
-    public function getCacheSalt(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
-    {
-        return $this->shouldStripImports($request) ? 'strip-imports' : 'no-strip-imports';
-    }
-    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
-    {
-        if (!$this->shouldStripImports($request)) {
-            $this->logger()->info('No import stripping requested! Skipping!');
-            return $resource;
-        }
-        $css = $resource->getContent();
-        $stripped = preg_replace(\Kibo\Phast\Filters\HTML\CSSInlining\Filter::CSS_IMPORTS_REGEXP, '', $css);
-        return $resource->withContent($stripped);
-    }
-    private function shouldStripImports(array $request)
-    {
-        return isset($request['strip-imports']);
-    }
-}
-namespace Kibo\Phast\Filters\CSS\CommentsRemoval;
-
-class Filter implements \Kibo\Phast\Services\ServiceFilter
-{
-    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
-    {
-        $content = preg_replace('~/\\*[^*]*\\*+([^/*][^*]*\\*+)*/~', '', $resource->getContent());
-        return $resource->withContent($content);
-    }
-}
 namespace Kibo\Phast\Filters\Text\Decode;
 
 class Filter implements \Kibo\Phast\Services\ServiceFilter
@@ -9478,6 +9433,63 @@ class Filter implements \Kibo\Phast\Services\ServiceFilter
             $content = substr($content, strlen(self::UTF8_BOM));
         }
         return $resource->withContent($content);
+    }
+}
+namespace Kibo\Phast\HTTP;
+
+class CURLClient implements \Kibo\Phast\HTTP\Client
+{
+    public function get(\Kibo\Phast\ValueObjects\URL $url, array $headers = array())
+    {
+        $this->checkCURL();
+        return $this->request($url, $headers);
+    }
+    public function post(\Kibo\Phast\ValueObjects\URL $url, $data, array $headers = array())
+    {
+        $this->checkCURL();
+        return $this->request($url, $headers, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $data]);
+    }
+    private function checkCURL()
+    {
+        if (!function_exists('curl_init')) {
+            throw new \Kibo\Phast\HTTP\Exceptions\NetworkError('cURL is not installed');
+        }
+    }
+    private function request(\Kibo\Phast\ValueObjects\URL $url, array $headers = array(), array $opts = array())
+    {
+        $response = new \Kibo\Phast\HTTP\Response();
+        $readHeader = function ($_, $headerLine) use($response) {
+            if (strpos($headerLine, 'HTTP/') === 0) {
+                $response->setHeaders([]);
+            } else {
+                list($name, $value) = explode(':', $headerLine, 2);
+                if (trim($name) !== '') {
+                    $response->setHeader($name, trim($value));
+                }
+            }
+            return strlen($headerLine);
+        };
+        $ch = curl_init((string) $url);
+        curl_setopt_array($ch, $opts + [CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => $this->makeHeaders($headers), CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 5, CURLOPT_HEADERFUNCTION => $readHeader, CURLOPT_CAINFO => __DIR__ . '/cacert.pem', CURLOPT_ENCODING => '']);
+        $responseText = @curl_exec($ch);
+        if ($responseText === false) {
+            throw new \Kibo\Phast\HTTP\Exceptions\NetworkError(curl_error($ch), curl_errno($ch));
+        }
+        $info = curl_getinfo($ch);
+        if (!preg_match('/^2/', $info['http_code'])) {
+            throw new \Kibo\Phast\HTTP\Exceptions\HTTPError($info['http_code']);
+        }
+        $response->setCode($info['http_code']);
+        $response->setContent($responseText);
+        return $response;
+    }
+    private function makeHeaders(array $headers)
+    {
+        $result = [];
+        foreach ($headers as $k => $v) {
+            $result[] = "{$k}: {$v}";
+        }
+        return $result;
     }
 }
 namespace Kibo\Phast\Parsing\HTML\HTMLStreamElements;
@@ -9514,337 +9526,240 @@ class ClosingTag extends \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Element
 }
 namespace Kibo\Phast\Parsing\HTML\HTMLStreamElements;
 
-class Tag extends \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Element
+class Comment extends \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Element
 {
-    /**
-     * @var string
-     */
-    private $tagName;
-    /**
-     * @var array
-     */
-    private $attributes = array();
-    /**
-     * @var array
-     */
-    private $newAttributes = array();
-    /**
-     * @var \Iterator
-     */
-    private $attributeReader;
-    /**
-     * @var string
-     */
-    private $textContent = '';
-    /**
-     * @var string
-     */
-    private $closingTag = '';
-    private $dirty = false;
-    /**
-     * Tag constructor.
-     * @param $tagName
-     * @param array|\Traversable $attributes
-     */
-    public function __construct($tagName, $attributes = array())
+    public function isIEConditional()
     {
-        $this->tagName = strtolower($tagName);
-        if ($attributes instanceof \Iterator) {
-            $this->attributeReader = $attributes;
-        } elseif (is_array($attributes)) {
-            $this->attributeReader = new \ArrayIterator($attributes);
-        } else {
-            throw new \InvalidArgumentException('Attributes must be array or Iterator');
+        return (bool) preg_match('/^<!--\\[if\\s/', $this->originalString);
+    }
+}
+namespace Kibo\Phast\Retrievers;
+
+class CachingRetriever implements \Kibo\Phast\Retrievers\Retriever
+{
+    use \Kibo\Phast\Retrievers\DynamicCacheSaltTrait {
+        getCacheSalt as getDynamicCacheSalt;
+    }
+    /**
+     * @var Cache
+     */
+    private $cache;
+    /**
+     * @var Retriever
+     */
+    private $retriever;
+    /**
+     * CachingRetriever constructor.
+     *
+     * @param Retriever $retriever
+     * @param Cache $cache
+     * @param int $defaultCacheTime
+     */
+    public function __construct(\Kibo\Phast\Cache\Cache $cache, \Kibo\Phast\Retrievers\Retriever $retriever = null, $defaultCacheTime = 0)
+    {
+        $this->cache = $cache;
+        $this->retriever = $retriever;
+    }
+    public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
+    {
+        if ($this->retriever) {
+            return $this->getCachedWithRetriever($url);
         }
+        return $this->getFromCacheOnly($url);
     }
-    /**
-     * @return string
-     */
-    public function getTagName()
+    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url)
     {
-        return $this->tagName;
-    }
-    /**
-     * @param string $class
-     * @return bool
-     */
-    public function hasClass($class)
-    {
-        foreach ($this->getClasses() as $c) {
-            if (!strcasecmp($class, $c)) {
-                return true;
-            }
+        if ($this->retriever) {
+            return $this->retriever->getCacheSalt($url);
         }
-        return false;
+        return $this->getDynamicCacheSalt($url);
     }
-    /**
-     * @return string[]
-     */
-    public function getClasses()
+    private function getCachedWithRetriever(\Kibo\Phast\ValueObjects\URL $url)
     {
-        return array_values(array_filter(preg_split('~\\s+~', $this->getAttribute('class')), 'strlen'));
-    }
-    /**
-     * @param string $attrName
-     * @return bool
-     */
-    public function hasAttribute($attrName)
-    {
-        return $this->getAttribute($attrName) !== null;
-    }
-    /**
-     * @param string $attrName
-     * @return mixed|null
-     */
-    public function getAttribute($attrName)
-    {
-        if (array_key_exists($attrName, $this->newAttributes)) {
-            return $this->newAttributes[$attrName];
-        }
-        if (!array_key_exists($attrName, $this->attributes)) {
-            $this->readUntilAttribute($attrName);
-        }
-        if (isset($this->attributes[$attrName])) {
-            return $this->attributes[$attrName];
-        }
-    }
-    /** @return string[] */
-    public function getAttributes()
-    {
-        $this->readUntilAttribute(null);
-        return array_filter($this->newAttributes + $this->attributes, function ($value) {
-            return $value !== null;
+        return $this->cache->get($this->getCacheKey($url), function () use($url) {
+            return $this->retriever->retrieve($url);
         });
     }
-    private function readUntilAttribute($attrName)
+    private function getFromCacheOnly(\Kibo\Phast\ValueObjects\URL $url)
     {
-        if (!$this->attributeReader) {
-            return;
+        $cached = $this->cache->get($this->getCacheKey($url));
+        if (!$cached) {
+            return false;
         }
-        while ($this->attributeReader->valid()) {
-            $name = strtolower($this->attributeReader->key());
-            $value = $this->attributeReader->current();
-            $this->attributeReader->next();
-            if (!isset($this->attributes[$name])) {
-                $this->attributes[$name] = $value;
+        return $cached;
+    }
+    private function getCacheKey(\Kibo\Phast\ValueObjects\URL $url)
+    {
+        return $url . '-' . $this->getCacheSalt($url);
+    }
+}
+namespace Kibo\Phast\Retrievers;
+
+class LocalRetriever implements \Kibo\Phast\Retrievers\Retriever
+{
+    /**
+     * @var array
+     */
+    private $map;
+    /**
+     * @var ObjectifiedFunctions
+     */
+    private $funcs;
+    /**
+     * LocalRetriever constructor.
+     *
+     * @param array $map
+     * @param ObjectifiedFunctions|null $functions
+     */
+    public function __construct(array $map, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    {
+        $this->map = $map;
+        if ($functions) {
+            $this->funcs = $functions;
+        } else {
+            $this->funcs = new \Kibo\Phast\Common\ObjectifiedFunctions();
+        }
+    }
+    public static function getAllowedExtensions()
+    {
+        return ['css', 'js', 'bmp', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'svg', 'txt'];
+    }
+    public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
+    {
+        return $this->guard($url, function ($file) {
+            return @$this->funcs->file_get_contents($file);
+        });
+    }
+    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url)
+    {
+        return $this->guard($url, function ($file) {
+            $size = @$this->funcs->filesize($file);
+            $mtime = @$this->funcs->filectime($file);
+            if ($size === false && $mtime === false) {
+                return '';
             }
-            if ($name == $attrName) {
-                return;
-            }
+            return "{$mtime}-{$size}";
+        });
+    }
+    public function getSize(\Kibo\Phast\ValueObjects\URL $url)
+    {
+        return $this->guard($url, function ($file) {
+            return @$this->funcs->filesize($file);
+        });
+    }
+    private function guard(\Kibo\Phast\ValueObjects\URL $url, callable $cb)
+    {
+        if (!in_array($this->getExtensionForURL($url), self::getAllowedExtensions())) {
+            return false;
         }
-        $this->attributeReader = null;
-    }
-    /**
-     * @param string $attrName
-     * @param string $value
-     */
-    public function setAttribute($attrName, $value)
-    {
-        if ($this->getAttribute($attrName) === $value) {
-            return;
+        $file = $this->getFileForURL($url);
+        if ($file === false) {
+            return false;
         }
-        $this->dirty = true;
-        $this->newAttributes[$attrName] = $value;
+        return $cb($file);
     }
-    /**
-     * @param string $attrName
-     */
-    public function removeAttribute($attrName)
+    private function getExtensionForURL(\Kibo\Phast\ValueObjects\URL $url)
     {
-        $this->dirty = true;
-        $this->newAttributes[$attrName] = null;
-    }
-    /**
-     * @return string
-     */
-    public function getTextContent()
-    {
-        return $this->textContent;
-    }
-    /**
-     * @param string $textContent
-     */
-    public function setTextContent($textContent)
-    {
-        $this->textContent = $textContent;
-    }
-    /**
-     * @param $closingTag
-     * @return Tag
-     */
-    public function withClosingTag($closingTag)
-    {
-        $new = clone $this;
-        $new->closingTag = $closingTag;
-        return $new;
-    }
-    /**
-     * @return string
-     */
-    public function getClosingTag()
-    {
-        return $this->closingTag;
-    }
-    public function __toString()
-    {
-        return $this->getOpening() . $this->textContent . $this->getClosing();
-    }
-    private function getOpening()
-    {
-        if ($this->dirty || !isset($this->originalString)) {
-            return $this->generateOpeningTag();
+        $dotPosition = strrpos($url->getDecodedPath(), '.');
+        if ($dotPosition === false) {
+            return '';
         }
-        return parent::__toString();
+        return strtolower(substr($url->getDecodedPath(), $dotPosition + 1));
     }
-    private function getClosing()
+    private function getFileForURL(\Kibo\Phast\ValueObjects\URL $url)
     {
-        if ($this->closingTag) {
-            return $this->closingTag;
+        if (!isset($this->map[$url->getHost()])) {
+            return false;
         }
-        if ($this->mustHaveClosing() && !$this->isFromParser()) {
-            return '</' . $this->tagName . '>';
+        $submap = $this->map[$url->getHost()];
+        if (!is_array($submap)) {
+            return $this->appendNormalized($submap, $url->getDecodedPath());
         }
-        return '';
-    }
-    private function generateOpeningTag()
-    {
-        $parts = ['<' . $this->tagName];
-        foreach ($this->getAttributes() as $name => $value) {
-            $parts[] = $this->generateAttribute($name, $value);
-        }
-        return join(' ', $parts) . '>';
-    }
-    private function generateAttribute($name, $value)
-    {
-        $result = $name;
-        if ($value != '') {
-            $result .= '=' . $this->quoteAttributeValue($value);
-        }
-        return $result;
-    }
-    private function quoteAttributeValue($value)
-    {
-        if (strpos($value, '"') === false) {
-            return '"' . htmlspecialchars($value) . '"';
-        }
-        return "'" . str_replace(['&', "'"], ['&amp;', '&#039;'], $value) . "'";
-    }
-    private function mustHaveClosing()
-    {
-        return !\Kibo\Phast\Parsing\HTML\HTMLInfo::isA($this->tagName, \Kibo\Phast\Parsing\HTML\HTMLInfo::VOID_TAG);
-    }
-    private function isFromParser()
-    {
-        return isset($this->originalString);
-    }
-    public function dumpValue()
-    {
-        $o = $this->tagName;
-        foreach ($this->attributes as $name => $_) {
-            $o .= " {$name}=\"" . $this->getAttribute($name) . '"';
-        }
-        if ($this->textContent) {
-            $o .= " content=[{$this->textContent}]";
-        }
-        return $o;
-    }
-}
-namespace Kibo\Phast\Logging\LogWriters\Dummy;
-
-class Writer implements \Kibo\Phast\Logging\LogWriter
-{
-    public function setLevelMask($mask)
-    {
-    }
-    public function writeEntry(\Kibo\Phast\Logging\LogEntry $entry)
-    {
-    }
-}
-namespace Kibo\Phast\Logging\LogWriters;
-
-abstract class BaseLogWriter implements \Kibo\Phast\Logging\LogWriter
-{
-    protected $levelMask = ~0;
-    protected abstract function doWriteEntry(\Kibo\Phast\Logging\LogEntry $entry);
-    public function setLevelMask($mask)
-    {
-        $this->levelMask = $mask;
-    }
-    public function writeEntry(\Kibo\Phast\Logging\LogEntry $entry)
-    {
-        if ($this->levelMask & $entry->getLevel()) {
-            $this->doWriteEntry($entry);
-        }
-    }
-}
-namespace Kibo\Phast\Services\Css;
-
-class Service extends \Kibo\Phast\Services\BaseService
-{
-    protected function makeResponse(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
-    {
-        $response = parent::makeResponse($resource, $request);
-        $response->setHeader('Content-Type', 'text/css');
-        return $response;
-    }
-}
-namespace Kibo\Phast\Services\Scripts;
-
-class Service extends \Kibo\Phast\Services\BaseService
-{
-    protected function makeResponse(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
-    {
-        $response = parent::makeResponse($resource, $request);
-        $response->setHeader('Content-Type', 'application/javascript');
-        return $response;
-    }
-}
-namespace Kibo\Phast\Services\Images;
-
-class Service extends \Kibo\Phast\Services\BaseService
-{
-    protected function getParams(\Kibo\Phast\Services\ServiceRequest $request)
-    {
-        $params = parent::getParams($request);
-        if ($this->proxySupportsAccept($request->getHTTPRequest())) {
-            $params['varyAccept'] = true;
-            if ($this->browserSupportsWebp($request->getHTTPRequest())) {
-                $params['preferredType'] = \Kibo\Phast\Filters\Image\Image::TYPE_WEBP;
-                \Kibo\Phast\Logging\Log::info('WebP will be served if possible!');
+        $selectedPath = null;
+        $selectedRoot = null;
+        foreach ($submap as $prefix => $root) {
+            $pattern = '~^(?=/)/*?(?:' . str_replace('~', '\\~', $prefix) . ')(?<path>/*(?<=/).*)~';
+            if (preg_match($pattern, $url->getDecodedPath(), $match) && ($selectedPath === null || strlen($match['path']) < strlen($selectedPath))) {
+                $selectedRoot = $root;
+                $selectedPath = $match['path'];
             }
         }
-        return $params;
-    }
-    protected function makeResponse(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
-    {
-        $response = parent::makeResponse($resource, $request);
-        $srcUrl = $resource->getUrl();
-        $response->setHeader('Link', "<{$srcUrl}>; rel=\"canonical\"");
-        $response->setHeader('Content-Type', $resource->getMimeType());
-        if ($resource->getMimeType() != \Kibo\Phast\Filters\Image\Image::TYPE_PNG && @$request['varyAccept']) {
-            $response->setHeader('Vary', 'Accept');
+        if ($selectedPath === null) {
+            return false;
         }
-        return $response;
+        return $this->appendNormalized($selectedRoot, $selectedPath);
     }
-    protected function validateIntegrity(\Kibo\Phast\Services\ServiceRequest $request)
+    private function appendNormalized($target, $appended)
     {
-        if (!$this->config['images']['api-mode']) {
-            parent::validateIntegrity($request);
+        $appended = explode("\0", $appended)[0];
+        $appended = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $appended);
+        $absolutes = [];
+        foreach (explode(DIRECTORY_SEPARATOR, $appended) as $part) {
+            if ($part == '' || $part == '.') {
+            } elseif ($part == '..') {
+                if (array_pop($absolutes) === null) {
+                    return false;
+                }
+            } else {
+                $absolutes[] = $part;
+            }
         }
+        return $target . DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $absolutes);
     }
-    protected function validateWhitelisted(\Kibo\Phast\Services\ServiceRequest $request)
+}
+namespace Kibo\Phast\Retrievers;
+
+class PostDataRetriever implements \Kibo\Phast\Retrievers\Retriever
+{
+    /**
+     * @var ObjectifiedFunctions
+     */
+    private $funcs;
+    private $content;
+    /**
+     * PostDataRetriever constructor.
+     * @param ObjectifiedFunctions $funcs
+     */
+    public function __construct(\Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
     {
-        if (!$this->config['images']['api-mode']) {
-            parent::validateWhitelisted($request);
+        $this->funcs = is_null($funcs) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $funcs;
+    }
+    public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
+    {
+        if (!isset($this->content)) {
+            $this->content = $this->funcs->file_get_contents('php://input');
         }
+        return $this->content;
     }
-    private function browserSupportsWebp(\Kibo\Phast\HTTP\Request $request)
+    public function getCacheSalt(\Kibo\Phast\ValueObjects\URL $url)
     {
-        return strpos($request->getHeader('accept'), 'image/webp') !== false;
+        return md5($this->retrieve($url));
     }
-    private function proxySupportsAccept(\Kibo\Phast\HTTP\Request $request)
+}
+namespace Kibo\Phast\Retrievers;
+
+class RemoteRetriever implements \Kibo\Phast\Retrievers\Retriever
+{
+    use \Kibo\Phast\Retrievers\DynamicCacheSaltTrait;
+    use \Kibo\Phast\Logging\LoggingTrait;
+    private $client;
+    public function __construct(\Kibo\Phast\HTTP\Client $client)
     {
-        return !$request->isCloudflare();
+        $this->client = $client;
+    }
+    public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
+    {
+        $cdnLoop = ['Phast'];
+        if (!empty($_SERVER['HTTP_CDN_LOOP'])) {
+            $cdnLoop[] = $_SERVER['HTTP_CDN_LOOP'];
+        }
+        try {
+            $response = $this->client->get($url, ['User-Agent' => 'Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:56.0) Gecko/20100101 Firefox/56.0', 'CDN-Loop' => implode(', ', $cdnLoop)]);
+        } catch (\Exception $e) {
+            $this->logger()->warning('Caught {cls} while fetching {url}: ({code}) {message}', ['cls' => get_class($e), 'url' => (string) $url, 'code' => $e->getCode(), 'message' => $e->getMessage()]);
+            return false;
+        }
+        return $response->getContent();
     }
 }
 namespace Kibo\PhastPlugins\SDK\AdminPanel;
@@ -9854,6 +9769,106 @@ class DefaultInstallNoticeRenderer implements \Kibo\PhastPlugins\SDK\AdminPanel\
     public function render($notice, $onCloseJSFunction)
     {
         return $notice;
+    }
+}
+namespace Kibo\PhastPlugins\SDK\Configuration;
+
+/**
+ * A default implementation of the ServiceConfigurationRepository interface
+ *
+ * Class PHPFilesServiceConfigurationRepository
+ */
+class PHPFilesServiceConfigurationRepository implements \Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationRepository
+{
+    /**
+     * @var CacheRootManager
+     */
+    private $cacheRootManager;
+    /**
+     * PHPFilesServiceConfigurationRepository constructor.
+     * @param CacheRootManager $cacheRootManager
+     */
+    public function __construct(\Kibo\PhastPlugins\SDK\Caching\CacheRootManager $cacheRootManager)
+    {
+        $this->cacheRootManager = $cacheRootManager;
+    }
+    public function store(array $config)
+    {
+        return $this->storeInPHPFile($this->getServiceConfigurationFilePath(), $config) !== false;
+    }
+    public function get()
+    {
+        $json = $this->readFromPHPFile($this->getServiceConfigurationFilePath());
+        if (!$json) {
+            return false;
+        }
+        if (strpos($json, 'a:') === 0) {
+            $config = unserialize($json);
+        } else {
+            $config = json_decode($json, true);
+        }
+        if ($config === null) {
+            return false;
+        }
+        return $config;
+    }
+    public function has()
+    {
+        return !!$this->get();
+    }
+    private function getServiceConfigurationFilePath()
+    {
+        return $this->getCacheStoredFilePath('service-config');
+    }
+    private function getCacheStoredFilePath($filename)
+    {
+        $dir = $this->cacheRootManager->getCacheRoot();
+        if (!$dir) {
+            return false;
+        }
+        $legacyName = "{$dir}/{$filename}.php";
+        if (@file_exists($legacyName)) {
+            return $legacyName;
+        }
+        foreach (@scandir($dir) as $file) {
+            if (!preg_match('~^' . preg_quote($filename, '~') . '-[a-zA-Z0-9]{16}$~', $file)) {
+                continue;
+            }
+            $path = "{$dir}/{$file}";
+            if (@is_file($path)) {
+                return $path;
+            }
+        }
+        return "{$dir}/service-config-{$this->generateRandomName()}";
+    }
+    private function generateRandomName()
+    {
+        $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        $o = '';
+        for ($i = 0; $i < 16; $i++) {
+            $o .= $chars[mt_rand(0, strlen($chars) - 1)];
+        }
+        return $o;
+    }
+    private function readFromPHPFile($filename)
+    {
+        $content = @file_get_contents($filename);
+        if (!$content) {
+            return false;
+        }
+        if (!preg_match('/^[^>]*>\\n([a-f0-9]{40})\\n(.*)$/s', $content, $match)) {
+            return false;
+        }
+        if (sha1($match[2]) != $match[1]) {
+            return false;
+        }
+        return $match[2];
+    }
+    private function storeInPHPFile($filename, $value)
+    {
+        $value = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n";
+        $content = "<?php exit; ?>\n" . sha1($value) . "\n" . $value;
+        return @file_put_contents($filename, $content, LOCK_EX);
     }
 }
 namespace Kibo\PhastPlugins\SDK;
@@ -9931,28 +9946,168 @@ interface PluginHost extends \Kibo\PhastPlugins\SDK\ServiceHost
      */
     public function getSecurityTokenRoot();
 }
-namespace Kibo\Phast\Filters\JavaScript\Minification;
+namespace Kibo\PhastPlugins\SDK;
 
-class JSMinifierFilter implements \Kibo\Phast\Filters\Service\CachedResultServiceFilter
+/**
+ * Services container for the Phast Plugins SDK
+ *
+ * Class SDK
+ */
+class SDK extends \Kibo\PhastPlugins\SDK\ServiceSDK
 {
-    const VERSION = 3;
-    private $removeLicenseHeaders = true;
     /**
-     * JSMinifierFilter constructor.
-     * @param bool $removeLicenseHeaders
+     * @var PluginHost
      */
-    public function __construct($removeLicenseHeaders)
+    protected $host;
+    /**
+     * SDK constructor.
+     * @param PluginHost $host
+     */
+    public function __construct(\Kibo\PhastPlugins\SDK\PluginHost $host)
     {
-        $this->removeLicenseHeaders = (bool) $removeLicenseHeaders;
+        parent::__construct($host);
+    }
+    /**
+     * The current SDK version
+     *
+     * @return string
+     */
+    public function getSDKVersion()
+    {
+        return '8';
+    }
+    /**
+     * The current plugin version.
+     * Composed from the host plugin name,
+     * the host plugin version
+     * and the SDK version
+     *
+     * @return string
+     */
+    public function getPluginVersion()
+    {
+        return join('-', [$this->host->getPluginHostName(), $this->host->getPluginHostVersion(), $this->getSDKVersion()]);
+    }
+    /**
+     * @return Phast
+     */
+    public function getPhastAPI()
+    {
+        return new \Kibo\PhastPlugins\SDK\APIs\Phast($this->getPhastConfiguration());
+    }
+    public function getAdminPanel()
+    {
+        return new \Kibo\PhastPlugins\SDK\AdminPanel\AdminPanel($this->host->getPhastUser(), $this->host->getHostURLs()->getAJAXEndPoint(), $this->getAdminPanelData(), $this->getTranslationsManager(), $this->host->isDev());
+    }
+    public function getAJAXRequestsDispatcher()
+    {
+        return new \Kibo\PhastPlugins\SDK\AJAX\RequestsDispatcher($this->host->getPhastUser(), $this);
+    }
+    public function getAdminPanelData()
+    {
+        return new \Kibo\PhastPlugins\SDK\AdminPanel\AdminPanelData($this->getPluginConfiguration(), $this->getServiceConfigurationGenerator(), $this->getPhastConfiguration(), $this->getCacheRootManager(), $this->host);
+    }
+    public function getInstallNotice()
+    {
+        return new \Kibo\PhastPlugins\SDK\AdminPanel\InstallNotice($this->getPluginConfiguration(), $this->host->getInstallNoticeRenderer(), $this->getTranslationsManager(), $this->host->getHostURLs()->getSettingsURL(), $this->host->getHostURLs()->getAJAXEndPoint());
+    }
+    public function getPluginConfiguration()
+    {
+        return new \Kibo\PhastPlugins\SDK\Configuration\PluginConfiguration($this->getPluginConfigurationRepository(), $this->getServiceConfigurationGenerator(), $this->getCacheRootManager(), $this->host->getPhastUser(), $this->host->getNonceChecker());
+    }
+    public function getPhastConfiguration()
+    {
+        return new \Kibo\PhastPlugins\SDK\Configuration\PhastConfiguration($this->getServiceConfigurationGenerator(), $this->getServiceConfiguration(), $this->getPluginConfiguration(), [$this->host, 'onPhastConfigurationLoad']);
+    }
+    public function getAutoConfiguration()
+    {
+        return new \Kibo\PhastPlugins\SDK\Configuration\AutoConfiguration($this->getPluginConfiguration(), $this->getPhastConfiguration(), $this->host->getHostURLs()->getServicesURL(), $this->host->getHostURLs()->getTestImageURL(), $this->host->getNonce(), $this->host->getHostURLs()->getAJAXEndPoint());
+    }
+    public function getTranslationsManager()
+    {
+        return new \Kibo\PhastPlugins\SDK\AdminPanel\TranslationsManager($this->host->getLocale(), $this->host->getPluginName());
+    }
+    private function getServiceConfigurationGenerator()
+    {
+        return new \Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationGenerator($this->getPHPFilesServiceConfigurationRepository(), $this->getEnvironmentIdentifier(), $this->getPluginVersion(), $this->host);
+    }
+    public function updatePreviewCookie($enable = true)
+    {
+        if (headers_sent()) {
+            return false;
+        }
+        $enabled = isset($_COOKIE['PHAST_PREVIEW']) && (bool) $_COOKIE['PHAST_PREVIEW'];
+        if (!$enabled && $enable) {
+            return setcookie('PHAST_PREVIEW', '1', 0, '/');
+        }
+        if ($enabled && !$enable) {
+            return setcookie('PHAST_PREVIEW', '0', 0, '/');
+        }
+        return true;
+    }
+    private function getPluginConfigurationRepository()
+    {
+        return new \Kibo\PhastPlugins\SDK\Configuration\PluginConfigurationRepository($this->host->getKeyValueStore());
+    }
+}
+namespace Kibo\Phast\Filters\CSS\Composite;
+
+class Filter extends \Kibo\Phast\Filters\Service\CompositeFilter implements \Kibo\Phast\Filters\Service\CachedResultServiceFilter
+{
+    public function __construct()
+    {
+        $this->addFilter(new \Kibo\Phast\Filters\CSS\CommentsRemoval\Filter());
+    }
+}
+namespace Kibo\Phast\Filters\CSS\ImageURLRewriter;
+
+class Filter implements \Kibo\Phast\Filters\Service\CachedResultServiceFilter
+{
+    /**
+     * @var ImageURLRewriter
+     */
+    private $rewriter;
+    /**
+     * Filter constructor.
+     * @param ImageURLRewriter $rewriter
+     */
+    public function __construct(\Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageURLRewriter $rewriter)
+    {
+        $this->rewriter = $rewriter;
     }
     public function getCacheSalt(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
     {
-        return http_build_query(['v' => self::VERSION, 'removeLicenseHeaders' => $this->removeLicenseHeaders]);
+        return $this->rewriter->getCacheSalt();
     }
     public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
     {
-        $minified = (new \Kibo\Phast\Common\JSMinifier($resource->getContent(), $this->removeLicenseHeaders))->min();
-        return $resource->withContent($minified);
+        $content = $this->rewriter->rewriteStyle($resource->getContent());
+        $dependencies = $this->rewriter->getInlinedResources();
+        return $resource->withContent($content)->withDependencies($dependencies);
+    }
+}
+namespace Kibo\Phast\Filters\CSS\ImportsStripper;
+
+class Filter implements \Kibo\Phast\Filters\Service\CachedResultServiceFilter
+{
+    use \Kibo\Phast\Logging\LoggingTrait;
+    public function getCacheSalt(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
+    {
+        return $this->shouldStripImports($request) ? 'strip-imports' : 'no-strip-imports';
+    }
+    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
+    {
+        if (!$this->shouldStripImports($request)) {
+            $this->logger()->info('No import stripping requested! Skipping!');
+            return $resource;
+        }
+        $css = $resource->getContent();
+        $stripped = preg_replace(\Kibo\Phast\Filters\HTML\CSSInlining\Filter::CSS_IMPORTS_REGEXP, '', $css);
+        return $resource->withContent($stripped);
+    }
+    private function shouldStripImports(array $request)
+    {
+        return isset($request['strip-imports']);
     }
 }
 namespace Kibo\Phast\Filters\Image\Composite;
@@ -10027,182 +10182,27 @@ class Filter implements \Kibo\Phast\Filters\Service\CachedResultServiceFilter
         return $processedResource;
     }
 }
-namespace Kibo\Phast\Logging\LogWriters\JSONLFile;
+namespace Kibo\Phast\Filters\JavaScript\Minification;
 
-class Writer extends \Kibo\Phast\Logging\LogWriters\BaseLogWriter
+class JSMinifierFilter implements \Kibo\Phast\Filters\Service\CachedResultServiceFilter
 {
-    use \Kibo\Phast\Logging\Common\JSONLFileLogTrait;
+    const VERSION = 3;
+    private $removeLicenseHeaders = true;
     /**
-     * @param LogEntry $entry
+     * JSMinifierFilter constructor.
+     * @param bool $removeLicenseHeaders
      */
-    protected function doWriteEntry(\Kibo\Phast\Logging\LogEntry $entry)
+    public function __construct($removeLicenseHeaders)
     {
-        $encoded = @\Kibo\Phast\Common\JSON::encode($entry->toArray());
-        if ($encoded) {
-            $this->makeDirIfNotExists();
-            @file_put_contents($this->filename, $encoded . "\n", FILE_APPEND | LOCK_EX);
-        }
+        $this->removeLicenseHeaders = (bool) $removeLicenseHeaders;
     }
-    private function makeDirIfNotExists()
+    public function getCacheSalt(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
     {
-        if (!@file_exists($this->dir)) {
-            @mkdir($this->dir, 0777, true);
-        }
+        return http_build_query(['v' => self::VERSION, 'removeLicenseHeaders' => $this->removeLicenseHeaders]);
     }
-}
-namespace Kibo\Phast\Logging\LogWriters\Composite;
-
-class Writer extends \Kibo\Phast\Logging\LogWriters\BaseLogWriter
-{
-    /**
-     * @var Writer[]
-     */
-    private $writers = array();
-    public function addWriter(\Kibo\Phast\Logging\LogWriter $writer)
+    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
     {
-        $this->writers[] = $writer;
-    }
-    protected function doWriteEntry(\Kibo\Phast\Logging\LogEntry $entry)
-    {
-        foreach ($this->writers as $writer) {
-            $writer->writeEntry($entry);
-        }
-    }
-}
-namespace Kibo\Phast\Logging\LogWriters\RotatingTextFile;
-
-class Writer extends \Kibo\Phast\Logging\LogWriters\BaseLogWriter
-{
-    /** @var string */
-    private $path = 'phast.log';
-    /** @var int */
-    private $maxFiles = 2;
-    /** @var int */
-    private $maxSize = 10 * 1024 * 1024;
-    /** @var ObjectifiedFunctions */
-    private $funcs;
-    /**
-     * @param array $config
-     * @param ?ObjectifiedFunctions $funcs
-     */
-    public function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
-    {
-        if (isset($config['path'])) {
-            $this->path = (string) $config['path'];
-        }
-        if (isset($config['maxFiles'])) {
-            $this->maxFiles = (int) $config['maxFiles'];
-        }
-        if (isset($config['maxSize'])) {
-            $this->maxSize = (int) $config['maxSize'];
-        }
-        $this->funcs = is_null($funcs) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $funcs;
-    }
-    protected function doWriteEntry(\Kibo\Phast\Logging\LogEntry $entry)
-    {
-        if (!($this->levelMask & $entry->getLevel())) {
-            return;
-        }
-        $message = $this->interpolate($entry->getMessage(), $entry->getContext());
-        $line = sprintf("%s %s %s\n", gmdate('Y-m-d\\TH:i:s\\Z', $this->funcs->time()), \Kibo\Phast\Logging\LogLevel::toString($entry->getLevel()), $message);
-        clearstatcache(true, $this->path);
-        $this->rotate(strlen($line));
-        file_put_contents($this->path, $line, FILE_APPEND);
-    }
-    private function interpolate($message, $context)
-    {
-        $prefix = '';
-        $prefixKeys = ['requestId', 'service', 'class', 'method', 'line'];
-        foreach ($prefixKeys as $key) {
-            if (isset($context[$key])) {
-                $prefix .= '{' . $key . "}\t";
-            }
-        }
-        return preg_replace_callback('/{(.+?)}/', function ($match) use($context) {
-            return array_key_exists($match[1], $context) ? $context[$match[1]] : $match[0];
-        }, $prefix . $message);
-    }
-    private function rotate($bufferSize)
-    {
-        if (!$this->shouldRotate($bufferSize)) {
-            return;
-        }
-        if (!($fp = fopen($this->path, 'r+'))) {
-            return;
-        }
-        try {
-            if (!flock($fp, LOCK_EX | LOCK_NB)) {
-                return;
-            }
-            if (!$this->shouldRotate($bufferSize)) {
-                return;
-            }
-            for ($i = $this->maxFiles - 1; $i > 0; $i--) {
-                @rename($this->getName($i - 1), $this->getName($i));
-            }
-        } finally {
-            fclose($fp);
-        }
-    }
-    private function getName($index)
-    {
-        if ($index <= 0) {
-            return $this->path;
-        }
-        return $this->path . '.' . $index;
-    }
-    private function shouldRotate($bufferSize)
-    {
-        $currentSize = @filesize($this->path);
-        if (!$currentSize) {
-            return false;
-        }
-        $newSize = $currentSize + $bufferSize;
-        return $newSize > $this->maxSize;
-    }
-}
-namespace Kibo\Phast\Logging\LogWriters\PHPError;
-
-class Writer extends \Kibo\Phast\Logging\LogWriters\BaseLogWriter
-{
-    private $messageType = 0;
-    private $destination = null;
-    private $extraHeaders = null;
-    /**
-     * @var ObjectifiedFunctions
-     */
-    private $funcs;
-    /**
-     * PHPErrorLogWriter constructor.
-     * @param array $config
-     * @param ObjectifiedFunctions $funcs
-     */
-    public function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
-    {
-        foreach (['messageType', 'destination', 'extraHeaders'] as $field) {
-            if (isset($config[$field])) {
-                $this->{$field} = $config[$field];
-            }
-        }
-        $this->funcs = is_null($funcs) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $funcs;
-    }
-    protected function doWriteEntry(\Kibo\Phast\Logging\LogEntry $entry)
-    {
-        if ($this->levelMask & $entry->getLevel()) {
-            $this->funcs->error_log($this->interpolate($entry->getMessage(), $entry->getContext()), $this->messageType, $this->destination, $this->extraHeaders);
-        }
-    }
-    private function interpolate($message, $context)
-    {
-        $prefix = '';
-        $prefixKeys = ['requestId', 'service', 'class', 'method', 'line'];
-        foreach ($prefixKeys as $key) {
-            if (isset($context[$key])) {
-                $prefix .= '{' . $key . "}\t";
-            }
-        }
-        return preg_replace_callback('/{(.+?)}/', function ($match) use($context) {
-            return array_key_exists($match[1], $context) ? $context[$match[1]] : $match[0];
-        }, $prefix . $message);
+        $minified = (new \Kibo\Phast\Common\JSMinifier($resource->getContent(), $this->removeLicenseHeaders))->min();
+        return $resource->withContent($minified);
     }
 }

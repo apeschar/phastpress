@@ -3,7 +3,7 @@
 **Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix\
 **Requires at least**: 4.4\
 **Requires PHP**: 5.6\
-**Stable tag**: 1.118\
+**Stable tag**: 1.119\
 **Tested up to**: 5.7\
 **License**: AGPL-3.0\
 **Contributors**: apeschar
@@ -196,6 +196,10 @@ Then in PhastPress settings, <strong>disable</strong> image optimization in tags
 Now, reload your site and check if images are optimized.
 
 ## Changelog
+
+### 1.119 - 2021-05-09
+
+* Fix notice on undefined cspNonce variable.
 
 ### 1.118 - 2021-05-04
 
