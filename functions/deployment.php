@@ -79,6 +79,7 @@ function phastpress_deploy() {
         Compat\GoogleSiteKit::class,
         Compat\GAGoogleAnalytics::class,
         Compat\AdThrive::class,
+        Compat\TwentyTwentyOneDarkMode::class,
     ] as $class) {
         (new $class())->setup();
     }
