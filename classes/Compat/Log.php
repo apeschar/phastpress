@@ -25,7 +25,7 @@ class Log {
             }
         }
         $o .= 'console.groupEnd();';
-        $o .= '</script>';
+        $o .= "</script>\n";
 
         echo $o;
     }

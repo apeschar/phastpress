@@ -2,6 +2,8 @@
 namespace Kibo\PhastPlugins\PhastPress\Compat;
 
 use Twenty_Twenty_One_Dark_Mode;
+use ReflectionClass;
+use Exception;
 
 class TwentyTwentyOneDarkMode {
     public function setup() {
@@ -17,46 +19,46 @@ class TwentyTwentyOneDarkMode {
 
         Log::add('twentytwentyone', 'wrapping dark switch hook to add data-phast-no-defer and prevent CSS optimization');
 
-        $action = $this->findAction();
-        if (!$action) {
+        $darkMode = $this->findDarkModeObject();
+        if (!$darkMode) {
             Log::add('twentytwentyone', 'could not find hook');
             return;
         }
 
-        if (!remove_filter('wp_footer', $action['function'], $action['priority'])) {
-            Log::add('twentytwentyone', 'could not remove hook');
-            return;
+        try {
+            $cls = new ReflectionClass($darkMode);
+            $meth = $cls->getMethod('switch_should_render');
+            if (!$meth->invoke($darkMode)) {
+                Log::add('twentytwentyone', 'switch won\'t render');
+                return;
+            }
+        } catch (Exception $e) {
+            Log::add('twentytwentyone', 'unable to call Twenty_Twenty_One_Dark_Mode::switch_should_render; check error log');
+            error_log(sprintf(
+                'Caught %s while trying to call Twenty_Twenty_One_Dark_Mode::switch_should_render: (%d) %s',
+                get_class($e),
+                $e->getCode(),
+                $e->getMessage()
+            ));
         }
 
-        add_filter('wp_footer', function () use ($action) {
-            ob_start(function ($buffer) {
-                if (trim($buffer) == '') {
-                    return $buffer;
-                }
-                return
-                    str_replace('<script>', '<script data-phast-no-defer>', $buffer) .
-                    '<div class="is-dark-theme"></div>';
-            });
-            try {
-                $action['function']();
-            } finally {
-                ob_end_flush();
-            }
-        }, $action['priority']);
+        add_filter('wp_body_open', function () {
+            printf("<script data-phast-no-defer>%s</script>\n", file_get_contents(__FILE__ . '.js'));
+        });
+
+        add_filter('wp_footer', function () {
+            echo '<div class="is-dark-theme"></div>';
+        });
     }
 
-    private function findAction() {
+    private function findDarkModeObject() {
         foreach ($GLOBALS['wp_filter']['wp_footer'] as $priority => $actions) {
             foreach ($actions as $action) {
                 if (is_array($action['function'])
                     && sizeof($action['function']) == 2
                     && $action['function'][0] instanceof Twenty_Twenty_One_Dark_Mode
-                    && $action['function'][1] == 'the_switch'
                 ) {
-                    return [
-                        'priority' => $priority,
-                        'function' => $action['function'],
-                    ];
+                    return $action['function'][0];
                 }
             }
         }
