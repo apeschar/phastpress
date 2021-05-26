@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 5.6
-Stable tag: 1.122
+Stable tag: 1.123
 Tested up to: 5.7
 License: AGPL-3.0
 Contributors: apeschar
@@ -197,9 +197,15 @@ Now, reload your site and check if images are optimized.
 
 == Changelog ==
 
+= 1.123 - 2021-05-26 =
+
+* Add missing file; simplify logic; improve log message.
+
 = 1.122 - 2021-05-26 =
 
 * Prevent light flash when using the dark mode in the Twenty Twenty One theme, even when the page is large enough to trigger multiple renders.
+
+This release misses a file. Please use 1.123 instead.
 
 = 1.121 - 2021-05-20 =
 

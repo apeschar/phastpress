@@ -17,7 +17,7 @@ class TwentyTwentyOneDarkMode {
             return;
         }
 
-        Log::add('twentytwentyone', 'wrapping dark switch hook to add data-phast-no-defer and prevent CSS optimization');
+        Log::add('twentytwentyone', 'adding script to set is-dark-theme class early');
 
         $darkMode = $this->findDarkModeObject();
         if (!$darkMode) {
@@ -43,11 +43,7 @@ class TwentyTwentyOneDarkMode {
         }
 
         add_filter('wp_body_open', function () {
-            printf("<script data-phast-no-defer>%s</script>\n", file_get_contents(__FILE__ . '.js'));
-        });
-
-        add_filter('wp_footer', function () {
-            echo '<div class="is-dark-theme"></div>';
+            printf("<script data-phast-no-defer class='is-dark-theme'>%s</script>\n", file_get_contents(__FILE__ . '.js'));
         });
     }
 
