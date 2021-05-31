@@ -3,7 +3,7 @@
 **Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix\
 **Requires at least**: 4.4\
 **Requires PHP**: 5.6\
-**Stable tag**: 1.123\
+**Stable tag**: 1.124\
 **Tested up to**: 5.7\
 **License**: AGPL-3.0\
 **Contributors**: apeschar
@@ -196,6 +196,10 @@ Then in PhastPress settings, <strong>disable</strong> image optimization in tags
 Now, reload your site and check if images are optimized.
 
 ## Changelog
+
+### 1.124 - 2021-05-31
+
+* Prevent dark flash when OS dark mode is active but theme dark mode is disabled.
 
 ### 1.123 - 2021-05-26
 
