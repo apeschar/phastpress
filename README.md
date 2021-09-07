@@ -3,8 +3,8 @@
 **Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix\
 **Requires at least**: 4.4\
 **Requires PHP**: 5.6\
-**Stable tag**: 1.124\
-**Tested up to**: 5.7\
+**Stable tag**: 1.125\
+**Tested up to**: 5.8\
 **License**: AGPL-3.0\
 **Contributors**: apeschar
 
@@ -197,6 +197,12 @@ Now, reload your site and check if images are optimized.
 
 ## Changelog
 
+### 1.125 - 2021-09-07
+
+Update Phast to version 1.101:
+
+* Ensure the security token never gets reset when the cache grows too large. This prevents resource URLs from changing suddenly.
+
 ### 1.124 - 2021-05-31
 
 * Prevent dark flash when OS dark mode is active but theme dark mode is disabled.
@@ -216,6 +222,8 @@ This release misses a file. Please use 1.123 instead.
 * Prevent light flash when using the dark mode in the Twenty Twenty One theme.
 
 ### 1.120 - 2021-05-13
+
+Update Phast to version 1.100:
 
 * Send 403 and 404 status codes for unauthorized and not found resource URLs respectively, if they cannot be safely redirected to the original resource.
 
