@@ -2,8 +2,8 @@
 
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
-Requires PHP: 5.6
-Stable tag: 1.125
+Requires PHP: 7.3
+Stable tag: 2.0
 Tested up to: 5.8
 License: AGPL-3.0
 Contributors: apeschar
@@ -196,6 +196,14 @@ Then in PhastPress settings, <strong>disable</strong> image optimization in tags
 Now, reload your site and check if images are optimized.
 
 == Changelog ==
+
+= 2.0 - 2021-09-27 =
+
+* Require PHP 7.3.
+
+Update Phast to version 1.102:
+
+* Don't rewrite the URLs of dynamically inserted `module` scripts. This fixes compatibility with [Presto Player](https://wordpress.org/plugins/presto-player/).
 
 = 1.125 - 2021-09-07 =
 
