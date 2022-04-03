@@ -7,6 +7,23 @@ if (!defined('PHASTPRESS_VERSION')) {
     exit;
 }
 
+try {
+    new PDO('sqlite::memory:');
+} catch (\Throwable $e) {
+    add_action('admin_notices', function () use ($e) {
+        ?>
+        <div class="error notice">
+            <p>
+                <b>Sorry, PhastPress can't run yet.</b>
+                The PDO extension needs to be installed with the SQLite3 database driver available.<br>
+                Currently we're getting this error: <code><?= esc_html($e->getMessage()); ?></code>
+            </p>
+        </div>
+        <?php
+    });
+    return;
+}
+
 require_once __DIR__ . '/autoload.php';
 
 /* BEGIN UPDATER */

@@ -19,241 +19,281 @@ interface Cache
      */
     public function set($key, $value, $expiresIn = 0);
 }
-namespace Kibo\Phast\Cache\File;
+namespace Kibo\Phast\Cache\Sqlite;
 
 class Cache implements \Kibo\Phast\Cache\Cache
 {
-    use \Kibo\Phast\Logging\LoggingTrait;
-    const VERSION = '3';
-    /**
-     * @var GarbageCollector
-     */
-    private static $garbageCollector;
-    /**
-     * @var DiskCleanup
-     */
-    private static $diskCleanup;
-    /**
-     * @var string
-     */
+    private static $managers = [];
     private $cacheRoot;
-    /**
-     * @var string
-     */
-    private $cacheNS;
-    /**
-     * @var integer
-     */
-    private $shardingDepth;
-    /**
-     * @var integer
-     */
-    private $gcMaxAge;
-    /**
-     * @var ObjectifiedFunctions
-     */
+    private $name;
+    private $maxSize;
+    private $namespace;
     private $functions;
-    /**
-     * @var System
-     */
-    private $system;
-    public function __construct(array $config, $cacheNamespace, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    public function __construct(array $config, string $namespace, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
     {
-        $this->cacheRoot = $config['cacheRoot'];
-        $this->shardingDepth = $config['shardingDepth'];
-        $this->gcMaxAge = $config['garbageCollection']['maxAge'];
-        $this->cacheNS = $cacheNamespace;
-        if ($functions) {
-            $this->functions = $functions;
-        } else {
-            $this->functions = new \Kibo\Phast\Common\ObjectifiedFunctions();
-        }
-        $this->system = new \Kibo\Phast\Common\System($this->functions);
-        if (!isset(self::$garbageCollector)) {
-            self::$garbageCollector = new \Kibo\Phast\Cache\File\GarbageCollector($config, $this->functions);
-            self::$diskCleanup = new \Kibo\Phast\Cache\File\DiskCleanup($config, $this->functions);
-        }
+        $this->cacheRoot = (string) $config['cacheRoot'];
+        $this->name = (string) ($config['name'] ?? 'cache');
+        $this->maxSize = (int) $config['maxSize'];
+        $this->namespace = $namespace;
+        $this->functions = $functions ?? new \Kibo\Phast\Common\ObjectifiedFunctions();
     }
-    public function get($key, callable $cached = null, $expiresIn = 0)
+    public function get($key, callable $fn = null, $expiresIn = 0)
     {
-        $contents = $this->getFromCache($key);
-        if (!is_null($contents)) {
-            return $contents;
-        }
-        if (is_null($cached)) {
-            return null;
-        }
-        $contents = $cached();
-        $this->storeCache($key, $contents, $expiresIn);
-        return $contents;
+        return $this->getManager()->get($this->getKey($key), $fn, $expiresIn, $this->functions);
     }
-    public function set($key, $value, $expiresIn = 0)
+    private function getKey(string $key) : string
     {
-        $this->storeCache($key, $value, $expiresIn);
+        return $this->namespace . "\0" . $key;
     }
-    /**
-     * @return GarbageCollector
-     */
-    public function getGarbageCollector()
+    public function set($key, $value, $expiresIn = 0) : void
     {
-        return self::$garbageCollector;
+        $this->getManager()->set($this->getKey($key), $value, $expiresIn, $this->functions);
     }
-    /**
-     * @return DiskCleanup
-     */
-    public function getDiskCleanup()
+    public function getManager() : \Kibo\Phast\Cache\Sqlite\Manager
     {
-        return self::$diskCleanup;
-    }
-    private function getCacheDir($key)
-    {
-        $hashedKey = $this->getHashedKey($key);
-        $parts = [$this->cacheRoot];
-        for ($i = 0; $i < $this->shardingDepth * 2; $i += 2) {
-            $parts[] = substr($hashedKey, $i, 2);
+        $key = $this->cacheRoot . '/' . $this->name;
+        if (!isset(self::$managers[$key])) {
+            self::$managers[$key] = new \Kibo\Phast\Cache\Sqlite\Manager($this->cacheRoot, $this->name, $this->maxSize);
         }
-        return join('/', $parts);
-    }
-    private function getCacheFilename($key)
-    {
-        return $this->getCacheDir($key) . '/' . $this->getHashedKey($key) . '-' . ltrim($this->cacheNS, '/');
-    }
-    private function getHashedKey($key)
-    {
-        return md5($key);
-    }
-    private function storeCache($key, $contents, $expiresIn)
-    {
-        $dir = $this->getCacheDir($key);
-        if (!file_exists($dir)) {
-            @mkdir($dir, 0700, true);
-        }
-        if (($uid = $this->system->getUserId()) && $uid !== $this->functions->fileowner($this->cacheRoot)) {
-            $this->logger()->critical('Phast: FileCache: Cache root {cacheRoot} owned by {fileOwner}, but process user is {userId}!', ['cacheRoot' => $this->cacheRoot, 'fileOwner' => fileowner($this->cacheRoot), 'userId' => $uid]);
-            return;
-        }
-        $file = $this->getCacheFilename($key);
-        $expirationTime = $expiresIn > 0 ? $this->functions->time() + $expiresIn : 0;
-        $serialized = serialize($contents);
-        $serialized = implode(' ', [$expirationTime, self::VERSION, md5($serialized), $serialized]);
-        $result = @$this->functions->file_put_contents($file, $serialized);
-        if ($result === false) {
-            @chmod($file, 0600);
-            @unlink($file);
-            $result = @$this->functions->file_put_contents($file, $serialized);
-        }
-        if ($result !== strlen($serialized)) {
-            $this->logger()->critical('Phast: FileCache: Error writing to file {filename}. {written} of {total} bytes written!', ['filename' => $file, 'written' => json_encode($result), 'total' => strlen($serialized)]);
-        }
-    }
-    private function getFromCache($key)
-    {
-        $file = $this->getCacheFilename($key);
-        $contents = @$this->functions->file_get_contents($file);
-        if ($contents === false) {
-            return null;
-        }
-        @(list($expirationTime, $version, $data) = explode(' ', $contents, 3));
-        if ($version === '2') {
-            $data = unserialize($data);
-        } elseif ($version === self::VERSION) {
-            @(list($hash, $data) = explode(' ', $data, 2));
-            if (md5($data) != $hash) {
-                $this->logger()->error('Phast: FileCache: Cache file was corrupted: {file}', ['file' => $file]);
-                return null;
-            }
-            $data = unserialize($data);
-        } else {
-            $this->logger()->debug('Phast: FileCache: Refusing to read old cache file {file}', ['file' => $file]);
-            return null;
-        }
-        if ($expirationTime > $this->functions->time() || $expirationTime == 0) {
-            if ($this->functions->time() - @$this->functions->filectime($file) >= round($this->gcMaxAge / 10)) {
-                @$this->functions->touch($file);
-            }
-            return $data;
-        }
-        return null;
+        return self::$managers[$key];
     }
 }
-namespace Kibo\Phast\Cache\File;
+namespace Kibo\Phast\Cache\Sqlite;
 
-abstract class ProbabilisticExecutor
+class Connection extends \PDO
 {
-    /**
-     * @var string
-     */
-    protected $cacheRoot;
-    /**
-     * @var float
-     */
-    protected $probability = 0;
-    /**
-     * @var ObjectifiedFunctions
-     */
-    protected $functions;
-    protected abstract function execute();
-    protected function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    private $statements;
+    public function prepare($query, $options = null) : \PDOStatement
     {
-        $this->cacheRoot = $config['cacheRoot'];
-        $this->functions = is_null($functions) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $functions;
-    }
-    public function __destruct()
-    {
-        if ($this->shouldExecute()) {
-            $this->execute();
+        if ($options) {
+            return parent::prepare($query, $options);
         }
+        if (!isset($this->statements[$query])) {
+            $this->statements[$query] = parent::prepare($query);
+        }
+        return $this->statements[$query];
     }
-    private function shouldExecute()
+    public function getPageSize() : int
     {
-        if (!$this->functions->file_exists($this->cacheRoot)) {
+        return (int) $this->query('PRAGMA page_size')->fetchColumn();
+    }
+}
+namespace Kibo\Phast\Cache\Sqlite;
+
+class Manager
+{
+    use \Kibo\Phast\Logging\LoggingTrait;
+    private $cacheRoot;
+    private $name;
+    private $maxSize;
+    private $database;
+    private $autorecover = true;
+    public function __construct(string $cacheRoot, string $name, int $maxSize)
+    {
+        $this->cacheRoot = $cacheRoot;
+        $this->name = $name;
+        $this->maxSize = $maxSize;
+    }
+    public function setAutorecover(bool $autorecover) : void
+    {
+        $this->autorecover = $autorecover;
+    }
+    public function get(string $key, ?callable $cb, int $expiresIn, \Kibo\Phast\Common\ObjectifiedFunctions $functions)
+    {
+        return $this->autorecover(function () use($key, $cb, $expiresIn, $functions) {
+            $query = $this->getDatabase()->prepare('
+                SELECT value
+                FROM cache
+                WHERE
+                    key = :key
+                    AND (expires_at IS NULL OR expires_at > :time)
+            ');
+            $query->execute(['key' => $this->hashKey($key), 'time' => $functions->time()]);
+            $row = $query->fetch(\PDO::FETCH_ASSOC);
+            if ($row && $this->unserialize($row['value'], $value)) {
+                return $value;
+            }
+            if ($cb === null) {
+                return null;
+            }
+            $value = $cb();
+            $this->set($key, $value, $expiresIn, $functions);
+            return $value;
+        });
+    }
+    public function set(string $key, $value, int $expiresIn, \Kibo\Phast\Common\ObjectifiedFunctions $functions)
+    {
+        return $this->autorecover(function () use($key, $value, $expiresIn, $functions) {
+            $db = $this->getDatabase();
+            $tries = 10;
+            while ($tries--) {
+                try {
+                    $db->prepare('
+                        REPLACE INTO cache (key, value, expires_at)
+                        VALUES (:key, :value, :expires_at)
+                    ')->execute(['key' => $this->hashKey($key), 'value' => $this->serialize($value), 'expires_at' => $expiresIn > 0 ? $functions->time() + $expiresIn : null]);
+                    return;
+                } catch (\PDOException $e) {
+                    if (!$this->isFullException($e)) {
+                        throw $e;
+                    }
+                }
+                $this->makeSpace();
+            }
+        });
+    }
+    private function isFullException(\PDOException $e) : bool
+    {
+        return preg_match('~13 database or disk is full~', $e->getMessage());
+    }
+    private function serialize($value) : string
+    {
+        // gzcompress is always used since it adds a checksum to the data
+        return gzcompress(serialize($value));
+    }
+    private function unserialize(string $value, &$result) : bool
+    {
+        $value = @gzuncompress($value);
+        if ($value === false) {
             return false;
         }
-        if ($this->probability <= 0) {
-            return false;
-        }
-        if ($this->probability >= 1) {
+        if ($value === 'b:0;') {
+            $result = false;
             return true;
         }
-        return $this->functions->mt_rand(1, round(1 / $this->probability)) == 1;
+        $value = @unserialize($value);
+        if ($value === false) {
+            return false;
+        }
+        $result = $value;
+        return true;
     }
-    protected function getCacheFiles($path)
+    private function hashKey(string $key) : string
     {
-        /** @var \SplFileInfo $item */
-        foreach ($this->makeFileSystemIterator($path) as $item) {
-            if ($this->isShard($item)) {
-                foreach ($this->getCacheFiles($item->getRealPath()) as $item) {
-                    (yield $item);
-                }
-            } elseif ($this->isCacheEntry($item)) {
-                (yield $item);
+        return sha1($key, true);
+    }
+    private function randomKey() : string
+    {
+        return random_bytes(strlen($this->hashKey('')));
+    }
+    private function getDatabase() : \PDO
+    {
+        if (!isset($this->database)) {
+            @mkdir(dirname($this->getDatabasePath()), 0700, true);
+            $this->checkDirOwner(dirname($this->getDatabasePath()));
+            $database = new \Kibo\Phast\Cache\Sqlite\Connection('sqlite:' . $this->getDatabasePath());
+            $database->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+            $database->exec('PRAGMA journal_mode = TRUNCATE');
+            $database->exec('PRAGMA synchronous = OFF');
+            if (($maxPageCount = $this->getMaxPageCount($database)) !== null) {
+                $database->exec(sprintf('PRAGMA max_page_count = %d', $maxPageCount));
             }
+            $this->upgradeDatabase($database);
+            $this->database = $database;
+        }
+        return $this->database;
+    }
+    private function checkDirOwner(string $dir) : void
+    {
+        $owner = fileowner($dir);
+        if ($owner === false) {
+            throw new \RuntimeException('Could not get owner of cache dir');
+        }
+        if (!function_exists('posix_geteuid')) {
+            return;
+        }
+        if ($owner !== posix_geteuid()) {
+            throw new \RuntimeException('Cache dir is owner by another user; this is not secure');
         }
     }
-    /**
-     * @return \Iterator
-     */
-    protected function makeFileSystemIterator($path)
+    private function getMaxPageCount(\Kibo\Phast\Cache\Sqlite\Connection $database) : ?int
+    {
+        return $this->maxSize / $database->getPageSize();
+    }
+    private function getDatabasePath() : string
+    {
+        return $this->cacheRoot . '/' . $this->name . '.sqlite3';
+    }
+    private function upgradeDatabase(\PDO $database) : void
+    {
+        // If the cache table is already created, there's nothing to do.
+        if ($database->query("\n            SELECT 1\n            FROM sqlite_master\n            WHERE\n                type = 'table'\n                AND name = 'cache'\n        ")->fetchColumn()) {
+            return;
+        }
+        try {
+            $database->exec('BEGIN EXCLUSIVE');
+            // After acquiring an exclusive lock, check for the table again;
+            // it may have been created after the last check and before the lock.
+            if ($database->query("\n                SELECT 1\n                FROM sqlite_master\n                WHERE\n                    type = 'table'\n                    AND name = 'cache'\n            ")->fetchColumn()) {
+                return;
+            }
+            $database->exec('
+                CREATE TABLE cache (
+                    key BLOB PRIMARY KEY,
+                    value BLOB NOT NULL,
+                    expires_at INT
+                ) WITHOUT ROWID
+            ');
+            $database->exec('COMMIT');
+        } catch (\Throwable $e) {
+            $database->exec('ROLLBACK');
+            throw $e;
+        }
+    }
+    private function autorecover(\Closure $fn)
     {
         try {
-            $items = iterator_to_array(new \FilesystemIterator($path));
-            shuffle($items);
-            return new \ArrayIterator($items);
-        } catch (\Exception $e) {
-            return new \ArrayIterator([]);
+            return $fn();
+        } catch (\PDOException $e) {
+            if (!$this->autorecover) {
+                throw $e;
+            }
+        } catch (\RuntimeException $e) {
+            if (!$this->autorecover) {
+                throw $e;
+            }
+            $this->logger()->error('Caught {exceptionClass} during cache operation: {message}; ignoring it', ['exceptionClass' => get_class($e), 'message' => $e->getMessage()]);
+            return null;
         }
+        $this->logger()->error('Caught {exceptionClass} during cache operation: {message}; retrying operation', ['exceptionClass' => get_class($e), 'message' => $e->getMessage()]);
+        $this->database = null;
+        $this->purge();
+        return $fn();
     }
-    protected function isShard(\SplFileInfo $item)
+    private function purge() : void
     {
-        return $item->isDir() && !$item->isLink() && preg_match('/^[a-f\\d]{2}$/', $item->getFilename());
+        @unlink($this->getDatabasePath());
     }
-    protected function isCacheEntry(\SplFileInfo $item)
+    private function makeSpace() : void
     {
-        return $item->isFile() && preg_match('/^[a-f\\d]{32}-/', $item->getFilename());
-    }
-    public function forceExecution()
-    {
-        $this->execute();
+        $selectQuery = $this->getDatabase()->prepare('
+            SELECT key, LENGTH(key) + LENGTH(value) + LENGTH(expires_at) AS length
+            FROM cache
+            WHERE key >= :key
+            ORDER BY key
+            LIMIT 1
+        ');
+        $deleteQuery = $this->getDatabase()->prepare('
+            DELETE FROM cache
+            WHERE key = :key
+        ');
+        $this->getDatabase()->exec('BEGIN IMMEDIATE');
+        try {
+            for ($i = 0; $i < 100; $i++) {
+                $selectQuery->execute(['key' => $this->randomKey()]);
+                if (!($row = $selectQuery->fetch(\PDO::FETCH_ASSOC))) {
+                    $selectQuery->execute(['key' => '']);
+                    if (!($row = $selectQuery->fetch(\PDO::FETCH_ASSOC))) {
+                        return;
+                    }
+                }
+                $deleteQuery->execute(['key' => $row['key']]);
+            }
+            $this->getDatabase()->exec('COMMIT');
+        } catch (\Throwable $e) {
+            $this->getDatabase()->exec('ROLLBACK');
+            throw $e;
+        }
     }
 }
 namespace Kibo\Phast\Common;
@@ -573,7 +613,7 @@ class SystemDiagnostics
             return isset($runtimeConfig['documents']['filters'][$filter]);
         }], 'ImageFilter' => ['items' => array_keys($configArr['images']['filters']), 'enabled' => function ($filter) use($runtimeConfig) {
             return isset($runtimeConfig['images']['filters'][$filter]);
-        }], 'Cache' => ['items' => [\Kibo\Phast\Cache\File\Cache::class], 'enabled' => function () {
+        }], 'Cache' => ['items' => [\Kibo\Phast\Cache\Sqlite\Cache::class], 'enabled' => function () {
             return true;
         }]];
     }
@@ -674,7 +714,7 @@ class DefaultConfiguration
     public static function get()
     {
         $request = \Kibo\Phast\HTTP\Request::fromGlobals();
-        return ['securityToken' => null, 'retrieverMap' => [$request->getHost() => $request->getDocumentRoot()], 'httpClient' => \Kibo\Phast\HTTP\CURLClient::class, 'cache' => ['cacheRoot' => sys_get_temp_dir() . '/phast-cache-' . (new \Kibo\Phast\Common\System())->getUserId(), 'shardingDepth' => 1, 'garbageCollection' => ['maxItems' => 100, 'probability' => 0.1, 'maxAge' => 86400 * 365], 'diskCleanup' => ['maxSize' => 1000 * pow(1024, 2), 'probability' => 0.02, 'portionToFree' => 0.5, 'keepNamespaces' => [\Kibo\Phast\Security\ServiceSignatureFactory::CACHE_NAMESPACE]]], 'servicesUrl' => '/phast.php', 'serviceRequestFormat' => \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH, 'compressServiceResponse' => true, 'optimizeHTMLDocumentsOnly' => true, 'optimizeJSONResponses' => false, 'outputServerSideStats' => true, 'documents' => ['maxBufferSizeToApply' => 2 * 1024 * 1024, 'baseUrl' => $request->getAbsoluteURI(), 'filters' => [\Kibo\Phast\Filters\HTML\CommentsRemoval\Filter::class => [], \Kibo\Phast\Filters\HTML\MetaCharset\Filter::class => [], \Kibo\Phast\Filters\HTML\Minify\Filter::class => [], \Kibo\Phast\Filters\HTML\MinifyScripts\Filter::class => [], \Kibo\Phast\Filters\HTML\BaseURLSetter\Filter::class => [], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter::class => [], \Kibo\Phast\Filters\HTML\LazyImageLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\CSSInlining\Filter::class => ['optimizerSizeDiffThreshold' => 1024, 'whitelist' => ['~^https?://fonts\\.googleapis\\.com/~' => ['ieCompatible' => false], '~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~', '~^https?://maxcdn\\.bootstrapcdn\\.com/[^?#]*\\.css~', '~^https?://idangero\\.us/~', '~^https?://[^/]*\\.github\\.io/~', '~^https?://\\w+\\.typekit\\.net/~' => ['ieCompatible' => false], '~^https?://stackpath\\.bootstrapcdn\\.com/~', '~^https?://cdnjs\\.cloudflare\\.com/~']], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class => [], \Kibo\Phast\Filters\HTML\DelayedIFrameLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class => ['urlRefreshTime' => 7200], \Kibo\Phast\Filters\HTML\Diagnostics\Filter::class => ['enabled' => 'diagnostics'], \Kibo\Phast\Filters\HTML\ScriptsDeferring\Filter::class => [], \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter::class => []]], 'images' => ['enable-cache' => 'imgcache', 'api-mode' => false, 'factory' => \Kibo\Phast\Filters\Image\ImageFactory::class, 'maxImageInliningSize' => 512, 'whitelist' => ['~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~'], 'filters' => [\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class => ['api-url' => 'https://optimize.phast.io/?service=images', 'host-name' => $request->getHost(), 'request-uri' => $request->getURI(), 'plugin-version' => 'phast-core-1.0']]], 'styles' => ['filters' => [\Kibo\Phast\Filters\Text\Decode\Filter::class => [], \Kibo\Phast\Filters\CSS\ImportsStripper\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSMinifier\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSURLRewriter\Filter::class => [], \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['maxImageInliningSize' => 512], \Kibo\Phast\Filters\CSS\FontSwap\Filter::class => []]], 'logging' => ['logWriters' => [['class' => \Kibo\Phast\Logging\LogWriters\PHPError\Writer::class, 'levelMask' => \Kibo\Phast\Logging\LogLevel::EMERGENCY | \Kibo\Phast\Logging\LogLevel::ALERT | \Kibo\Phast\Logging\LogLevel::CRITICAL | \Kibo\Phast\Logging\LogLevel::ERROR | \Kibo\Phast\Logging\LogLevel::WARNING], ['enabled' => 'diagnostics', 'class' => \Kibo\Phast\Logging\LogWriters\JSONLFile\Writer::class, 'logRoot' => sys_get_temp_dir() . '/phast-logs']]], 'switches' => ['phast' => true, 'diagnostics' => false], 'scripts' => ['removeLicenseHeaders' => false, 'whitelist' => ['~^https?://' . preg_quote($request->getHost(), '~') . '/~']], 'csp' => ['nonce' => null, 'reportOnly' => false, 'reportUri' => null]];
+        return ['securityToken' => null, 'retrieverMap' => [$request->getHost() => $request->getDocumentRoot()], 'httpClient' => \Kibo\Phast\HTTP\CURLClient::class, 'cache' => ['cacheRoot' => sys_get_temp_dir() . '/phast-cache-' . (new \Kibo\Phast\Common\System())->getUserId(), 'maxSize' => 1024 * 1024 * 1024], 'servicesUrl' => '/phast.php', 'serviceRequestFormat' => \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH, 'compressServiceResponse' => true, 'optimizeHTMLDocumentsOnly' => true, 'optimizeJSONResponses' => false, 'outputServerSideStats' => true, 'documents' => ['maxBufferSizeToApply' => 2 * 1024 * 1024, 'baseUrl' => $request->getAbsoluteURI(), 'filters' => [\Kibo\Phast\Filters\HTML\CommentsRemoval\Filter::class => [], \Kibo\Phast\Filters\HTML\MetaCharset\Filter::class => [], \Kibo\Phast\Filters\HTML\Minify\Filter::class => [], \Kibo\Phast\Filters\HTML\MinifyScripts\Filter::class => [], \Kibo\Phast\Filters\HTML\BaseURLSetter\Filter::class => [], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter::class => [], \Kibo\Phast\Filters\HTML\LazyImageLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\CSSInlining\Filter::class => ['optimizerSizeDiffThreshold' => 1024, 'whitelist' => ['~^https?://fonts\\.googleapis\\.com/~' => ['ieCompatible' => false], '~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~', '~^https?://maxcdn\\.bootstrapcdn\\.com/[^?#]*\\.css~', '~^https?://idangero\\.us/~', '~^https?://[^/]*\\.github\\.io/~', '~^https?://\\w+\\.typekit\\.net/~' => ['ieCompatible' => false], '~^https?://stackpath\\.bootstrapcdn\\.com/~', '~^https?://cdnjs\\.cloudflare\\.com/~']], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class => [], \Kibo\Phast\Filters\HTML\DelayedIFrameLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class => ['urlRefreshTime' => 7200], \Kibo\Phast\Filters\HTML\Diagnostics\Filter::class => ['enabled' => 'diagnostics'], \Kibo\Phast\Filters\HTML\ScriptsDeferring\Filter::class => [], \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter::class => []]], 'images' => ['enable-cache' => 'imgcache', 'api-mode' => false, 'factory' => \Kibo\Phast\Filters\Image\ImageFactory::class, 'maxImageInliningSize' => 512, 'whitelist' => ['~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~'], 'filters' => [\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class => ['api-url' => 'https://optimize.phast.io/?service=images', 'host-name' => $request->getHost(), 'request-uri' => $request->getURI(), 'plugin-version' => 'phast-core-1.0']]], 'styles' => ['filters' => [\Kibo\Phast\Filters\Text\Decode\Filter::class => [], \Kibo\Phast\Filters\CSS\ImportsStripper\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSMinifier\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSURLRewriter\Filter::class => [], \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['maxImageInliningSize' => 512], \Kibo\Phast\Filters\CSS\FontSwap\Filter::class => []]], 'logging' => ['logWriters' => [['class' => \Kibo\Phast\Logging\LogWriters\PHPError\Writer::class, 'levelMask' => \Kibo\Phast\Logging\LogLevel::EMERGENCY | \Kibo\Phast\Logging\LogLevel::ALERT | \Kibo\Phast\Logging\LogLevel::CRITICAL | \Kibo\Phast\Logging\LogLevel::ERROR | \Kibo\Phast\Logging\LogLevel::WARNING], ['enabled' => 'diagnostics', 'class' => \Kibo\Phast\Logging\LogWriters\JSONLFile\Writer::class, 'logRoot' => sys_get_temp_dir() . '/phast-logs']]], 'switches' => ['phast' => true, 'diagnostics' => false], 'scripts' => ['removeLicenseHeaders' => false, 'whitelist' => ['~^https?://' . preg_quote($request->getHost(), '~') . '/~']], 'csp' => ['nonce' => null, 'reportOnly' => false, 'reportUri' => null]];
     }
 }
 namespace Kibo\Phast\Environment;
@@ -778,8 +818,8 @@ class Switches
 {
     const SWITCH_PHAST = 'phast';
     const SWITCH_DIAGNOSTICS = 'diagnostics';
-    private static $defaults = array(self::SWITCH_PHAST => true, self::SWITCH_DIAGNOSTICS => false);
-    private $switches = array();
+    private static $defaults = [self::SWITCH_PHAST => true, self::SWITCH_DIAGNOSTICS => false];
+    private $switches = [];
     public static function fromArray(array $switches)
     {
         $instance = new self();
@@ -1094,7 +1134,7 @@ class OptimizerFactory
     private $cache;
     public function __construct(array $config)
     {
-        $this->cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'css-optimizitor');
+        $this->cache = new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'css-optimizitor');
     }
     /**
      * @param \Traversable $elements
@@ -1141,8 +1181,8 @@ class Filter
     /**
      * @var HTMLStreamFilter[]
      */
-    private $filters = array();
-    private $timings = array();
+    private $filters = [];
+    private $timings = [];
     /**
      * Filter constructor.
      * @param URL $baseUrl
@@ -1215,7 +1255,7 @@ class HTMLPageContext
     /**
      * @var PhastJavaScript[]
      */
-    private $phastJavaScripts = array();
+    private $phastJavaScripts = [];
     /**
      * HTMLPageContext constructor.
      * @param URL $baseUrl
@@ -1366,7 +1406,7 @@ class ImageInliningManagerFactory
 {
     public function make(array $config)
     {
-        $cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'inline-images-1');
+        $cache = new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'inline-images-1');
         return new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageInliningManager($cache, $config['images']['maxImageInliningSize']);
     }
 }
@@ -1428,7 +1468,7 @@ class ImageURLRewriter
      * @param bool $mustExist
      * @return string
      */
-    public function rewriteUrl($url, \Kibo\Phast\ValueObjects\URL $baseUrl = null, array $params = array(), $mustExist = false)
+    public function rewriteUrl($url, \Kibo\Phast\ValueObjects\URL $baseUrl = null, array $params = [], $mustExist = false)
     {
         if (strpos($url, '#') === 0) {
             return $url;
@@ -1723,7 +1763,7 @@ class Factory
 {
     public function make(array $config)
     {
-        return new \Kibo\Phast\Filters\HTML\MinifyScripts\Filter(new \Kibo\Phast\Cache\File\Cache($config['cache'], 'minified-inline-scripts'));
+        return new \Kibo\Phast\Filters\HTML\MinifyScripts\Filter(new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'minified-inline-scripts'));
     }
 }
 namespace Kibo\Phast\Filters\HTML\MinifyScripts;
@@ -1732,7 +1772,7 @@ class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
 {
     use \Kibo\Phast\Filters\HTML\Helpers\JSDetectorTrait;
     private $cache;
-    public function __construct(\Kibo\Phast\Cache\File\Cache $cache)
+    public function __construct(\Kibo\Phast\Cache\Sqlite\Cache $cache)
     {
         $this->cache = $cache;
     }
@@ -1761,7 +1801,7 @@ class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
 {
     public function make(array $config)
     {
-        $cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'phast-scripts');
+        $cache = new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'phast-scripts');
         $compiler = new \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\PhastJavaScriptCompiler($cache, $config['servicesUrl'], $config['serviceRequestFormat']);
         return new \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter($compiler, $config['csp']['nonce']);
     }
@@ -1894,9 +1934,9 @@ class PhastJavaScriptCompiler
     {
         $bundlerMappings = \Kibo\Phast\Services\Bundler\ShortBundlerParamsParser::getParamsMappings();
         $jsMappings = array_combine(array_values($bundlerMappings), array_keys($bundlerMappings));
-        $resourcesLoader = \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/PhastScriptsCompiler/resources-loader.js', "var Promise=phast.ES6Promise.Promise;phast.ResourceLoader=function(a,b){this.get=function(c){return b.get(c).then(function(d){if(typeof d!==\"string\"){throw new Error(\"response should be string\")}return d}).catch(function(){var e=a.get(c);e.then(function(f){b.set(c,f)});return e})}};phast.ResourceLoader.RequestParams={};phast.ResourceLoader.RequestParams.FaultyParams={};phast.ResourceLoader.RequestParams.fromString=function(g){try{return JSON.parse(g)}catch(h){return phast.ResourceLoader.RequestParams.FaultyParams}};phast.ResourceLoader.BundlerServiceClient=function(i,j,k){var l=phast.ResourceLoader.BundlerServiceClient.RequestsPack;var m=l.PackItem;var n;this.get=function(q){if(q===phast.ResourceLoader.RequestParams.FaultyParams){return Promise.reject(new Error(\"Parameters did not parse as JSON\"))}return new Promise(function(r,s){if(n===undefined){n=new l(j)}n.add(new m({success:r,error:s},q));setTimeout(o);if(n.toQuery().length>4500){console.log(\"[Phast] Resource loader: Pack got too big; flushing early...\");o()}})};function o(){if(n===undefined){return}var t=n;n=undefined;p(t)}function p(u){var v=phast.buildServiceUrl({serviceUrl:i,pathInfo:k},\"service=bundler&\"+u.toQuery());var w=function(){console.error(\"[Phast] Request to bundler failed with status\",y.status);console.log(\"URL:\",v);u.handleError()};var x=function(){if(y.status>=200&&y.status<300){u.handleResponse(y.responseText)}else{u.handleError()}};var y=new XMLHttpRequest;y.open(\"GET\",v);y.addEventListener(\"error\",w);y.addEventListener(\"abort\",w);y.addEventListener(\"load\",x);y.send()}};phast.ResourceLoader.BundlerServiceClient.RequestsPack=function(z){var A={};this.getLength=function(){var F=0;for(var G in A){F++}return F};this.add=function(H){var I;if(H.params.token){I=\"token=\"+H.params.token}else if(H.params.ref){I=\"ref=\"+H.params.ref}else{I=\"\"}if(!A[I]){A[I]={params:H.params,requests:[H.request]}}else{A[I].requests.push(H.request)}};this.toQuery=function(){var J=[],K=[],L=\"\";B().forEach(function(M){var N,O;for(var P in A[M].params){if(P===\"cacheMarker\"){K.push(A[M].params.cacheMarker);continue}N=z[P]?z[P]:P;if(P===\"strip-imports\"){O=encodeURIComponent(N)}else if(P===\"src\"){O=encodeURIComponent(N)+\"=\"+encodeURIComponent(C(A[M].params.src,L));L=A[M].params.src}else{O=encodeURIComponent(N)+\"=\"+encodeURIComponent(A[M].params[P])}J.push(O)}});if(K.length>0){J.unshift(\"c=\"+phast.hash(K.join(\"|\"),23045))}return E(J.join(\"&\"))};function B(){return Object.keys(A).sort(function(R,S){return Q(R,S)?1:Q(S,R)?-1:0});function Q(T,U){if(typeof A[T].params.src!==\"undefined\"&&typeof A[U].params.src!==\"undefined\"){return A[T].params.src>A[U].params.src}return T>U}}function C(V,W){var X=0,Y=Math.pow(36,2)-1;while(X<W.length&&V[X]===W[X]){X++}X=Math.min(X,Y);return D(X)+\"\"+V.substr(X)}function D(Z){var \$=[\"0\",\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\",\"a\",\"b\",\"c\",\"d\",\"e\",\"f\",\"g\",\"h\",\"i\",\"j\",\"k\",\"l\",\"m\",\"n\",\"o\",\"p\",\"q\",\"r\",\"s\",\"t\",\"u\",\"v\",\"w\",\"x\",\"y\",\"z\"];var _=Z%36;var aa=Math.floor((Z-_)/36);return \$[aa]+\$[_]}function E(ba){if(!/(^|&)s=/.test(ba)){return ba}return ba.replace(/(%..)|([A-M])|([N-Z])/gi,function(ca,da,ea,fa){if(da){return ca}return String.fromCharCode(ca.charCodeAt(0)+(ea?13:-13))})}this.handleResponse=function(ga){try{var ha=JSON.parse(ga)}catch(ja){this.handleError();return}var ia=B();if(ha.length!==ia.length){console.error(\"[Phast] Requested\",ia.length,\"items from bundler, but got\",ha.length,\"response(s)\");this.handleError();return}ha.forEach(function(ka,la){if(ka.status===200){A[ia[la]].requests.forEach(function(ma){ma.success(ka.content)})}else{A[ia[la]].requests.forEach(function(na){na.error(new Error(\"Got from bundler: \"+JSON.stringify(ka)))})}})}.bind(this);this.handleError=function(){for(var oa in A){A[oa].requests.forEach(function(pa){pa.error()})}}};phast.ResourceLoader.BundlerServiceClient.RequestsPack.PackItem=function(qa,ra){this.request=qa;this.params=ra};phast.ResourceLoader.IndexedDBStorage=function(sa){var ta=phast.ResourceLoader.IndexedDBStorage;var ua=ta.logPrefix;var va=ta.requestToPromise;var wa;Ba();this.get=function(Ca){return xa(\"readonly\").then(function(Da){return va(Da.get(Ca)).catch(ya(\"reading from store\"))})};this.store=function(Ea){return xa(\"readwrite\").then(function(Fa){return va(Fa.put(Ea)).catch(ya(\"writing to store\"))})};this.clear=function(){return xa(\"readwrite\").then(function(Ga){return va(Ga.clear())})};this.iterateOnAll=function(Ha){return xa(\"readonly\").then(function(Ia){return za(Ha,Ia.openCursor()).catch(ya(\"iterating on all\"))})};function xa(Ja){return wa.get().then(function(Ka){try{return Ka.transaction(sa.storeName,Ja).objectStore(sa.storeName)}catch(La){console.error(ua,\"Could not open store; recreating database:\",La);Aa();throw La}})}function ya(Ma){return function(Na){console.error(ua,\"Error \"+Ma+\":\",Na);Aa();throw Na}}function za(Oa,Pa){return new Promise(function(Qa,Ra){Pa.onsuccess=function(Sa){var Ta=Sa.target.result;if(Ta){Oa(Ta.value);Ta.continue()}else{Qa()}};Pa.onerror=Ra})}function Aa(){var Ua=wa.dropDB().then(Ba);wa={get:function(){return Promise.reject(new Error(\"Database is being dropped and recreated\"))},dropDB:function(){return Ua}}}function Ba(){wa=new phast.ResourceLoader.IndexedDBStorage.Connection(sa)}};phast.ResourceLoader.IndexedDBStorage.logPrefix=\"[Phast] Resource loader:\";phast.ResourceLoader.IndexedDBStorage.requestToPromise=function(Va){return new Promise(function(Wa,Xa){Va.onsuccess=function(){Wa(Va.result)};Va.onerror=function(){Xa(Va.error)}})};phast.ResourceLoader.IndexedDBStorage.ConnectionParams=function(){this.dbName=\"phastResourcesCache\";this.dbVersion=1;this.storeName=\"resources\"};phast.ResourceLoader.IndexedDBStorage.StoredResource=function(Ya,Za){this.token=Ya;this.content=Za};phast.ResourceLoader.IndexedDBStorage.Connection=function(\$a){var _a=phast.ResourceLoader.IndexedDBStorage.logPrefix;var ab=phast.ResourceLoader.IndexedDBStorage.requestToPromise;var bb;this.get=cb;this.dropDB=db;function cb(){if(!bb){bb=eb(\$a)}return bb}function db(){return cb().then(function(gb){console.error(_a,\"Dropping DB\");gb.close();bb=null;return ab(window.indexedDB.deleteDatabase(\$a.dbName))})}function eb(hb){if(typeof window.indexedDB===\"undefined\"){return Promise.reject(new Error(\"IndexedDB is not available\"))}var ib=window.indexedDB.open(hb.dbName,hb.dbVersion);ib.onupgradeneeded=function(){fb(ib.result,hb)};return ab(ib).then(function(jb){jb.onversionchange=function(){console.debug(_a,\"Closing DB\");jb.close();if(bb){bb=null}};return jb}).catch(function(kb){console.log(_a,\"IndexedDB cache is not available. This is usually due to using private browsing mode.\");throw kb})}function fb(lb,mb){lb.createObjectStore(mb.storeName,{keyPath:\"token\"})}};phast.ResourceLoader.StorageCache=function(nb,ob){var pb=phast.ResourceLoader.IndexedDBStorage.StoredResource;this.get=function(xb){return sb(rb(xb))};this.set=function(yb,zb){return tb(rb(yb),zb,false)};var qb=null;function rb(Ab){return JSON.stringify(Ab)}function sb(Bb){return ob.get(Bb).then(function(Cb){if(Cb){return Promise.resolve(Cb.content)}return Promise.resolve()})}function tb(Db,Eb,Fb){return wb().then(function(Gb){var Hb=Eb.length+Gb;if(Hb>nb.maxStorageSize){return Fb||Eb.length>nb.maxStorageSize?Promise.reject(new Error(\"Storage quota will be exceeded\")):ub(Db,Eb)}qb=Hb;var Ib=new pb(Db,Eb);return ob.store(Ib)})}function ub(Jb,Kb){return vb().then(function(){return tb(Jb,Kb,true)})}function vb(){return ob.clear().then(function(){qb=0})}function wb(){if(qb!==null){return Promise.resolve(qb)}var Lb=0;return ob.iterateOnAll(function(Mb){Lb+=Mb.content.length}).then(function(){qb=Lb;return Promise.resolve(qb)})}};phast.ResourceLoader.StorageCache.StorageCacheParams=function(){this.maxStorageSize=4.5*1024*1024};phast.ResourceLoader.BlackholeCache=function(){this.get=function(){return Promise.reject()};this.set=function(){return Promise.reject()}};phast.ResourceLoader.make=function(Nb,Ob,Pb){var Qb=Sb();var Rb=new phast.ResourceLoader.BundlerServiceClient(Nb,Ob,Pb);return new phast.ResourceLoader(Rb,Qb);function Sb(){var Tb=window.navigator.userAgent;if(/safari/i.test(Tb)&&!/chrome|android/i.test(Tb)){console.log(\"[Phast] Not using IndexedDB cache on Safari\");return new phast.ResourceLoader.BlackholeCache}else{var Ub=new phast.ResourceLoader.IndexedDBStorage.ConnectionParams;var Vb=new phast.ResourceLoader.IndexedDBStorage(Ub);var Wb=new phast.ResourceLoader.StorageCache.StorageCacheParams;return new phast.ResourceLoader.StorageCache(Wb,Vb)}}};\n");
+        $resourcesLoader = \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/PhastScriptsCompiler/resources-loader.js', "var Promise=phast.ES6Promise.Promise;phast.ResourceLoader=function(a,b){this.get=function(c){return b.get(c).then(function(d){if(typeof d!==\"string\"){throw new Error(\"response should be string\")}return d}).catch(function(){var e=a.get(c);e.then(function(f){b.set(c,f)});return e})}};phast.ResourceLoader.RequestParams={};phast.ResourceLoader.RequestParams.FaultyParams={};phast.ResourceLoader.RequestParams.fromString=function(g){try{return JSON.parse(g)}catch(h){return phast.ResourceLoader.RequestParams.FaultyParams}};phast.ResourceLoader.BundlerServiceClient=function(i,j,k){var l=phast.ResourceLoader.BundlerServiceClient.RequestsPack;var m=l.PackItem;var n;this.get=function(q){if(q===phast.ResourceLoader.RequestParams.FaultyParams){return Promise.reject(new Error(\"Parameters did not parse as JSON\"))}return new Promise(function(r,s){if(n===undefined){n=new l(j)}n.add(new m({success:r,error:s},q));setTimeout(o);if(n.toQuery().length>4500){console.log(\"[Phast] Resource loader: Pack got too big; flushing early...\");o()}})};function o(){if(n===undefined){return}var t=n;n=undefined;p(t)}function p(u){var v=phast.buildServiceUrl({serviceUrl:i,pathInfo:k},\"service=bundler&\"+u.toQuery());var w=function(){console.error(\"[Phast] Request to bundler failed with status\",y.status);console.log(\"URL:\",v);u.handleError()};var x=function(){if(y.status>=200&&y.status<300){u.handleResponse(y.responseText)}else{u.handleError()}};var y=new XMLHttpRequest;y.open(\"GET\",v);y.addEventListener(\"error\",w);y.addEventListener(\"abort\",w);y.addEventListener(\"load\",x);y.send()}};phast.ResourceLoader.BundlerServiceClient.RequestsPack=function(z){var A={};this.getLength=function(){var F=0;for(var G in A){F++}return F};this.add=function(H){var I;if(H.params.token){I=\"token=\"+H.params.token}else if(H.params.ref){I=\"ref=\"+H.params.ref}else{I=\"\"}if(!A[I]){A[I]={params:H.params,requests:[H.request]}}else{A[I].requests.push(H.request)}};this.toQuery=function(){var J=[],K=[],L=\"\";B().forEach(function(M){var N,O;for(var P in A[M].params){if(P===\"cacheMarker\"){K.push(A[M].params.cacheMarker);continue}N=z[P]?z[P]:P;if(P===\"strip-imports\"){O=encodeURIComponent(N)}else if(P===\"src\"){O=encodeURIComponent(N)+\"=\"+encodeURIComponent(C(A[M].params.src,L));L=A[M].params.src}else{O=encodeURIComponent(N)+\"=\"+encodeURIComponent(A[M].params[P])}J.push(O)}});if(K.length>0){J.unshift(\"c=\"+phast.hash(K.join(\"|\"),23045))}return E(J.join(\"&\"))};function B(){return Object.keys(A).sort(function(R,S){return Q(R,S)?1:Q(S,R)?-1:0});function Q(T,U){if(typeof A[T].params.src!==\"undefined\"&&typeof A[U].params.src!==\"undefined\"){return A[T].params.src>A[U].params.src}return T>U}}function C(V,W){var X=0,Y=Math.pow(36,2)-1;while(X<W.length&&V[X]===W[X]){X++}X=Math.min(X,Y);return D(X)+\"\"+V.substr(X)}function D(Z){var \$=[\"0\",\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\",\"a\",\"b\",\"c\",\"d\",\"e\",\"f\",\"g\",\"h\",\"i\",\"j\",\"k\",\"l\",\"m\",\"n\",\"o\",\"p\",\"q\",\"r\",\"s\",\"t\",\"u\",\"v\",\"w\",\"x\",\"y\",\"z\"];var _=Z%36;var aa=Math.floor((Z-_)/36);return \$[aa]+\$[_]}function E(ba){if(!/(^|&)s=/.test(ba)){return ba}return ba.replace(/(%..)|([A-M])|([N-Z])/gi,function(ca,da,ea,fa){if(da){return ca}return String.fromCharCode(ca.charCodeAt(0)+(ea?13:-13))})}this.handleResponse=function(ga){try{var ha=JSON.parse(ga)}catch(ja){this.handleError();return}var ia=B();if(ha.length!==ia.length){console.error(\"[Phast] Requested\",ia.length,\"items from bundler, but got\",ha.length,\"response(s)\");this.handleError();return}ha.forEach(function(ka,la){if(ka.status===200){A[ia[la]].requests.forEach(function(ma){ma.success(ka.content)})}else{A[ia[la]].requests.forEach(function(na){na.error(new Error(\"Got from bundler: \"+JSON.stringify(ka)))})}})}.bind(this);this.handleError=function(){for(var oa in A){A[oa].requests.forEach(function(pa){pa.error()})}}};phast.ResourceLoader.BundlerServiceClient.RequestsPack.PackItem=function(qa,ra){this.request=qa;this.params=ra};phast.ResourceLoader.IndexedDBStorage=function(sa){var ta=phast.ResourceLoader.IndexedDBStorage;var ua=ta.logPrefix;var va=ta.requestToPromise;var wa;Ba();this.get=function(Ca){return xa(\"readonly\").then(function(Da){return va(Da.get(Ca)).catch(ya(\"reading from store\"))})};this.store=function(Ea){return xa(\"readwrite\").then(function(Fa){return va(Fa.put(Ea)).catch(ya(\"writing to store\"))})};this.clear=function(){return xa(\"readwrite\").then(function(Ga){return va(Ga.clear())})};this.iterateOnAll=function(Ha){return xa(\"readonly\").then(function(Ia){return za(Ha,Ia.openCursor()).catch(ya(\"iterating on all\"))})};function xa(Ja){return wa.get().then(function(Ka){try{return Ka.transaction(sa.storeName,Ja).objectStore(sa.storeName)}catch(La){console.error(ua,\"Could not open store; recreating database:\",La);Aa();throw La}})}function ya(Ma){return function(Na){console.error(ua,\"Error \"+Ma+\":\",Na);Aa();throw Na}}function za(Oa,Pa){return new Promise(function(Qa,Ra){Pa.onsuccess=function(Sa){var Ta=Sa.target.result;if(Ta){Oa(Ta.value);Ta.continue()}else{Qa()}};Pa.onerror=Ra})}function Aa(){var Ua=wa.dropDB().then(Ba);wa={get:function(){return Promise.reject(new Error(\"Database is being dropped and recreated\"))},dropDB:function(){return Ua}}}function Ba(){wa=new phast.ResourceLoader.IndexedDBStorage.Connection(sa)}};phast.ResourceLoader.IndexedDBStorage.logPrefix=\"[Phast] Resource loader:\";phast.ResourceLoader.IndexedDBStorage.requestToPromise=function(Va){return new Promise(function(Wa,Xa){Va.onsuccess=function(){Wa(Va.result)};Va.onerror=function(){Xa(Va.error)}})};phast.ResourceLoader.IndexedDBStorage.ConnectionParams=function(){this.dbName=\"phastResourcesCache\";this.dbVersion=1;this.storeName=\"resources\"};phast.ResourceLoader.IndexedDBStorage.StoredResource=function(Ya,Za){this.token=Ya;this.content=Za};phast.ResourceLoader.IndexedDBStorage.Connection=function(\$a){var _a=phast.ResourceLoader.IndexedDBStorage.logPrefix;var a0=phast.ResourceLoader.IndexedDBStorage.requestToPromise;var b0;this.get=c0;this.dropDB=d0;function c0(){if(!b0){b0=e0(\$a)}return b0}function d0(){return c0().then(function(g0){console.error(_a,\"Dropping DB\");g0.close();b0=null;return a0(window.indexedDB.deleteDatabase(\$a.dbName))})}function e0(h0){if(typeof window.indexedDB===\"undefined\"){return Promise.reject(new Error(\"IndexedDB is not available\"))}var i0=window.indexedDB.open(h0.dbName,h0.dbVersion);i0.onupgradeneeded=function(){f0(i0.result,h0)};return a0(i0).then(function(j0){j0.onversionchange=function(){console.debug(_a,\"Closing DB\");j0.close();if(b0){b0=null}};return j0}).catch(function(k0){console.log(_a,\"IndexedDB cache is not available. This is usually due to using private browsing mode.\");throw k0})}function f0(l0,m0){l0.createObjectStore(m0.storeName,{keyPath:\"token\"})}};phast.ResourceLoader.StorageCache=function(n0,o0){var p0=phast.ResourceLoader.IndexedDBStorage.StoredResource;this.get=function(x0){return s0(r0(x0))};this.set=function(y0,z0){return t0(r0(y0),z0,false)};var q0=null;function r0(A0){return JSON.stringify(A0)}function s0(B0){return o0.get(B0).then(function(C0){if(C0){return Promise.resolve(C0.content)}return Promise.resolve()})}function t0(D0,E0,F0){return w0().then(function(G0){var H0=E0.length+G0;if(H0>n0.maxStorageSize){return F0||E0.length>n0.maxStorageSize?Promise.reject(new Error(\"Storage quota will be exceeded\")):u0(D0,E0)}q0=H0;var I0=new p0(D0,E0);return o0.store(I0)})}function u0(J0,K0){return v0().then(function(){return t0(J0,K0,true)})}function v0(){return o0.clear().then(function(){q0=0})}function w0(){if(q0!==null){return Promise.resolve(q0)}var L0=0;return o0.iterateOnAll(function(M0){L0+=M0.content.length}).then(function(){q0=L0;return Promise.resolve(q0)})}};phast.ResourceLoader.StorageCache.StorageCacheParams=function(){this.maxStorageSize=4.5*1024*1024};phast.ResourceLoader.BlackholeCache=function(){this.get=function(){return Promise.reject()};this.set=function(){return Promise.reject()}};phast.ResourceLoader.make=function(N0,O0,P0){var Q0=S0();var R0=new phast.ResourceLoader.BundlerServiceClient(N0,O0,P0);return new phast.ResourceLoader(R0,Q0);function S0(){var T0=window.navigator.userAgent;if(/safari/i.test(T0)&&!/chrome|android/i.test(T0)){console.log(\"[Phast] Not using IndexedDB cache on Safari\");return new phast.ResourceLoader.BlackholeCache}else{var U0=new phast.ResourceLoader.IndexedDBStorage.ConnectionParams;var V0=new phast.ResourceLoader.IndexedDBStorage(U0);var W0=new phast.ResourceLoader.StorageCache.StorageCacheParams;return new phast.ResourceLoader.StorageCache(W0,V0)}}};\n");
         $resourcesLoader->setConfig('resourcesLoader', ['serviceUrl' => (string) $this->serviceUrl, 'shortParamsMappings' => $jsMappings, 'pathInfo' => $this->serviceRequestFormat === \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH]);
-        $scripts = array_merge([\Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/PhastScriptsCompiler/runner.js', "phast.config=JSON.parse(atob(phast.config));while(phast.scripts.length){phast.scripts.shift()()}\n"), \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/PhastScriptsCompiler/es6-promise.js', "(function(a,b){typeof exports===\"object\"&&typeof module!==\"undefined\"?module.exports=b():typeof define===\"function\"&&define.amd?define(b):a.ES6Promise=b()})(phast,function(){\"use strict\";function c(ia){var ja=typeof ia;return ia!==null&&(ja===\"object\"||ja===\"function\")}function d(ka){return typeof ka===\"function\"}var e=void 0;if(Array.isArray){e=Array.isArray}else{e=function(la){return Object.prototype.toString.call(la)===\"[object Array]\"}}var f=e;var g=0;var h=void 0;var i=void 0;var j=function ma(na,oa){w[g]=na;w[g+1]=oa;g+=2;if(g===2){if(i){i(x)}else{z()}}};function k(pa){i=pa}function l(qa){j=qa}var m=typeof window!==\"undefined\"?window:undefined;var n=m||{};var o=n.MutationObserver||n.WebKitMutationObserver;var p=typeof self===\"undefined\"&&typeof process!==\"undefined\"&&{}.toString.call(process)===\"[object process]\";var q=typeof Uint8ClampedArray!==\"undefined\"&&typeof importScripts!==\"undefined\"&&typeof MessageChannel!==\"undefined\";function r(){return function(){return process.nextTick(x)}}function s(){if(typeof h!==\"undefined\"){return function(){h(x)}}return v()}function t(){var ra=0;var sa=new o(x);var ta=document.createTextNode(\"\");sa.observe(ta,{characterData:true});return function(){ta.data=ra=++ra%2}}function u(){var ua=new MessageChannel;ua.port1.onmessage=x;return function(){return ua.port2.postMessage(0)}}function v(){var va=setTimeout;return function(){return va(x,1)}}var w=new Array(1e3);function x(){for(var wa=0;wa<g;wa+=2){var xa=w[wa];var ya=w[wa+1];xa(ya);w[wa]=undefined;w[wa+1]=undefined}g=0}function y(){try{var za=Function(\"return this\")().require(\"vertx\");h=za.runOnLoop||za.runOnContext;return s()}catch(Aa){return v()}}var z=void 0;if(p){z=r()}else if(o){z=t()}else if(q){z=u()}else if(m===undefined&&typeof require===\"function\"){z=y()}else{z=v()}function A(Ba,Ca){var Da=this;var Ea=new this.constructor(D);if(Ea[C]===undefined){\$(Ea)}var Fa=Da._state;if(Fa){var Ga=arguments[Fa-1];j(function(){return W(Fa,Ea,Ga,Da._result)})}else{T(Da,Ea,Ba,Ca)}return Ea}function B(Ha){var Ia=this;if(Ha&&typeof Ha===\"object\"&&Ha.constructor===Ia){return Ha}var Ja=new Ia(D);P(Ja,Ha);return Ja}var C=Math.random().toString(36).substring(2);function D(){}var E=void 0;var F=1;var G=2;var H={error:null};function I(){return new TypeError(\"You cannot resolve a promise with itself\")}function J(){return new TypeError(\"A promises callback cannot return that same promise.\")}function K(Ka){try{return Ka.then}catch(La){H.error=La;return H}}function L(Ma,Na,Oa,Pa){try{Ma.call(Na,Oa,Pa)}catch(Qa){return Qa}}function M(Ra,Sa,Ta){j(function(Ua){var Va=false;var Wa=L(Ta,Sa,function(Xa){if(Va){return}Va=true;if(Sa!==Xa){P(Ua,Xa)}else{R(Ua,Xa)}},function(Ya){if(Va){return}Va=true;S(Ua,Ya)},\"Settle: \"+(Ua._label||\" unknown promise\"));if(!Va&&Wa){Va=true;S(Ua,Wa)}},Ra)}function N(Za,\$a){if(\$a._state===F){R(Za,\$a._result)}else if(\$a._state===G){S(Za,\$a._result)}else{T(\$a,undefined,function(_a){return P(Za,_a)},function(ab){return S(Za,ab)})}}function O(bb,cb,db){if(cb.constructor===bb.constructor&&db===A&&cb.constructor.resolve===B){N(bb,cb)}else{if(db===H){S(bb,H.error);H.error=null}else if(db===undefined){R(bb,cb)}else if(d(db)){M(bb,cb,db)}else{R(bb,cb)}}}function P(eb,fb){if(eb===fb){S(eb,I())}else if(c(fb)){O(eb,fb,K(fb))}else{R(eb,fb)}}function Q(gb){if(gb._onerror){gb._onerror(gb._result)}U(gb)}function R(hb,ib){if(hb._state!==E){return}hb._result=ib;hb._state=F;if(hb._subscribers.length!==0){j(U,hb)}}function S(jb,kb){if(jb._state!==E){return}jb._state=G;jb._result=kb;j(Q,jb)}function T(lb,mb,nb,ob){var pb=lb._subscribers;var qb=pb.length;lb._onerror=null;pb[qb]=mb;pb[qb+F]=nb;pb[qb+G]=ob;if(qb===0&&lb._state){j(U,lb)}}function U(rb){var sb=rb._subscribers;var tb=rb._state;if(sb.length===0){return}var ub=void 0,vb=void 0,wb=rb._result;for(var xb=0;xb<sb.length;xb+=3){ub=sb[xb];vb=sb[xb+tb];if(ub){W(tb,ub,vb,wb)}else{vb(wb)}}rb._subscribers.length=0}function V(yb,zb){try{return yb(zb)}catch(Ab){H.error=Ab;return H}}function W(Bb,Cb,Db,Eb){var Fb=d(Db),Gb=void 0,Hb=void 0,Ib=void 0,Jb=void 0;if(Fb){Gb=V(Db,Eb);if(Gb===H){Jb=true;Hb=Gb.error;Gb.error=null}else{Ib=true}if(Cb===Gb){S(Cb,J());return}}else{Gb=Eb;Ib=true}if(Cb._state!==E){}else if(Fb&&Ib){P(Cb,Gb)}else if(Jb){S(Cb,Hb)}else if(Bb===F){R(Cb,Gb)}else if(Bb===G){S(Cb,Gb)}}function X(Kb,Lb){try{Lb(function Mb(Nb){P(Kb,Nb)},function Ob(Pb){S(Kb,Pb)})}catch(Qb){S(Kb,Qb)}}var Y=0;function Z(){return Y++}function \$(Rb){Rb[C]=Y++;Rb._state=undefined;Rb._result=undefined;Rb._subscribers=[]}function _(){return new Error(\"Array Methods must be provided an Array\")}var aa=function(){function Sb(Tb,Ub){this._instanceConstructor=Tb;this.promise=new Tb(D);if(!this.promise[C]){\$(this.promise)}if(f(Ub)){this.length=Ub.length;this._remaining=Ub.length;this._result=new Array(this.length);if(this.length===0){R(this.promise,this._result)}else{this.length=this.length||0;this._enumerate(Ub);if(this._remaining===0){R(this.promise,this._result)}}}else{S(this.promise,_())}}Sb.prototype._enumerate=function Vb(Wb){for(var Xb=0;this._state===E&&Xb<Wb.length;Xb++){this._eachEntry(Wb[Xb],Xb)}};Sb.prototype._eachEntry=function Yb(Zb,\$b){var _b=this._instanceConstructor;var ac=_b.resolve;if(ac===B){var bc=K(Zb);if(bc===A&&Zb._state!==E){this._settledAt(Zb._state,\$b,Zb._result)}else if(typeof bc!==\"function\"){this._remaining--;this._result[\$b]=Zb}else if(_b===ga){var cc=new _b(D);O(cc,Zb,bc);this._willSettleAt(cc,\$b)}else{this._willSettleAt(new _b(function(dc){return dc(Zb)}),\$b)}}else{this._willSettleAt(ac(Zb),\$b)}};Sb.prototype._settledAt=function ec(fc,gc,hc){var ic=this.promise;if(ic._state===E){this._remaining--;if(fc===G){S(ic,hc)}else{this._result[gc]=hc}}if(this._remaining===0){R(ic,this._result)}};Sb.prototype._willSettleAt=function jc(kc,lc){var mc=this;T(kc,undefined,function(nc){return mc._settledAt(F,lc,nc)},function(oc){return mc._settledAt(G,lc,oc)})};return Sb}();function ba(pc){return new aa(this,pc).promise}function ca(qc){var rc=this;if(!f(qc)){return new rc(function(sc,tc){return tc(new TypeError(\"You must pass an array to race.\"))})}else{return new rc(function(uc,vc){var wc=qc.length;for(var xc=0;xc<wc;xc++){rc.resolve(qc[xc]).then(uc,vc)}})}}function da(yc){var zc=this;var Ac=new zc(D);S(Ac,yc);return Ac}function ea(){throw new TypeError(\"You must pass a resolver function as the first argument to the promise constructor\")}function fa(){throw new TypeError(\"Failed to construct 'Promise': Please use the 'new' operator, this object constructor cannot be called as a function.\")}var ga=function(){function Bc(Cc){this[C]=Z();this._result=this._state=undefined;this._subscribers=[];if(D!==Cc){typeof Cc!==\"function\"&&ea();this instanceof Bc?X(this,Cc):fa()}}Bc.prototype.catch=function Dc(Ec){return this.then(null,Ec)};Bc.prototype.finally=function Fc(Gc){var Hc=this;var Ic=Hc.constructor;return Hc.then(function(Jc){return Ic.resolve(Gc()).then(function(){return Jc})},function(Kc){return Ic.resolve(Gc()).then(function(){throw Kc})})};return Bc}();ga.prototype.then=A;ga.all=ba;ga.race=ca;ga.resolve=B;ga.reject=da;ga._setScheduler=k;ga._setAsap=l;ga._asap=j;function ha(){var Lc=void 0;if(typeof global!==\"undefined\"){Lc=global}else if(typeof self!==\"undefined\"){Lc=self}else{try{Lc=Function(\"return this\")()}catch(Oc){throw new Error(\"polyfill failed because global object is unavailable in this environment\")}}var Mc=Lc.Promise;if(Mc){var Nc=null;try{Nc=Object.prototype.toString.call(Mc.resolve())}catch(Pc){}if(Nc===\"[object Promise]\"&&!Mc.cast){return}}Lc.Promise=ga}ga.polyfill=ha;ga.Promise=ga;return ga});\n"), \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/PhastScriptsCompiler/hash.js', "function murmurhash3_32_gc(a,b){var c,d,e,f,g,h,i,j,k,l;c=a.length&3;d=a.length-c;e=b;g=3432918353;i=461845907;l=0;while(l<d){k=a.charCodeAt(l)&255|(a.charCodeAt(++l)&255)<<8|(a.charCodeAt(++l)&255)<<16|(a.charCodeAt(++l)&255)<<24;++l;k=(k&65535)*g+(((k>>>16)*g&65535)<<16)&4294967295;k=k<<15|k>>>17;k=(k&65535)*i+(((k>>>16)*i&65535)<<16)&4294967295;e^=k;e=e<<13|e>>>19;f=(e&65535)*5+(((e>>>16)*5&65535)<<16)&4294967295;e=(f&65535)+27492+(((f>>>16)+58964&65535)<<16)}k=0;switch(c){case 3:k^=(a.charCodeAt(l+2)&255)<<16;case 2:k^=(a.charCodeAt(l+1)&255)<<8;case 1:k^=a.charCodeAt(l)&255;k=(k&65535)*g+(((k>>>16)*g&65535)<<16)&4294967295;k=k<<15|k>>>17;k=(k&65535)*i+(((k>>>16)*i&65535)<<16)&4294967295;e^=k}e^=a.length;e^=e>>>16;e=(e&65535)*2246822507+(((e>>>16)*2246822507&65535)<<16)&4294967295;e^=e>>>13;e=(e&65535)*3266489909+(((e>>>16)*3266489909&65535)<<16)&4294967295;e^=e>>>16;return e>>>0}phast.hash=murmurhash3_32_gc;\n"), \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/PhastScriptsCompiler/service-url.js', "phast.buildServiceUrl=function(a,b){if(a.pathInfo){return appendPathInfo(a.serviceUrl,buildQuery(b))}else{return appendQueryString(a.serviceUrl,buildQuery(b))}};function buildQuery(c){if(typeof c===\"string\"){return c}var d=[];for(var e in c){if(c.hasOwnProperty(e)){d.push(encodeURIComponent(e)+\"=\"+encodeURIComponent(c[e]))}}return d.join(\"&\")}function appendPathInfo(f,g){var h=btoa(g).replace(/=/g,\"\").replace(/\\//g,\"_\").replace(/\\+/g,\"-\");var i=j(h+\".q.js\");return f.replace(/\\?.*\$/,\"\").replace(/\\/__p__\\.js\$/,\"\")+\"/\"+i;function j(l){return k(k(l).match(/[\\s\\S]{1,255}/g).join(\"/\"))}function k(m){return m.split(\"\").reverse().join(\"\")}}function appendQueryString(n,o){var p=n.indexOf(\"?\")>-1?\"&\":\"?\";return n+p+o}\n"), $resourcesLoader, \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/PhastScriptsCompiler/phast.js', "var Promise=phast.ES6Promise;phast.ResourceLoader.instance=phast.ResourceLoader.make(phast.config.resourcesLoader.serviceUrl,phast.config.resourcesLoader.shortParamsMappings,phast.config.resourcesLoader.pathInfo);phast.forEachSelectedElement=function(a,b){Array.prototype.forEach.call(window.document.querySelectorAll(a),b)};phast.once=function(c){var d=false;return function(){if(!d){d=true;c.apply(this,Array.prototype.slice(arguments))}}};phast.on=function(e,f){return new Promise(function(g){e.addEventListener(f,g)})};phast.wait=function(h){return new Promise(function(i){setTimeout(i,h)})};phast.on(document,\"DOMContentLoaded\").then(function(){var j,k;function l(n){return n&&n.nodeType===8&&/^\\s*\\[Phast\\]/.test(n.textContent)}function m(o){while(o){if(l(o)){return o}o=o.nextSibling}return false}k=m(document.documentElement.nextSibling);if(k===false){k=m(document.body.firstChild)}if(k){j=k.textContent.replace(/^\\s+|\\s+\$/g,\"\").split(\"\\n\");console.groupCollapsed(j.shift());console.log(j.join(\"\\n\"));console.groupEnd()}});phast.on(document,\"DOMContentLoaded\").then(function(){var p=performance.timing;var q=[];q.push([\"Downloading phases:\"]);q.push([\"  Look up hostname in DNS            + %s ms\",t(p.domainLookupEnd-p.fetchStart)]);q.push([\"  Establish connection               + %s ms\",t(p.connectEnd-p.domainLookupEnd)]);q.push([\"  Send request                       + %s ms\",t(p.requestStart-p.connectEnd)]);q.push([\"  Receive first byte                 + %s ms\",t(p.responseStart-p.requestStart)]);q.push([\"  Download page                      + %s ms\",t(p.responseEnd-p.responseStart)]);q.push([\"\"]);q.push([\"Totals:\"]);q.push([\"  Time to first byte                   %s ms\",t(p.responseStart-p.fetchStart)]);q.push([\"    (since request start)              %s ms\",t(p.responseStart-p.requestStart)]);q.push([\"  Total request time                   %s ms\",t(p.responseEnd-p.fetchStart)]);q.push([\"    (since request start)              %s ms\",t(p.responseEnd-p.requestStart)]);q.push([\" \"]);var r=[];var s=[];q.forEach(function(u){r.push(u.shift());s=s.concat(u)});console.groupCollapsed(\"[Phast] Client-side performance metrics\");console.log.apply(console,[r.join(\"\\n\")].concat(s));console.groupEnd();function t(v){v=\"\"+v;while(v.length<4){v=\" \"+v}return v}});\n")], $scripts);
+        $scripts = array_merge([\Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/PhastScriptsCompiler/runner.js', "phast.config=JSON.parse(atob(phast.config));while(phast.scripts.length){phast.scripts.shift()()}\n"), \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/PhastScriptsCompiler/es6-promise.js', "(function(a,b){typeof exports===\"object\"&&typeof module!==\"undefined\"?module.exports=b():typeof define===\"function\"&&define.amd?define(b):a.ES6Promise=b()})(phast,function(){\"use strict\";function c(ia){var ja=typeof ia;return ia!==null&&(ja===\"object\"||ja===\"function\")}function d(ka){return typeof ka===\"function\"}var e=void 0;if(Array.isArray){e=Array.isArray}else{e=function(la){return Object.prototype.toString.call(la)===\"[object Array]\"}}var f=e;var g=0;var h=void 0;var i=void 0;var j=function ma(na,oa){w[g]=na;w[g+1]=oa;g+=2;if(g===2){if(i){i(x)}else{z()}}};function k(pa){i=pa}function l(qa){j=qa}var m=typeof window!==\"undefined\"?window:undefined;var n=m||{};var o=n.MutationObserver||n.WebKitMutationObserver;var p=typeof self===\"undefined\"&&typeof process!==\"undefined\"&&{}.toString.call(process)===\"[object process]\";var q=typeof Uint8ClampedArray!==\"undefined\"&&typeof importScripts!==\"undefined\"&&typeof MessageChannel!==\"undefined\";function r(){return function(){return process.nextTick(x)}}function s(){if(typeof h!==\"undefined\"){return function(){h(x)}}return v()}function t(){var ra=0;var sa=new o(x);var ta=document.createTextNode(\"\");sa.observe(ta,{characterData:true});return function(){ta.data=ra=++ra%2}}function u(){var ua=new MessageChannel;ua.port1.onmessage=x;return function(){return ua.port2.postMessage(0)}}function v(){var va=setTimeout;return function(){return va(x,1)}}var w=new Array(1e3);function x(){for(var wa=0;wa<g;wa+=2){var xa=w[wa];var ya=w[wa+1];xa(ya);w[wa]=undefined;w[wa+1]=undefined}g=0}function y(){try{var za=Function(\"return this\")().require(\"vertx\");h=za.runOnLoop||za.runOnContext;return s()}catch(Aa){return v()}}var z=void 0;if(p){z=r()}else if(o){z=t()}else if(q){z=u()}else if(m===undefined&&typeof require===\"function\"){z=y()}else{z=v()}function A(Ba,Ca){var Da=this;var Ea=new this.constructor(D);if(Ea[C]===undefined){\$(Ea)}var Fa=Da._state;if(Fa){var Ga=arguments[Fa-1];j(function(){return W(Fa,Ea,Ga,Da._result)})}else{T(Da,Ea,Ba,Ca)}return Ea}function B(Ha){var Ia=this;if(Ha&&typeof Ha===\"object\"&&Ha.constructor===Ia){return Ha}var Ja=new Ia(D);P(Ja,Ha);return Ja}var C=Math.random().toString(36).substring(2);function D(){}var E=void 0;var F=1;var G=2;var H={error:null};function I(){return new TypeError(\"You cannot resolve a promise with itself\")}function J(){return new TypeError(\"A promises callback cannot return that same promise.\")}function K(Ka){try{return Ka.then}catch(La){H.error=La;return H}}function L(Ma,Na,Oa,Pa){try{Ma.call(Na,Oa,Pa)}catch(Qa){return Qa}}function M(Ra,Sa,Ta){j(function(Ua){var Va=false;var Wa=L(Ta,Sa,function(Xa){if(Va){return}Va=true;if(Sa!==Xa){P(Ua,Xa)}else{R(Ua,Xa)}},function(Ya){if(Va){return}Va=true;S(Ua,Ya)},\"Settle: \"+(Ua._label||\" unknown promise\"));if(!Va&&Wa){Va=true;S(Ua,Wa)}},Ra)}function N(Za,\$a){if(\$a._state===F){R(Za,\$a._result)}else if(\$a._state===G){S(Za,\$a._result)}else{T(\$a,undefined,function(_a){return P(Za,_a)},function(a0){return S(Za,a0)})}}function O(b0,c0,d0){if(c0.constructor===b0.constructor&&d0===A&&c0.constructor.resolve===B){N(b0,c0)}else{if(d0===H){S(b0,H.error);H.error=null}else if(d0===undefined){R(b0,c0)}else if(d(d0)){M(b0,c0,d0)}else{R(b0,c0)}}}function P(e0,f0){if(e0===f0){S(e0,I())}else if(c(f0)){O(e0,f0,K(f0))}else{R(e0,f0)}}function Q(g0){if(g0._onerror){g0._onerror(g0._result)}U(g0)}function R(h0,i0){if(h0._state!==E){return}h0._result=i0;h0._state=F;if(h0._subscribers.length!==0){j(U,h0)}}function S(j0,k0){if(j0._state!==E){return}j0._state=G;j0._result=k0;j(Q,j0)}function T(l0,m0,n0,o0){var p0=l0._subscribers;var q0=p0.length;l0._onerror=null;p0[q0]=m0;p0[q0+F]=n0;p0[q0+G]=o0;if(q0===0&&l0._state){j(U,l0)}}function U(r0){var s0=r0._subscribers;var t0=r0._state;if(s0.length===0){return}var u0=void 0,v0=void 0,w0=r0._result;for(var x0=0;x0<s0.length;x0+=3){u0=s0[x0];v0=s0[x0+t0];if(u0){W(t0,u0,v0,w0)}else{v0(w0)}}r0._subscribers.length=0}function V(y0,z0){try{return y0(z0)}catch(A0){H.error=A0;return H}}function W(B0,C0,D0,E0){var F0=d(D0),G0=void 0,H0=void 0,I0=void 0,J0=void 0;if(F0){G0=V(D0,E0);if(G0===H){J0=true;H0=G0.error;G0.error=null}else{I0=true}if(C0===G0){S(C0,J());return}}else{G0=E0;I0=true}if(C0._state!==E){}else if(F0&&I0){P(C0,G0)}else if(J0){S(C0,H0)}else if(B0===F){R(C0,G0)}else if(B0===G){S(C0,G0)}}function X(K0,L0){try{L0(function M0(N0){P(K0,N0)},function O0(P0){S(K0,P0)})}catch(Q0){S(K0,Q0)}}var Y=0;function Z(){return Y++}function \$(R0){R0[C]=Y++;R0._state=undefined;R0._result=undefined;R0._subscribers=[]}function _(){return new Error(\"Array Methods must be provided an Array\")}var aa=function(){function S0(T0,U0){this._instanceConstructor=T0;this.promise=new T0(D);if(!this.promise[C]){\$(this.promise)}if(f(U0)){this.length=U0.length;this._remaining=U0.length;this._result=new Array(this.length);if(this.length===0){R(this.promise,this._result)}else{this.length=this.length||0;this._enumerate(U0);if(this._remaining===0){R(this.promise,this._result)}}}else{S(this.promise,_())}}S0.prototype._enumerate=function V0(W0){for(var X0=0;this._state===E&&X0<W0.length;X0++){this._eachEntry(W0[X0],X0)}};S0.prototype._eachEntry=function Y0(Z0,\$0){var _0=this._instanceConstructor;var ab=_0.resolve;if(ab===B){var bb=K(Z0);if(bb===A&&Z0._state!==E){this._settledAt(Z0._state,\$0,Z0._result)}else if(typeof bb!==\"function\"){this._remaining--;this._result[\$0]=Z0}else if(_0===ga){var cb=new _0(D);O(cb,Z0,bb);this._willSettleAt(cb,\$0)}else{this._willSettleAt(new _0(function(db){return db(Z0)}),\$0)}}else{this._willSettleAt(ab(Z0),\$0)}};S0.prototype._settledAt=function eb(fb,gb,hb){var ib=this.promise;if(ib._state===E){this._remaining--;if(fb===G){S(ib,hb)}else{this._result[gb]=hb}}if(this._remaining===0){R(ib,this._result)}};S0.prototype._willSettleAt=function jb(kb,lb){var mb=this;T(kb,undefined,function(nb){return mb._settledAt(F,lb,nb)},function(ob){return mb._settledAt(G,lb,ob)})};return S0}();function ba(pb){return new aa(this,pb).promise}function ca(qb){var rb=this;if(!f(qb)){return new rb(function(sb,tb){return tb(new TypeError(\"You must pass an array to race.\"))})}else{return new rb(function(ub,vb){var wb=qb.length;for(var xb=0;xb<wb;xb++){rb.resolve(qb[xb]).then(ub,vb)}})}}function da(yb){var zb=this;var Ab=new zb(D);S(Ab,yb);return Ab}function ea(){throw new TypeError(\"You must pass a resolver function as the first argument to the promise constructor\")}function fa(){throw new TypeError(\"Failed to construct 'Promise': Please use the 'new' operator, this object constructor cannot be called as a function.\")}var ga=function(){function Bb(Cb){this[C]=Z();this._result=this._state=undefined;this._subscribers=[];if(D!==Cb){typeof Cb!==\"function\"&&ea();this instanceof Bb?X(this,Cb):fa()}}Bb.prototype.catch=function Db(Eb){return this.then(null,Eb)};Bb.prototype.finally=function Fb(Gb){var Hb=this;var Ib=Hb.constructor;return Hb.then(function(Jb){return Ib.resolve(Gb()).then(function(){return Jb})},function(Kb){return Ib.resolve(Gb()).then(function(){throw Kb})})};return Bb}();ga.prototype.then=A;ga.all=ba;ga.race=ca;ga.resolve=B;ga.reject=da;ga._setScheduler=k;ga._setAsap=l;ga._asap=j;function ha(){var Lb=void 0;if(typeof global!==\"undefined\"){Lb=global}else if(typeof self!==\"undefined\"){Lb=self}else{try{Lb=Function(\"return this\")()}catch(Ob){throw new Error(\"polyfill failed because global object is unavailable in this environment\")}}var Mb=Lb.Promise;if(Mb){var Nb=null;try{Nb=Object.prototype.toString.call(Mb.resolve())}catch(Pb){}if(Nb===\"[object Promise]\"&&!Mb.cast){return}}Lb.Promise=ga}ga.polyfill=ha;ga.Promise=ga;return ga});\n"), \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/PhastScriptsCompiler/hash.js', "function murmurhash3_32_gc(a,b){var c,d,e,f,g,h,i,j,k,l;c=a.length&3;d=a.length-c;e=b;g=3432918353;i=461845907;l=0;while(l<d){k=a.charCodeAt(l)&255|(a.charCodeAt(++l)&255)<<8|(a.charCodeAt(++l)&255)<<16|(a.charCodeAt(++l)&255)<<24;++l;k=(k&65535)*g+(((k>>>16)*g&65535)<<16)&4294967295;k=k<<15|k>>>17;k=(k&65535)*i+(((k>>>16)*i&65535)<<16)&4294967295;e^=k;e=e<<13|e>>>19;f=(e&65535)*5+(((e>>>16)*5&65535)<<16)&4294967295;e=(f&65535)+27492+(((f>>>16)+58964&65535)<<16)}k=0;switch(c){case 3:k^=(a.charCodeAt(l+2)&255)<<16;case 2:k^=(a.charCodeAt(l+1)&255)<<8;case 1:k^=a.charCodeAt(l)&255;k=(k&65535)*g+(((k>>>16)*g&65535)<<16)&4294967295;k=k<<15|k>>>17;k=(k&65535)*i+(((k>>>16)*i&65535)<<16)&4294967295;e^=k}e^=a.length;e^=e>>>16;e=(e&65535)*2246822507+(((e>>>16)*2246822507&65535)<<16)&4294967295;e^=e>>>13;e=(e&65535)*3266489909+(((e>>>16)*3266489909&65535)<<16)&4294967295;e^=e>>>16;return e>>>0}phast.hash=murmurhash3_32_gc;\n"), \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/PhastScriptsCompiler/service-url.js', "phast.buildServiceUrl=function(a,b){if(a.pathInfo){return appendPathInfo(a.serviceUrl,buildQuery(b))}else{return appendQueryString(a.serviceUrl,buildQuery(b))}};function buildQuery(c){if(typeof c===\"string\"){return c}var d=[];for(var e in c){if(c.hasOwnProperty(e)){d.push(encodeURIComponent(e)+\"=\"+encodeURIComponent(c[e]))}}return d.join(\"&\")}function appendPathInfo(f,g){var h=btoa(g).replace(/=/g,\"\").replace(/\\//g,\"_\").replace(/\\+/g,\"-\");var i=j(h+\".q.js\");return f.replace(/\\?.*\$/,\"\").replace(/\\/__p__\\.js\$/,\"\")+\"/\"+i;function j(l){return k(k(l).match(/[\\s\\S]{1,255}/g).join(\"/\"))}function k(m){return m.split(\"\").reverse().join(\"\")}}function appendQueryString(n,o){var p=n.indexOf(\"?\")>-1?\"&\":\"?\";return n+p+o}\n"), $resourcesLoader, \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/PhastScriptsCompiler/phast.js', "var Promise=phast.ES6Promise;phast.ResourceLoader.instance=phast.ResourceLoader.make(phast.config.resourcesLoader.serviceUrl,phast.config.resourcesLoader.shortParamsMappings,phast.config.resourcesLoader.pathInfo);phast.forEachSelectedElement=function(a,b){Array.prototype.forEach.call(window.document.querySelectorAll(a),b)};phast.once=function(c){var d=false;return function(){if(!d){d=true;c.apply(this,Array.prototype.slice(arguments))}}};phast.on=function(e,f){return new Promise(function(g){e.addEventListener(f,g)})};phast.wait=function(h){return new Promise(function(i){setTimeout(i,h)})};phast.on(document,\"DOMContentLoaded\").then(function(){var j,k;function l(n){return n&&n.nodeType===8&&/^\\s*\\[Phast\\]/.test(n.textContent)}function m(o){while(o){if(l(o)){return o}o=o.nextSibling}return false}k=m(document.documentElement.nextSibling);if(k===false){k=m(document.body.firstChild)}if(k){j=k.textContent.replace(/^\\s+|\\s+\$/g,\"\").split(\"\\n\");console.groupCollapsed(j.shift());console.log(j.join(\"\\n\"));console.groupEnd()}});phast.on(document,\"DOMContentLoaded\").then(function(){var p=performance.timing;var q=[];q.push([\"Downloading phases:\"]);q.push([\"  Look up hostname in DNS            + %s ms\",t(p.domainLookupEnd-p.fetchStart)]);q.push([\"  Establish connection               + %s ms\",t(p.connectEnd-p.domainLookupEnd)]);q.push([\"  Send request                       + %s ms\",t(p.requestStart-p.connectEnd)]);q.push([\"  Receive first byte                 + %s ms\",t(p.responseStart-p.requestStart)]);q.push([\"  Download page                      + %s ms\",t(p.responseEnd-p.responseStart)]);q.push([\"\"]);q.push([\"Totals:\"]);q.push([\"  Time to first byte                   %s ms\",t(p.responseStart-p.fetchStart)]);q.push([\"    (since request start)              %s ms\",t(p.responseStart-p.requestStart)]);q.push([\"  Total request time                   %s ms\",t(p.responseEnd-p.fetchStart)]);q.push([\"    (since request start)              %s ms\",t(p.responseEnd-p.requestStart)]);q.push([\" \"]);var r=[];var s=[];q.forEach(function(u){r.push(u.shift());s=s.concat(u)});console.groupCollapsed(\"[Phast] Client-side performance metrics\");console.log.apply(console,[r.join(\"\\n\")].concat(s));console.groupEnd();function t(v){v=\"\"+v;while(v.length<4){v=\" \"+v}return v}});\n")], $scripts);
         $compiled = $this->compileScripts($scripts);
         return '(' . $compiled . ')(' . $this->compileConfig($scripts) . ');';
     }
@@ -2002,7 +2042,7 @@ class Factory
             $composite->addImageFilter($filter);
         }
         if ($this->config['images']['enable-cache']) {
-            return new \Kibo\Phast\Filters\Service\CachingServiceFilter(new \Kibo\Phast\Cache\File\Cache($this->config['cache'], 'images-1'), $composite, new \Kibo\Phast\Retrievers\LocalRetriever($this->config['retrieverMap']));
+            return new \Kibo\Phast\Filters\Service\CachingServiceFilter(new \Kibo\Phast\Cache\Sqlite\Cache($this->config['cache'], 'images-1'), $composite, new \Kibo\Phast\Retrievers\LocalRetriever($this->config['retrieverMap']));
         }
         return $composite;
     }
@@ -2378,7 +2418,7 @@ interface Client
      * @return Response
      * @throws \Exception
      */
-    public function get(\Kibo\Phast\ValueObjects\URL $url, array $headers = array());
+    public function get(\Kibo\Phast\ValueObjects\URL $url, array $headers = []);
     /**
      * Send data to a URL using the POST HTTP method
      *
@@ -2388,7 +2428,7 @@ interface Client
      * @return Response
      * @throws \Exception
      */
-    public function post(\Kibo\Phast\ValueObjects\URL $url, $data, array $headers = array());
+    public function post(\Kibo\Phast\ValueObjects\URL $url, $data, array $headers = []);
 }
 namespace Kibo\Phast\HTTP;
 
@@ -2448,7 +2488,7 @@ class Request
         $instance->cookie = $_COOKIE;
         return $instance;
     }
-    public static function fromArray(array $get = array(), array $env = array(), array $cookie = array())
+    public static function fromArray(array $get = [], array $env = [], array $cookie = [])
     {
         if ($get) {
             $url = isset($env['REQUEST_URI']) ? $env['REQUEST_URI'] : '';
@@ -2561,7 +2601,7 @@ class Response
     /**
      * @var array
      */
-    private $headers = array();
+    private $headers = [];
     /**
      * @var string|iterable
      */
@@ -3150,7 +3190,7 @@ class Log
      *
      * @return void
      */
-    public static function emergency($message, array $context = array())
+    public static function emergency($message, array $context = [])
     {
         self::get()->emergency($message, $context);
     }
@@ -3165,7 +3205,7 @@ class Log
      *
      * @return void
      */
-    public static function alert($message, array $context = array())
+    public static function alert($message, array $context = [])
     {
         self::get()->alert($message, $context);
     }
@@ -3179,7 +3219,7 @@ class Log
      *
      * @return void
      */
-    public static function critical($message, array $context = array())
+    public static function critical($message, array $context = [])
     {
         self::get()->critical($message, $context);
     }
@@ -3192,7 +3232,7 @@ class Log
      *
      * @return void
      */
-    public static function error($message, array $context = array())
+    public static function error($message, array $context = [])
     {
         self::get()->error($message, $context);
     }
@@ -3207,7 +3247,7 @@ class Log
      *
      * @return void
      */
-    public static function warning($message, array $context = array())
+    public static function warning($message, array $context = [])
     {
         self::get()->warning($message, $context);
     }
@@ -3219,7 +3259,7 @@ class Log
      *
      * @return void
      */
-    public static function notice($message, array $context = array())
+    public static function notice($message, array $context = [])
     {
         self::get()->notice($message, $context);
     }
@@ -3233,7 +3273,7 @@ class Log
      *
      * @return void
      */
-    public static function info($message, array $context = array())
+    public static function info($message, array $context = [])
     {
         self::get()->info($message, $context);
     }
@@ -3245,7 +3285,7 @@ class Log
      *
      * @return void
      */
-    public static function debug($message, array $context = array())
+    public static function debug($message, array $context = [])
     {
         self::get()->debug($message, $context);
     }
@@ -3444,7 +3484,7 @@ class Writer extends \Kibo\Phast\Logging\LogWriters\BaseLogWriter
     /**
      * @var Writer[]
      */
-    private $writers = array();
+    private $writers = [];
     public function addWriter(\Kibo\Phast\Logging\LogWriter $writer)
     {
         $this->writers[] = $writer;
@@ -3687,7 +3727,7 @@ class Logger
     /**
      * @var array
      */
-    private $context = array();
+    private $context = [];
     /**
      * @var ObjectifiedFunctions
      */
@@ -3722,7 +3762,7 @@ class Logger
      *
      * @return void
      */
-    public function emergency($message, array $context = array())
+    public function emergency($message, array $context = [])
     {
         $this->log(\Kibo\Phast\Logging\LogLevel::EMERGENCY, $message, $context);
     }
@@ -3737,7 +3777,7 @@ class Logger
      *
      * @return void
      */
-    public function alert($message, array $context = array())
+    public function alert($message, array $context = [])
     {
         $this->log(\Kibo\Phast\Logging\LogLevel::ALERT, $message, $context);
     }
@@ -3751,7 +3791,7 @@ class Logger
      *
      * @return void
      */
-    public function critical($message, array $context = array())
+    public function critical($message, array $context = [])
     {
         $this->log(\Kibo\Phast\Logging\LogLevel::CRITICAL, $message, $context);
     }
@@ -3764,7 +3804,7 @@ class Logger
      *
      * @return void
      */
-    public function error($message, array $context = array())
+    public function error($message, array $context = [])
     {
         $this->log(\Kibo\Phast\Logging\LogLevel::ERROR, $message, $context);
     }
@@ -3779,7 +3819,7 @@ class Logger
      *
      * @return void
      */
-    public function warning($message, array $context = array())
+    public function warning($message, array $context = [])
     {
         $this->log(\Kibo\Phast\Logging\LogLevel::WARNING, $message, $context);
     }
@@ -3791,7 +3831,7 @@ class Logger
      *
      * @return void
      */
-    public function notice($message, array $context = array())
+    public function notice($message, array $context = [])
     {
         $this->log(\Kibo\Phast\Logging\LogLevel::NOTICE, $message, $context);
     }
@@ -3805,7 +3845,7 @@ class Logger
      *
      * @return void
      */
-    public function info($message, array $context = array())
+    public function info($message, array $context = [])
     {
         $this->log(\Kibo\Phast\Logging\LogLevel::INFO, $message, $context);
     }
@@ -3817,11 +3857,11 @@ class Logger
      *
      * @return void
      */
-    public function debug($message, array $context = array())
+    public function debug($message, array $context = [])
     {
         $this->log(\Kibo\Phast\Logging\LogLevel::DEBUG, $message, $context);
     }
-    protected function log($level, $message, array $context = array())
+    protected function log($level, $message, array $context = [])
     {
         $context = array_merge(['timestamp' => $this->functions->microtime(true)], $context);
         $this->writer->writeEntry(new \Kibo\Phast\Logging\LogEntry($level, $message, array_merge($this->context, $context)));
@@ -3911,7 +3951,7 @@ class HTMLInfo
      *
      * @var array
      */
-    public static $html5 = array(
+    public static $html5 = [
         'a' => 1,
         'abbr' => 1,
         'address' => 65,
@@ -4103,7 +4143,7 @@ class HTMLInfo
         'xmp' => 20,
         // AUTOCLOSE_P | VOID_TAG | RAW_TEXT
         'noembed' => 2,
-    );
+    ];
     /**
      * The MathML elements.
      * See http://www.w3.org/wiki/MathML/Elements.
@@ -4113,7 +4153,7 @@ class HTMLInfo
      *
      * @var array
      */
-    public static $mathml = array('maction' => 1, 'maligngroup' => 1, 'malignmark' => 1, 'math' => 1, 'menclose' => 1, 'merror' => 1, 'mfenced' => 1, 'mfrac' => 1, 'mglyph' => 1, 'mi' => 1, 'mlabeledtr' => 1, 'mlongdiv' => 1, 'mmultiscripts' => 1, 'mn' => 1, 'mo' => 1, 'mover' => 1, 'mpadded' => 1, 'mphantom' => 1, 'mroot' => 1, 'mrow' => 1, 'ms' => 1, 'mscarries' => 1, 'mscarry' => 1, 'msgroup' => 1, 'msline' => 1, 'mspace' => 1, 'msqrt' => 1, 'msrow' => 1, 'mstack' => 1, 'mstyle' => 1, 'msub' => 1, 'msup' => 1, 'msubsup' => 1, 'mtable' => 1, 'mtd' => 1, 'mtext' => 1, 'mtr' => 1, 'munder' => 1, 'munderover' => 1);
+    public static $mathml = ['maction' => 1, 'maligngroup' => 1, 'malignmark' => 1, 'math' => 1, 'menclose' => 1, 'merror' => 1, 'mfenced' => 1, 'mfrac' => 1, 'mglyph' => 1, 'mi' => 1, 'mlabeledtr' => 1, 'mlongdiv' => 1, 'mmultiscripts' => 1, 'mn' => 1, 'mo' => 1, 'mover' => 1, 'mpadded' => 1, 'mphantom' => 1, 'mroot' => 1, 'mrow' => 1, 'ms' => 1, 'mscarries' => 1, 'mscarry' => 1, 'msgroup' => 1, 'msline' => 1, 'mspace' => 1, 'msqrt' => 1, 'msrow' => 1, 'mstack' => 1, 'mstyle' => 1, 'msub' => 1, 'msup' => 1, 'msubsup' => 1, 'mtable' => 1, 'mtd' => 1, 'mtext' => 1, 'mtr' => 1, 'munder' => 1, 'munderover' => 1];
     /**
      * The svg elements.
      *
@@ -4126,7 +4166,7 @@ class HTMLInfo
      *
      * @var array
      */
-    public static $svg = array(
+    public static $svg = [
         'a' => 1,
         'altGlyph' => 1,
         'altGlyphDef' => 1,
@@ -4209,14 +4249,14 @@ class HTMLInfo
         'use' => 1,
         'view' => 1,
         'vkern' => 1,
-    );
+    ];
     /**
      * Some attributes in SVG are case sensetitive.
      *
      * This map contains key/value pairs with the key as the lowercase attribute
      * name and the value with the correct casing.
      */
-    public static $svgCaseSensitiveAttributeMap = array('attributename' => 'attributeName', 'attributetype' => 'attributeType', 'basefrequency' => 'baseFrequency', 'baseprofile' => 'baseProfile', 'calcmode' => 'calcMode', 'clippathunits' => 'clipPathUnits', 'contentscripttype' => 'contentScriptType', 'contentstyletype' => 'contentStyleType', 'diffuseconstant' => 'diffuseConstant', 'edgemode' => 'edgeMode', 'externalresourcesrequired' => 'externalResourcesRequired', 'filterres' => 'filterRes', 'filterunits' => 'filterUnits', 'glyphref' => 'glyphRef', 'gradienttransform' => 'gradientTransform', 'gradientunits' => 'gradientUnits', 'kernelmatrix' => 'kernelMatrix', 'kernelunitlength' => 'kernelUnitLength', 'keypoints' => 'keyPoints', 'keysplines' => 'keySplines', 'keytimes' => 'keyTimes', 'lengthadjust' => 'lengthAdjust', 'limitingconeangle' => 'limitingConeAngle', 'markerheight' => 'markerHeight', 'markerunits' => 'markerUnits', 'markerwidth' => 'markerWidth', 'maskcontentunits' => 'maskContentUnits', 'maskunits' => 'maskUnits', 'numoctaves' => 'numOctaves', 'pathlength' => 'pathLength', 'patterncontentunits' => 'patternContentUnits', 'patterntransform' => 'patternTransform', 'patternunits' => 'patternUnits', 'pointsatx' => 'pointsAtX', 'pointsaty' => 'pointsAtY', 'pointsatz' => 'pointsAtZ', 'preservealpha' => 'preserveAlpha', 'preserveaspectratio' => 'preserveAspectRatio', 'primitiveunits' => 'primitiveUnits', 'refx' => 'refX', 'refy' => 'refY', 'repeatcount' => 'repeatCount', 'repeatdur' => 'repeatDur', 'requiredextensions' => 'requiredExtensions', 'requiredfeatures' => 'requiredFeatures', 'specularconstant' => 'specularConstant', 'specularexponent' => 'specularExponent', 'spreadmethod' => 'spreadMethod', 'startoffset' => 'startOffset', 'stddeviation' => 'stdDeviation', 'stitchtiles' => 'stitchTiles', 'surfacescale' => 'surfaceScale', 'systemlanguage' => 'systemLanguage', 'tablevalues' => 'tableValues', 'targetx' => 'targetX', 'targety' => 'targetY', 'textlength' => 'textLength', 'viewbox' => 'viewBox', 'viewtarget' => 'viewTarget', 'xchannelselector' => 'xChannelSelector', 'ychannelselector' => 'yChannelSelector', 'zoomandpan' => 'zoomAndPan');
+    public static $svgCaseSensitiveAttributeMap = ['attributename' => 'attributeName', 'attributetype' => 'attributeType', 'basefrequency' => 'baseFrequency', 'baseprofile' => 'baseProfile', 'calcmode' => 'calcMode', 'clippathunits' => 'clipPathUnits', 'contentscripttype' => 'contentScriptType', 'contentstyletype' => 'contentStyleType', 'diffuseconstant' => 'diffuseConstant', 'edgemode' => 'edgeMode', 'externalresourcesrequired' => 'externalResourcesRequired', 'filterres' => 'filterRes', 'filterunits' => 'filterUnits', 'glyphref' => 'glyphRef', 'gradienttransform' => 'gradientTransform', 'gradientunits' => 'gradientUnits', 'kernelmatrix' => 'kernelMatrix', 'kernelunitlength' => 'kernelUnitLength', 'keypoints' => 'keyPoints', 'keysplines' => 'keySplines', 'keytimes' => 'keyTimes', 'lengthadjust' => 'lengthAdjust', 'limitingconeangle' => 'limitingConeAngle', 'markerheight' => 'markerHeight', 'markerunits' => 'markerUnits', 'markerwidth' => 'markerWidth', 'maskcontentunits' => 'maskContentUnits', 'maskunits' => 'maskUnits', 'numoctaves' => 'numOctaves', 'pathlength' => 'pathLength', 'patterncontentunits' => 'patternContentUnits', 'patterntransform' => 'patternTransform', 'patternunits' => 'patternUnits', 'pointsatx' => 'pointsAtX', 'pointsaty' => 'pointsAtY', 'pointsatz' => 'pointsAtZ', 'preservealpha' => 'preserveAlpha', 'preserveaspectratio' => 'preserveAspectRatio', 'primitiveunits' => 'primitiveUnits', 'refx' => 'refX', 'refy' => 'refY', 'repeatcount' => 'repeatCount', 'repeatdur' => 'repeatDur', 'requiredextensions' => 'requiredExtensions', 'requiredfeatures' => 'requiredFeatures', 'specularconstant' => 'specularConstant', 'specularexponent' => 'specularExponent', 'spreadmethod' => 'spreadMethod', 'startoffset' => 'startOffset', 'stddeviation' => 'stdDeviation', 'stitchtiles' => 'stitchTiles', 'surfacescale' => 'surfaceScale', 'systemlanguage' => 'systemLanguage', 'tablevalues' => 'tableValues', 'targetx' => 'targetX', 'targety' => 'targetY', 'textlength' => 'textLength', 'viewbox' => 'viewBox', 'viewtarget' => 'viewTarget', 'xchannelselector' => 'xChannelSelector', 'ychannelselector' => 'yChannelSelector', 'zoomandpan' => 'zoomAndPan'];
     /**
      * Some SVG elements are case sensetitive.
      * This map contains these.
@@ -4224,7 +4264,7 @@ class HTMLInfo
      * The map contains key/value store of the name is lowercase as the keys and
      * the correct casing as the value.
      */
-    public static $svgCaseSensitiveElementMap = array('altglyph' => 'altGlyph', 'altglyphdef' => 'altGlyphDef', 'altglyphitem' => 'altGlyphItem', 'animatecolor' => 'animateColor', 'animatemotion' => 'animateMotion', 'animatetransform' => 'animateTransform', 'clippath' => 'clipPath', 'feblend' => 'feBlend', 'fecolormatrix' => 'feColorMatrix', 'fecomponenttransfer' => 'feComponentTransfer', 'fecomposite' => 'feComposite', 'feconvolvematrix' => 'feConvolveMatrix', 'fediffuselighting' => 'feDiffuseLighting', 'fedisplacementmap' => 'feDisplacementMap', 'fedistantlight' => 'feDistantLight', 'feflood' => 'feFlood', 'fefunca' => 'feFuncA', 'fefuncb' => 'feFuncB', 'fefuncg' => 'feFuncG', 'fefuncr' => 'feFuncR', 'fegaussianblur' => 'feGaussianBlur', 'feimage' => 'feImage', 'femerge' => 'feMerge', 'femergenode' => 'feMergeNode', 'femorphology' => 'feMorphology', 'feoffset' => 'feOffset', 'fepointlight' => 'fePointLight', 'fespecularlighting' => 'feSpecularLighting', 'fespotlight' => 'feSpotLight', 'fetile' => 'feTile', 'feturbulence' => 'feTurbulence', 'foreignobject' => 'foreignObject', 'glyphref' => 'glyphRef', 'lineargradient' => 'linearGradient', 'radialgradient' => 'radialGradient', 'textpath' => 'textPath');
+    public static $svgCaseSensitiveElementMap = ['altglyph' => 'altGlyph', 'altglyphdef' => 'altGlyphDef', 'altglyphitem' => 'altGlyphItem', 'animatecolor' => 'animateColor', 'animatemotion' => 'animateMotion', 'animatetransform' => 'animateTransform', 'clippath' => 'clipPath', 'feblend' => 'feBlend', 'fecolormatrix' => 'feColorMatrix', 'fecomponenttransfer' => 'feComponentTransfer', 'fecomposite' => 'feComposite', 'feconvolvematrix' => 'feConvolveMatrix', 'fediffuselighting' => 'feDiffuseLighting', 'fedisplacementmap' => 'feDisplacementMap', 'fedistantlight' => 'feDistantLight', 'feflood' => 'feFlood', 'fefunca' => 'feFuncA', 'fefuncb' => 'feFuncB', 'fefuncg' => 'feFuncG', 'fefuncr' => 'feFuncR', 'fegaussianblur' => 'feGaussianBlur', 'feimage' => 'feImage', 'femerge' => 'feMerge', 'femergenode' => 'feMergeNode', 'femorphology' => 'feMorphology', 'feoffset' => 'feOffset', 'fepointlight' => 'fePointLight', 'fespecularlighting' => 'feSpecularLighting', 'fespotlight' => 'feSpotLight', 'fetile' => 'feTile', 'feturbulence' => 'feTurbulence', 'foreignobject' => 'foreignObject', 'glyphref' => 'glyphRef', 'lineargradient' => 'linearGradient', 'radialgradient' => 'radialGradient', 'textpath' => 'textPath'];
     /**
      * Check whether the given element meets the given criterion.
      *
@@ -4437,11 +4477,11 @@ class Tag extends \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Element
     /**
      * @var array
      */
-    private $attributes = array();
+    private $attributes = [];
     /**
      * @var array
      */
-    private $newAttributes = array();
+    private $newAttributes = [];
     /**
      * @var \Iterator
      */
@@ -4460,7 +4500,7 @@ class Tag extends \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Element
      * @param $tagName
      * @param array|\Traversable $attributes
      */
-    public function __construct($tagName, $attributes = array())
+    public function __construct($tagName, $attributes = [])
     {
         $this->tagName = strtolower($tagName);
         if ($attributes instanceof \Iterator) {
@@ -4682,13 +4722,13 @@ class PCRETokenizer
     private $attributePattern = '~
         @attr
     ~Xxsi';
-    private $subroutines = array('COMMENT' => '
+    private $subroutines = ['COMMENT' => '
             <!--.*?-->
         ', 'SCRIPT' => "\n            (?= <script[\\s>]) @@TAG\n            (?'body' .*? )\n            (?'closing_tag' </script/?+(?:\\s[^a-z>]*+)?+> )\n        ", 'STYLE' => "\n            (?= <style[\\s>]) @@TAG\n            (?'body' .*? )\n            (?'closing_tag' </style/?+(?:\\s[^a-z>]*+)?+> )\n        ", 'TAG' => "\n            < @@tag_name \\s*+ @@attrs? @tag_end\n        ", 'tag_name' => "\n            [^\\s>]++\n        ", 'attrs' => '
             (?: @attr )*+
         ', 'attr' => "\n            \\s*+\n            @@attr_name\n            (?: \\s*+ = \\s*+ @attr_value )?\n        ", 'attr_name' => "\n            [^\\s>][^\\s>=]*+\n        ", 'attr_value' => "\n            (?|\n                \"(?'attr_value'[^\"]*+)\" |\n                ' (?'attr_value' [^']*+) ' |\n                (?'attr_value' [^\\s>]*+)\n            )\n        ", 'tag_end' => "\n            \\s*+ >\n        ", 'CLOSING_TAG' => '
             </ @@tag_name [^>]*+ >
-        ');
+        '];
     public function __construct()
     {
         $this->mainPattern = $this->compilePattern($this->mainPattern, $this->subroutines);
@@ -4723,7 +4763,7 @@ class PCRETokenizer
             (yield $element);
             $offset = $match[0][1] + strlen($match[0][0]);
         }
-        if ($offset < strlen($data) - 1) {
+        if ($offset < strlen($data)) {
             $element = new \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Junk();
             $element->originalString = substr($data, $offset);
             (yield $element);
@@ -4778,7 +4818,7 @@ class PhastDocumentFilters
     /**
      * @return ?OutputBufferHandler
      */
-    public static function deploy(array $userConfig = array())
+    public static function deploy(array $userConfig = [])
     {
         $runtimeConfig = self::configure($userConfig);
         if (!$runtimeConfig) {
@@ -5089,7 +5129,7 @@ class UniversalRetriever implements \Kibo\Phast\Retrievers\Retriever
     /**
      * @var Retriever[]
      */
-    private $retrievers = array();
+    private $retrievers = [];
     public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
     {
         return $this->iterateRetrievers(function (\Kibo\Phast\Retrievers\Retriever $retriever) use($url) {
@@ -5204,7 +5244,7 @@ class ServiceSignatureFactory
     const CACHE_NAMESPACE = 'signature';
     public function make(array $config)
     {
-        $cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], self::CACHE_NAMESPACE);
+        $cache = new \Kibo\Phast\Cache\Sqlite\Cache(array_merge($config['cache'], ['name' => self::CACHE_NAMESPACE, 'maxSize' => 1024 * 1024]), self::CACHE_NAMESPACE);
         $signature = new \Kibo\Phast\Security\ServiceSignature($cache);
         if (isset($config['securityToken'])) {
             $signature->setIdentities($config['securityToken']);
@@ -5224,7 +5264,7 @@ abstract class BaseService
     /**
      * @var string[]
      */
-    protected $whitelist = array();
+    protected $whitelist = [];
     /**
      * @var Retriever
      */
@@ -5653,7 +5693,7 @@ class TokenRefMakerFactory
 {
     public function make(array $config)
     {
-        $cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'token-refs');
+        $cache = new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'token-refs');
         return new \Kibo\Phast\Services\Bundler\TokenRefMaker($cache);
     }
 }
@@ -5867,12 +5907,12 @@ trait ServiceFactoryTrait
     {
         $retriever = new \Kibo\Phast\Retrievers\UniversalRetriever();
         $retriever->addRetriever(new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']));
-        $retriever->addRetriever(new \Kibo\Phast\Retrievers\CachingRetriever(new \Kibo\Phast\Cache\File\Cache($config['cache'], $cacheNamespace), (new \Kibo\Phast\Retrievers\RemoteRetrieverFactory())->make($config)));
+        $retriever->addRetriever(new \Kibo\Phast\Retrievers\CachingRetriever(new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], $cacheNamespace), (new \Kibo\Phast\Retrievers\RemoteRetrieverFactory())->make($config)));
         return $retriever;
     }
     public function makeCachingServiceFilter(array $config, \Kibo\Phast\Filters\Service\CompositeFilter $compositeFilter, $cacheNamespace)
     {
-        return new \Kibo\Phast\Filters\Service\CachingServiceFilter(new \Kibo\Phast\Cache\File\Cache($config['cache'], $cacheNamespace), $compositeFilter, new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']));
+        return new \Kibo\Phast\Filters\Service\CachingServiceFilter(new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], $cacheNamespace), $compositeFilter, new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']));
     }
 }
 namespace Kibo\Phast\Services;
@@ -6235,9 +6275,13 @@ class PhastJavaScript
      */
     private $filename;
     /**
-     * @var string
+     * @var ?string
      */
-    private $contents;
+    private $rawScript;
+    /**
+     * @var ?string
+     */
+    private $minifiedScript;
     /**
      * @var string
      */
@@ -6246,18 +6290,14 @@ class PhastJavaScript
      * @var mixed
      */
     private $config;
-    /**
-     * @var ObjectifiedFunctions
-     */
-    private $funcs;
-    /**
-     * @param string $filename
-     * @param string $contents
-     */
-    private function __construct($filename, $contents)
+    private function __construct(string $filename, string $script, bool $minified)
     {
         $this->filename = $filename;
-        $this->contents = $contents;
+        if ($minified) {
+            $this->minifiedScript = $script;
+        } else {
+            $this->rawScript = $script;
+        }
     }
     /**
      * @param string $filename
@@ -6268,10 +6308,9 @@ class PhastJavaScript
         $funcs = $funcs ? $funcs : new \Kibo\Phast\Common\ObjectifiedFunctions();
         $contents = $funcs->file_get_contents($filename);
         if ($contents === false) {
-            throw new \RuntimeException("Failed to read script: {$filename}");
+            throw new \RuntimeException("Could not read script: {$filename}");
         }
-        $contents = (new \Kibo\Phast\Common\JSMinifier($contents))->min();
-        return new self($filename, $contents);
+        return new self($filename, $contents, false);
     }
     /**
      * @param string $filename
@@ -6279,7 +6318,7 @@ class PhastJavaScript
      */
     public static function fromString($filename, $contents)
     {
-        return new self($filename, $contents);
+        return new self($filename, $contents, true);
     }
     /**
      * @return string
@@ -6293,15 +6332,18 @@ class PhastJavaScript
      */
     public function getContents()
     {
-        return $this->contents;
+        if ($this->minifiedScript === null) {
+            $this->minifiedScript = (new \Kibo\Phast\Common\JSMinifier($this->rawScript))->min();
+        }
+        return $this->minifiedScript;
     }
     /**
      * @return string
      */
     public function getCacheSalt()
     {
-        $hash = md5($this->getContents(), true);
-        return substr(preg_replace('/^[a-z0-9]/i', '', base64_encode($hash)), 0, 16);
+        $hash = md5($this->rawScript ?? $this->minifiedScript, true);
+        return substr(base64_encode($hash), 0, 16);
     }
     /**
      * @param string $configKey
@@ -6338,7 +6380,7 @@ namespace Kibo\Phast\ValueObjects;
 
 class Query implements \IteratorAggregate
 {
-    private $tuples = array();
+    private $tuples = [];
     /**
      * @param array $assoc
      * @return Query
@@ -6446,7 +6488,7 @@ namespace Kibo\Phast\ValueObjects;
 
 class Resource
 {
-    const EXTENSION_TO_MIME_TYPE = array('gif' => 'image/gif', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'bmp' => 'image/bmp', 'webp' => 'image/webp', 'svg' => 'image/svg+xml', 'css' => 'text/css', 'js' => 'application/javascript', 'json' => 'application/json');
+    const EXTENSION_TO_MIME_TYPE = ['gif' => 'image/gif', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'bmp' => 'image/bmp', 'webp' => 'image/webp', 'svg' => 'image/svg+xml', 'css' => 'text/css', 'js' => 'application/javascript', 'json' => 'application/json'];
     /**
      * @var URL
      */
@@ -6466,7 +6508,7 @@ class Resource
     /**
      * @var Resource[]
      */
-    private $dependencies = array();
+    private $dependencies = [];
     private function __construct()
     {
     }
@@ -7019,7 +7061,7 @@ class AdminPanel
      */
     private $translations;
     private $isDev = 'prod';
-    private $scripts = array('prod' => array('main.js'), 'dev' => array('http://localhost:25903/main.js'));
+    private $scripts = ['prod' => ['main.js'], 'dev' => ['http://localhost:25903/main.js']];
     /**
      * AdminPanel constructor.
      * @param PhastUser $user
@@ -7325,7 +7367,7 @@ class TranslationsManager
     /**
      * @var array
      */
-    private $modules = array();
+    private $modules = [];
     public function __construct($locale, $pluginName)
     {
         $data = \Kibo\PhastPlugins\SDK\Generated\Translations::DATA;
@@ -7340,7 +7382,7 @@ class TranslationsManager
     {
         return array_merge(['plugin-name' => $this->pluginName], \Kibo\PhastPlugins\SDK\Generated\Translations::DATA[$this->locale]);
     }
-    public function get($key, $interpolationArguments = array())
+    public function get($key, $interpolationArguments = [])
     {
         $keyParts = explode('.', $key);
         $transArr = \Kibo\PhastPlugins\SDK\Generated\Translations::DATA[$this->locale];
@@ -7371,7 +7413,7 @@ namespace Kibo\PhastPlugins\SDK;
 class Autoloader
 {
     private static $instance;
-    private $psr4 = array();
+    private $psr4 = [];
     public static function getInstance()
     {
         if (!isset(self::$instance)) {
@@ -7681,7 +7723,7 @@ namespace Kibo\PhastPlugins\SDK\Configuration;
  */
 class PhastConfiguration
 {
-    const SETTINGS_2_FILTERS = array('img-optimization-tags' => array(\Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter::class), 'img-optimization-css' => array(\Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class, \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class), 'img-lazy' => array(\Kibo\Phast\Filters\HTML\LazyImageLoading\Filter::class), 'css-optimization' => array(\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class), 'scripts-defer' => array(\Kibo\Phast\Filters\HTML\ScriptsDeferring\Filter::class), 'scripts-proxy' => array(\Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class), 'iframe-defer' => array(\Kibo\Phast\Filters\HTML\DelayedIFrameLoading\Filter::class), 'minify-html' => array(\Kibo\Phast\Filters\HTML\Minify\Filter::class), 'minify-inline-scripts' => array(\Kibo\Phast\Filters\HTML\MinifyScripts\Filter::class));
+    const SETTINGS_2_FILTERS = ['img-optimization-tags' => [\Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter::class], 'img-optimization-css' => [\Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class, \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class], 'img-lazy' => [\Kibo\Phast\Filters\HTML\LazyImageLoading\Filter::class], 'css-optimization' => [\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class], 'scripts-defer' => [\Kibo\Phast\Filters\HTML\ScriptsDeferring\Filter::class], 'scripts-proxy' => [\Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class], 'iframe-defer' => [\Kibo\Phast\Filters\HTML\DelayedIFrameLoading\Filter::class], 'minify-html' => [\Kibo\Phast\Filters\HTML\Minify\Filter::class], 'minify-inline-scripts' => [\Kibo\Phast\Filters\HTML\MinifyScripts\Filter::class]];
     /**
      * @var ServiceConfigurationGenerator
      */
@@ -8129,7 +8171,9 @@ class Translations
 {
     const DATA = array('en' => array('AdminPanel' => array('errors' => array('no-cache-root' => '@:plugin-name can not write to any cache directory! Please, make one of the following directories writable: {params}', 'no-service-config' => '@:plugin-name failed to create a service configuration in any of the following directories: {params}', 'network-error' => 'Failed to connect to plugin server! Please, try again later! {params}', 'cache' => '{params}'), 'warnings' => array('disabled' => '@:plugin-name optimizations are off!', 'admin-only' => '@:plugin-name optimizations will be applied only for logged-in users with the "Administrator" privilege. This is for previewing purposes. Select the "On" setting for "@:plugin-name optimizations" below to activate for all users!
 ')), 'Backend' => array('install-notice' => 'Thank you for using <b>@:plugin-name</b>. Optimizations are <b>{pluginState}</b>. Go to <b><a href="{settingsUrl}">Settings</a></b> to configure <b>@:plugin-name</b>.
-', 'status' => array('on' => 'on', 'off' => 'off', 'admin' => 'on for administrators')), 'Information' => array('additional' => 'Additional information'), 'Notification' => array('error' => 'error', 'warning' => 'warning', 'information' => 'information', 'success' => 'success'), 'OnOffSwitch' => array('on' => 'On', 'off' => 'Off'), 'SavingStatus' => array('saving' => 'Saving', 'saved' => 'Saved'), 'Settings' => array('common' => array('tip' => 'Tip:', 'on' => 'On:', 'off' => 'Off:'), 'sections' => array('plugin' => array('title' => 'Plugin', 'enabled' => array('name' => '@:plugin-name optimizations', 'description' => array('main' => 'Test your site {without} and {with}', 'without' => 'without @:plugin-name', 'with' => 'with @:plugin-name')), 'admin-only' => array('name' => 'Only optimize for administrators', 'description' => array('on' => 'Only privileged users will be served with optimized version', 'off' => 'All users will be served with optimized version', 'tip' => 'Use this to preview your site before launching the optimizations')), 'pathinfo' => array('name' => 'Remove query string from processed resources', 'description' => array('start' => 'Make sure that processed resources don\'t have query strings, for a higher score in GTmetrix.', 'on' => 'Use the path for requests for processed resources. This requires a server that supports "PATH_INFO".', 'off' => 'Use the GET parameters for requests for processed resources.')), 'footer-link' => array('name' => 'Let the world know about @:plugin-name', 'description' => 'Add a "Optimized by @:plugin-name" notice to the footer of your site and help spread the word.'), 'compress-service-response' => array('name' => 'Enable gzip compression on processed resources', 'description' => 'This compresses the optimized and bundled JavaScript and CSS generated by PhastPress. Disable this if your server already compresses PhastPress responses.')), 'images' => array('title' => 'Images', 'tags' => array('name' => 'Optimize images in tags', 'description' => 'Compress images with optimal settings. {newline} Resize images to fit {width}x{height} pixels or to the appropriate size for {imgTag} tags with {widthAttr} or {heightAttr}. {newline} Reload changed images while still leveraging browser caching.'), 'css' => array('name' => 'Optimize images in CSS', 'description' => array(0 => 'Compress images in stylesheets with optional settings and resizes the to fit {width}x{height} pixels.', 1 => 'Reload changed images while still leveraging browser caching.')), 'api' => array('name' => 'Use the Phast Image Optimization API', 'description' => array(0 => 'Optimize your images on our servers free of charge.', 1 => 'This will give you the best possible results without installing any software and will reduce the load on your hosting.')), 'lazy' => array('name' => 'Lazy load images', 'description' => array(0 => 'This adds the loading=lazy attribute to img tags so that images are only load once they are visible on the page.', 1 => 'This helps pass the "Defer offscreen images" audit in PageSpeed Insights.'))), 'html-filters' => array('title' => 'HTML, CSS & JS', 'css' => array('name' => 'Optimize CSS', 'description' => array(0 => 'Incline critical styles first and prevent unused styles from blocking the page load.', 1 => 'Minify stylesheets and leverage browser caching.', 2 => 'Inline Google Fonts CSS to speed up font loading.')), 'async-js' => array('name' => 'Load scripts asynchronously', 'description' => 'Allow the page to finish loading before all scripts have been executed.'), 'minify-js' => array('name' => 'Minify scripts and improve caching', 'description' => array(0 => 'Minify scripts and set long cache durations.', 1 => 'Reload changed scripts while still leveraging browser caching.')), 'iframe' => array('name' => 'Lazy load IFrames', 'description' => 'This adds the loading=lazy attribute to iframe tags so that IFrames are only loaded once they are visible on the page.'), 'minify-html' => array('name' => 'Minify HTML', 'description' => 'Remove unnecessary whitespace from the HTML code of the page.'), 'minify-inline-scripts' => array('name' => 'Minify inline scripts and JSON', 'description' => 'Remove unnecessary whitespace from inline scripts and JSON data.'))))));
+', 'status' => array('on' => 'on', 'off' => 'off', 'admin' => 'on for administrators')), 'Information' => array('additional' => 'Additional information'), 'Notification' => array('error' => 'error', 'warning' => 'warning', 'information' => 'information', 'success' => 'success'), 'OnOffSwitch' => array('on' => 'On', 'off' => 'Off'), 'SavingStatus' => array('saving' => 'Saving', 'saved' => 'Saved'), 'Settings' => array('common' => array('tip' => 'Tip:', 'on' => 'On:', 'off' => 'Off:'), 'sections' => array('plugin' => array('title' => 'Plugin', 'enabled' => array('name' => '@:plugin-name optimizations', 'description' => array('main' => 'Test your site {without} and {with}', 'without' => 'without @:plugin-name', 'with' => 'with @:plugin-name')), 'admin-only' => array('name' => 'Only optimize for administrators', 'description' => array('on' => 'Only privileged users will be served with optimized version', 'off' => 'All users will be served with optimized version', 'tip' => 'Use this to preview your site before launching the optimizations')), 'pathinfo' => array('name' => 'Remove query string from processed resources', 'description' => array('start' => 'Make sure that processed resources don\'t have query strings, for a higher score in GTmetrix.', 'on' => 'Use the path for requests for processed resources. This requires a server that supports "PATH_INFO".', 'off' => 'Use the GET parameters for requests for processed resources.')), 'footer-link' => array('name' => 'Let the world know about @:plugin-name', 'description' => 'Add a "Optimized by @:plugin-name" notice to the footer of your site and help spread the word.'), 'compress-service-response' => array('name' => 'Enable gzip compression on processed resources', 'description' => 'This compresses the optimized and bundled JavaScript and CSS generated by PhastPress. Disable this if your server already compresses PhastPress responses.')), 'images' => array('title' => 'Images', 'tags' => array('name' => 'Optimize images in tags', 'description' => 'Compress images with optimal settings. {newline} Resize images to fit {width}x{height} pixels or to the appropriate size for {imgTag} tags with {widthAttr} or {heightAttr}. {newline} Reload changed images while still leveraging browser caching.
+'), 'css' => array('name' => 'Optimize images in CSS', 'description' => array(0 => 'Compress images in stylesheets with optional settings and resizes the to fit {width}x{height} pixels.', 1 => 'Reload changed images while still leveraging browser caching.')), 'api' => array('name' => 'Use the Phast Image Optimization API', 'description' => array(0 => 'Optimize your images on our servers free of charge.', 1 => 'This will give you the best possible results without installing any software and will reduce the load on your hosting.
+')), 'lazy' => array('name' => 'Lazy load images', 'description' => array(0 => 'This adds the loading=lazy attribute to img tags so that images are only load once they are visible on the page.', 1 => 'This helps pass the "Defer offscreen images" audit in PageSpeed Insights.'))), 'html-filters' => array('title' => 'HTML, CSS & JS', 'css' => array('name' => 'Optimize CSS', 'description' => array(0 => 'Incline critical styles first and prevent unused styles from blocking the page load.', 1 => 'Minify stylesheets and leverage browser caching.', 2 => 'Inline Google Fonts CSS to speed up font loading.')), 'async-js' => array('name' => 'Load scripts asynchronously', 'description' => 'Allow the page to finish loading before all scripts have been executed.'), 'minify-js' => array('name' => 'Minify scripts and improve caching', 'description' => array(0 => 'Minify scripts and set long cache durations.', 1 => 'Reload changed scripts while still leveraging browser caching.')), 'iframe' => array('name' => 'Lazy load IFrames', 'description' => 'This adds the loading=lazy attribute to iframe tags so that IFrames are only loaded once they are visible on the page.'), 'minify-html' => array('name' => 'Minify HTML', 'description' => 'Remove unnecessary whitespace from the HTML code of the page.'), 'minify-inline-scripts' => array('name' => 'Minify inline scripts and JSON', 'description' => 'Remove unnecessary whitespace from inline scripts and JSON data.'))))));
 }
 namespace Kibo\PhastPlugins\SDK;
 
@@ -8290,151 +8334,6 @@ class ServiceSDK
         return $this->environmentIdentifier;
     }
 }
-namespace Kibo\Phast\Cache\File;
-
-class Diagnostics implements \Kibo\Phast\Diagnostics\Diagnostics
-{
-    public function diagnose(array $config)
-    {
-        \Kibo\Phast\Logging\Log::setLogger(new \Kibo\Phast\Logging\Logger(new \Kibo\Phast\Cache\File\DiagnosticsLogWriter()));
-        $cache = new \Kibo\Phast\Cache\File\Cache($config['cache'], 'cache-self-diagnosis');
-        $v1 = $cache->get('test-key', function () {
-            return 1;
-        }, 2);
-        $v2 = $cache->get('test-key', function () {
-            return 2;
-        }, 2);
-        if ($v1 != $v2) {
-            throw new \Kibo\Phast\Exceptions\RuntimeException('Cache failed, but no error was reported!');
-        }
-    }
-}
-namespace Kibo\Phast\Cache\File;
-
-class DiagnosticsLogWriter implements \Kibo\Phast\Logging\LogWriter
-{
-    public function setLevelMask($mask)
-    {
-    }
-    public function writeEntry(\Kibo\Phast\Logging\LogEntry $entry)
-    {
-        if ($entry->getLevel() > 2) {
-            $needles = array_map(function ($key) {
-                return '{' . $key . '}';
-            }, array_keys($entry->getContext()));
-            $message = str_replace($needles, $entry->getContext(), $entry->getMessage());
-            throw new \Kibo\Phast\Exceptions\RuntimeException("Error: Level: {$entry->getLevel()}, Msg: {$message}");
-        }
-    }
-}
-namespace Kibo\Phast\Cache\File;
-
-class DiskCleanup extends \Kibo\Phast\Cache\File\ProbabilisticExecutor
-{
-    /**
-     * @var integer
-     */
-    private $maxSize;
-    /**
-     * @var float
-     */
-    private $portionToFree;
-    /** @var array */
-    private $keepNamespaces;
-    public function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
-    {
-        $this->maxSize = $config['diskCleanup']['maxSize'];
-        $this->probability = $config['diskCleanup']['probability'];
-        $this->portionToFree = $config['diskCleanup']['portionToFree'];
-        $this->keepNamespaces = $config['diskCleanup']['keepNamespaces'];
-        parent::__construct($config, $functions);
-    }
-    protected function execute()
-    {
-        $usedSpace = $this->calculateUsedSpace();
-        $neededSpace = round($this->portionToFree * $this->maxSize);
-        $bytesToDelete = $usedSpace - $this->maxSize + $neededSpace;
-        $deletedBytes = 0;
-        /** @var \SplFileInfo $file */
-        foreach ($this->getCacheFiles($this->cacheRoot) as $file) {
-            if ($deletedBytes >= $bytesToDelete) {
-                break;
-            }
-            $deletedBytes += $file->getSize();
-            @unlink($file->getRealPath());
-        }
-    }
-    private function calculateUsedSpace()
-    {
-        $size = 0;
-        /** @var \SplFileInfo $file */
-        foreach ($this->getCacheFiles($this->cacheRoot) as $file) {
-            $size += $file->getSize();
-        }
-        return $size;
-    }
-    protected function getCacheFiles($root)
-    {
-        foreach (parent::getCacheFiles($root) as $item) {
-            if (!preg_match('~^[a-f0-9]{32}-(.+)$~', $item->getFilename(), $match) || in_array($match[1], $this->keepNamespaces)) {
-                continue;
-            }
-            (yield $item);
-        }
-    }
-}
-namespace Kibo\Phast\Cache\File;
-
-class GarbageCollector extends \Kibo\Phast\Cache\File\ProbabilisticExecutor
-{
-    /**
-     * @var integer
-     */
-    private $shardingDepth;
-    /**
-     * @var integer
-     */
-    private $gcMaxAge;
-    /**
-     * @var integer
-     */
-    private $gcMaxItems;
-    public function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
-    {
-        $this->shardingDepth = $config['shardingDepth'];
-        $this->gcMaxAge = $config['garbageCollection']['maxAge'];
-        $this->gcMaxItems = $config['garbageCollection']['maxItems'];
-        $this->probability = $config['garbageCollection']['probability'];
-        parent::__construct($config, $functions);
-    }
-    protected function execute()
-    {
-        $files = $this->getCacheFiles($this->cacheRoot);
-        $deleted = 0;
-        /** @var \SplFileInfo $file */
-        foreach ($this->filterOldFiles($files) as $file) {
-            @$this->functions->unlink($file->getRealPath());
-            $deleted++;
-            if ($deleted == $this->gcMaxItems) {
-                break;
-            }
-        }
-    }
-    /**
-     * @param \Iterator $files
-     * @return \Generator
-     */
-    private function filterOldFiles(\Iterator $files)
-    {
-        $maxTimeModified = time() - $this->gcMaxAge;
-        /** @var \SplFileInfo $file */
-        foreach ($files as $file) {
-            if ($file->getMTime() < $maxTimeModified) {
-                (yield $file);
-            }
-        }
-    }
-}
 namespace Kibo\Phast\Common;
 
 class JSMinifier extends \Kibo\Phast\JSMin\JSMin
@@ -8535,7 +8434,7 @@ namespace Kibo\Phast\Filters\CSS\FontSwap;
 class Filter implements \Kibo\Phast\Services\ServiceFilter
 {
     const FONT_FACE_REGEXP = '/(@font-face\\s*\\{)([^}]*)/i';
-    const ICON_FONT_FAMILIES = array('Font Awesome', 'GeneratePress', 'Dashicons', 'Ionicons');
+    const ICON_FONT_FAMILIES = ['Font Awesome', 'GeneratePress', 'Dashicons', 'Ionicons'];
     private $fontDisplayBlockPattern;
     public function __construct()
     {
@@ -8637,7 +8536,7 @@ class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
         $localRetriever = new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']);
         $retriever = new \Kibo\Phast\Retrievers\UniversalRetriever();
         $retriever->addRetriever($localRetriever);
-        $retriever->addRetriever(new \Kibo\Phast\Retrievers\CachingRetriever(new \Kibo\Phast\Cache\File\Cache($config['cache'], 'css')));
+        $retriever->addRetriever(new \Kibo\Phast\Retrievers\CachingRetriever(new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'css')));
         if (!isset($config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class]['serviceUrl'])) {
             $config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class]['serviceUrl'] = $config['servicesUrl'];
         }
@@ -8673,7 +8572,7 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
     /**
      * @var string[]
      */
-    private $whitelist = array();
+    private $whitelist = [];
     /**
      * @var string
      */
@@ -8709,7 +8608,7 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
     /**
      * @var string[]
      */
-    private $cacheMarkers = array();
+    private $cacheMarkers = [];
     /**
      * @var string
      */
@@ -8807,7 +8706,7 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
      * @return Tag[]|null
      * @throws \Kibo\Phast\Exceptions\ItemNotFoundException
      */
-    private function inlineURL(\Kibo\Phast\ValueObjects\URL $url, $media, $ieCompatible = true, $currentLevel = 0, $seen = array())
+    private function inlineURL(\Kibo\Phast\ValueObjects\URL $url, $media, $ieCompatible = true, $currentLevel = 0, $seen = [])
     {
         $whitelistEntry = $this->findInWhitelist($url);
         if (!$whitelistEntry) {
@@ -8851,7 +8750,7 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
         $this->addIEFallback($ieFallbackUrl, $elements);
         return $elements;
     }
-    private function inlineCSS(\Kibo\Phast\ValueObjects\URL $url, $content, $media, $optimized, $ieCompatible = true, $currentLevel = 0, $seen = array())
+    private function inlineCSS(\Kibo\Phast\ValueObjects\URL $url, $content, $media, $optimized, $ieCompatible = true, $currentLevel = 0, $seen = [])
     {
         $urlMatches = $this->getImportedURLs($content);
         $elements = [];
@@ -9074,7 +8973,7 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
     }
     protected function afterLoop()
     {
-        $scriptsLoader = \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/ScriptsDeferring/scripts-loader.js', "var Promise=phast.ES6Promise;var hasCurrentScript=!!document.currentScript;phast.ScriptsLoader={};phast.ScriptsLoader.getScriptsInExecutionOrder=function(a,b){var c=Array.prototype.slice.call(a.querySelectorAll('script[type=\"text/phast\"]')).filter(g);var d=[],e=[];for(var f=0;f<c.length;f++){if(getSrc(c[f])!==undefined&&isDefer(c[f])){e.push(c[f])}else{d.push(c[f])}}return d.concat(e).map(function(j){return b.makeScriptFromElement(j)});function g(k){try{var l=phast.config.scriptsLoader.csp}catch(m){return true}if(l.nonce==null){return true}if(k.nonce===l.nonce){return true}try{h(l,k)}catch(n){console.error(\"Could not send CSP report due to error:\",n)}if(l.reportOnly){console.warn(\"Script with missing or invalid nonce would not be executed (but report-only mode is enabled):\",k);return true}console.warn(\"Script with missing or invalid nonce will not be executed:\",k);return false}function h(o,p){if(!o.reportUri){return}var q={\"blocked-uri\":getSrc(p),disposition:o.reportOnly?\"report\":\"enforce\",\"document-uri\":location.href,referrer:a.referrer,\"script-sample\":i(p),implementation:\"phast\"};var r={\"csp-report\":q};fetch(o.reportUri,{method:\"POST\",headers:{\"Content-Type\":\"application/csp-report\"},credentials:\"same-origin\",redirect:\"error\",keepalive:true,body:JSON.stringify(r)})}function i(s){if(!s.hasAttribute(\"src\")){return s.textContent.substr(0,40)}}};phast.ScriptsLoader.executeScripts=function(t){var u=t.map(function(w){return w.init()});var v=Promise.resolve();t.forEach(function(x){v=phast.ScriptsLoader.chainScript(v,x)});return v.then(function(){return Promise.all(u).catch(function(){})})};phast.ScriptsLoader.chainScript=function(y,z){var A;try{if(z.describe){A=z.describe()}else{A=\"unknown script\"}}catch(B){A=\"script.describe() failed\"}return y.then(function(){var C=z.execute();C.then(function(){console.debug(\"\342\234\223\",A)});return C}).catch(function(D){console.error(\"\342\234\230\",A);if(D){console.log(D)}})};var insertBefore=window.Element.prototype.insertBefore;phast.ScriptsLoader.Utilities=function(E){this._document=E;var F=0;function G(Q){return new Promise(function(R){var S=\"PhastCompleteScript\"+ ++F;var T=H(Q);var U=H(S+\"()\");window[S]=V;E.body.appendChild(T);E.body.appendChild(U);function V(){R();E.body.removeChild(T);E.body.removeChild(U);delete window[S]}})}function H(W){var X=E.createElement(\"script\");X.textContent=W;X.nonce=phast.config.scriptsLoader.csp.nonce;return X}function I(Y){var Z=E.createElement(Y.nodeName);Array.prototype.forEach.call(Y.attributes,function(\$){Z.setAttribute(\$.nodeName,\$.nodeValue)});return Z}function J(_){_.removeAttribute(\"data-phast-params\");var aa={};Array.prototype.map.call(_.attributes,function(ba){return ba.nodeName}).map(function(ca){var da=ca.match(/^data-phast-original-(.*)/i);if(da){aa[da[1].toLowerCase()]=_.getAttribute(ca);_.removeAttribute(ca)}});Object.keys(aa).sort().map(function(ea){_.setAttribute(ea,aa[ea])});if(!(\"type\"in aa)){_.removeAttribute(\"type\")}}function K(fa,ga){return new Promise(function(ha,ia){var ja=ga.getAttribute(\"src\");ga.addEventListener(\"load\",ha);ga.addEventListener(\"error\",ia);ga.removeAttribute(\"src\");insertBefore.call(fa.parentNode,ga,fa);fa.parentNode.removeChild(fa);if(ja){ga.setAttribute(\"src\",ja)}})}function L(ka,la){return N(ka,function(){return O(ka,function(){return G(la)})})}function M(ma,na){return N(na,function(){return K(ma,na)})}function N(oa,pa){var qa=oa.nextElementSibling;var ra=Promise.resolve();var sa;if(isAsync(oa)){sa=\"async\"}else if(isDefer(oa)){sa=\"defer\"}E.write=function(wa){if(sa){console.warn(\"document.write call from \"+sa+\" script ignored\");return}ta(wa)};E.writeln=function(xa){if(sa){console.warn(\"document.writeln call from \"+sa+\" script ignored\");return}ta(xa+\"\\n\")};function ta(ya){var za=E.createElement(\"div\");za.innerHTML=ya;var Aa=ua(za);if(qa&&qa.parentNode!==oa.parentNode){qa=oa.nextElementSibling}while(za.firstChild){oa.parentNode.insertBefore(za.firstChild,qa)}Aa.map(va)}function ua(Ba){return Array.prototype.slice.call(Ba.getElementsByTagName(\"script\")).filter(function(Ca){var Da=Ca.getAttribute(\"type\");return!Da||/^(text|application)\\/javascript(;|\$)/i.test(Da)})}function va(Ea){var Fa=new phast.ScriptsLoader.Scripts.Factory(E);var Ga=Fa.makeScriptFromElement(Ea);ra=phast.ScriptsLoader.chainScript(ra,Ga)}return pa().then(function(){return ra}).finally(function(){delete E.write;delete E.writeln})}function O(Ha,Ia){if(hasCurrentScript){try{Object.defineProperty(E,\"currentScript\",{configurable:true,get:function(){return Ha}})}catch(Ja){console.error(\"[Phast] Unable to override document.currentScript on this browser: \",Ja)}}return Ia().finally(function(){if(hasCurrentScript){delete E.currentScript}})}function P(Ka){var La=E.createElement(\"link\");La.setAttribute(\"rel\",\"preload\");La.setAttribute(\"as\",\"script\");La.setAttribute(\"href\",Ka);E.head.appendChild(La)}this.executeString=G;this.copyElement=I;this.restoreOriginals=J;this.replaceElement=K;this.writeProtectAndExecuteString=L;this.writeProtectAndReplaceElement=M;this.addPreload=P};phast.ScriptsLoader.Scripts={};phast.ScriptsLoader.Scripts.InlineScript=function(Ma,Na){this._utils=Ma;this._element=Na;this.init=function(){return Promise.resolve()};this.execute=function(){var Oa=Na.textContent.replace(/^\\s*<!--.*\\n/i,\"\");Ma.restoreOriginals(Na);return Ma.writeProtectAndExecuteString(Na,Oa)};this.describe=function(){return\"inline script\"}};phast.ScriptsLoader.Scripts.AsyncBrowserScript=function(Pa,Qa){var Ra;this._utils=Pa;this._element=Qa;this.init=function(){Pa.addPreload(getSrc(Qa));return new Promise(function(Sa){Ra=Sa})};this.execute=function(){var Ta=Pa.copyElement(Qa);Pa.restoreOriginals(Ta);Pa.replaceElement(Qa,Ta).then(Ra).catch(Ra);return Promise.resolve()};this.describe=function(){return\"async script at \"+getSrc(Qa)}};phast.ScriptsLoader.Scripts.SyncBrowserScript=function(Ua,Va){this._utils=Ua;this._element=Va;this.init=function(){Ua.addPreload(getSrc(Va));return Promise.resolve()};this.execute=function(){var Wa=Ua.copyElement(Va);Ua.restoreOriginals(Wa);return Ua.writeProtectAndReplaceElement(Va,Wa)};this.describe=function(){return\"sync script at \"+getSrc(Va)}};phast.ScriptsLoader.Scripts.AsyncAJAXScript=function(Xa,Ya,Za,\$a){this._utils=Xa;this._element=Ya;this._fetch=Za;this._fallback=\$a;var _a;var ab;this.init=function(){_a=Za(Ya);return new Promise(function(bb){ab=bb})};this.execute=function(){_a.then(function(cb){Xa.restoreOriginals(Ya);return Xa.writeProtectAndExecuteString(Ya,cb).then(ab)}).catch(function(){\$a.init();return \$a.execute().then(ab)});return Promise.resolve()};this.describe=function(){return\"bundled async script at \"+Ya.getAttribute(\"data-phast-original-src\")}};phast.ScriptsLoader.Scripts.SyncAJAXScript=function(db,eb,fb,gb){this._utils=db;this._element=eb;this._fetch=fb;this._fallback=gb;var hb;this.init=function(){hb=fb(eb);return hb};this.execute=function(){return hb.then(function(ib){db.restoreOriginals(eb);return db.writeProtectAndExecuteString(eb,ib)}).catch(function(){gb.init();return gb.execute()})};this.describe=function(){return\"bundled sync script at \"+eb.getAttribute(\"data-phast-original-src\")}};phast.ScriptsLoader.Scripts.Factory=function(jb,kb){var lb=phast.ScriptsLoader.Scripts;var mb=new phast.ScriptsLoader.Utilities(jb);this.makeScriptFromElement=function(pb){var qb;if(pb.getAttribute(\"data-phast-debug-force-method\")&&window.location.host.match(/\\.test\$/)){return new(lb[pb.getAttribute(\"data-phast-debug-force-method\")])(mb,pb)}if(nb(pb)){if(isAsync(pb)){qb=new lb.AsyncBrowserScript(mb,pb);return kb?new lb.AsyncAJAXScript(mb,pb,kb,qb):qb}qb=new lb.SyncBrowserScript(mb,pb);return kb?new lb.SyncAJAXScript(mb,pb,kb,qb):qb}if(ob(pb)){return new lb.InlineScript(mb,pb)}if(isAsync(pb)){return new lb.AsyncBrowserScript(mb,pb)}return new lb.SyncBrowserScript(mb,pb)};function nb(rb){return rb.hasAttribute(\"data-phast-params\")}function ob(sb){return!sb.hasAttribute(\"src\")}};function getSrc(tb){if(tb.hasAttribute(\"data-phast-original-src\")){return tb.getAttribute(\"data-phast-original-src\")}else if(tb.hasAttribute(\"src\")){return tb.getAttribute(\"src\")}}function isAsync(ub){return ub.hasAttribute(\"async\")||ub.hasAttribute(\"data-phast-async\")}function isDefer(vb){return vb.hasAttribute(\"defer\")||vb.hasAttribute(\"data-phast-defer\")}\n");
+        $scriptsLoader = \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/ScriptsDeferring/scripts-loader.js', "var Promise=phast.ES6Promise;var hasCurrentScript=!!document.currentScript;phast.ScriptsLoader={};phast.ScriptsLoader.getScriptsInExecutionOrder=function(a,b){var c=Array.prototype.slice.call(a.querySelectorAll('script[type=\"text/phast\"]')).filter(g);var d=[],e=[];for(var f=0;f<c.length;f++){if(getSrc(c[f])!==undefined&&isDefer(c[f])){e.push(c[f])}else{d.push(c[f])}}return d.concat(e).map(function(j){return b.makeScriptFromElement(j)});function g(k){try{var l=phast.config.scriptsLoader.csp}catch(m){return true}if(l.nonce==null){return true}if(k.nonce===l.nonce){return true}try{h(l,k)}catch(n){console.error(\"Could not send CSP report due to error:\",n)}if(l.reportOnly){console.warn(\"Script with missing or invalid nonce would not be executed (but report-only mode is enabled):\",k);return true}console.warn(\"Script with missing or invalid nonce will not be executed:\",k);return false}function h(o,p){var q={\"blocked-uri\":getSrc(p),disposition:o.reportOnly?\"report\":\"enforce\",\"document-uri\":location.href,referrer:a.referrer,\"script-sample\":i(p),implementation:\"phast\"};try{p.dispatchEvent(new SecurityPolicyViolationEvent(\"securitypolicyviolation\",{blockedURI:q[\"blocked-uri\"],disposition:q[\"disposition\"],documentURI:q[\"document-uri\"],effectiveDirective:\"script-src-elem\",originalPolicy:\"phast\",referrer:q[\"referrer\"],sample:q[\"script-sample\"],statusCode:200,violatedDirective:\"script-src-elem\"}))}catch(s){console.error(\"[Phast] Could not dispatch securitypolicyviolation event\",s)}if(!o.reportUri){return}var r={\"csp-report\":q};fetch(o.reportUri,{method:\"POST\",headers:{\"Content-Type\":\"application/csp-report\"},credentials:\"same-origin\",redirect:\"error\",keepalive:true,body:JSON.stringify(r)})}function i(t){if(!t.hasAttribute(\"src\")){return t.textContent.substr(0,40)}}};phast.ScriptsLoader.executeScripts=function(u){var v=u.map(function(x){return x.init()});var w=Promise.resolve();u.forEach(function(y){w=phast.ScriptsLoader.chainScript(w,y)});return w.then(function(){return Promise.all(v).catch(function(){})})};phast.ScriptsLoader.chainScript=function(z,A){var B;try{if(A.describe){B=A.describe()}else{B=\"unknown script\"}}catch(C){B=\"script.describe() failed\"}return z.then(function(){var D=A.execute();D.then(function(){console.debug(\"\342\234\223\",B)});return D}).catch(function(E){console.error(\"\342\234\230\",B);if(E){console.log(E)}})};var insertBefore=window.Element.prototype.insertBefore;phast.ScriptsLoader.Utilities=function(F){this._document=F;var G=0;function H(R){return new Promise(function(S){var T=\"PhastCompleteScript\"+ ++G;var U=I(R);var V=I(T+\"()\");window[T]=W;F.body.appendChild(U);F.body.appendChild(V);function W(){S();F.body.removeChild(U);F.body.removeChild(V);delete window[T]}})}function I(X){var Y=F.createElement(\"script\");Y.textContent=X;Y.nonce=phast.config.scriptsLoader.csp.nonce;return Y}function J(Z){var \$=F.createElement(Z.nodeName);Array.prototype.forEach.call(Z.attributes,function(_){\$.setAttribute(_.nodeName,_.nodeValue)});return \$}function K(aa){aa.removeAttribute(\"data-phast-params\");var ba={};Array.prototype.map.call(aa.attributes,function(ca){return ca.nodeName}).map(function(da){var ea=da.match(/^data-phast-original-(.*)/i);if(ea){ba[ea[1].toLowerCase()]=aa.getAttribute(da);aa.removeAttribute(da)}});Object.keys(ba).sort().map(function(fa){aa.setAttribute(fa,ba[fa])});if(!(\"type\"in ba)){aa.removeAttribute(\"type\")}}function L(ga,ha){return new Promise(function(ia,ja){var ka=ha.getAttribute(\"src\");ha.addEventListener(\"load\",ia);ha.addEventListener(\"error\",ja);ha.removeAttribute(\"src\");insertBefore.call(ga.parentNode,ha,ga);ga.parentNode.removeChild(ga);if(ka){ha.setAttribute(\"src\",ka)}})}function M(la,ma){return O(la,function(){return P(la,function(){return H(ma)})})}function N(na,oa){return O(oa,function(){return L(na,oa)})}function O(pa,qa){var ra=pa.nextElementSibling;var sa=Promise.resolve();var ta;if(isAsync(pa)){ta=\"async\"}else if(isDefer(pa)){ta=\"defer\"}F.write=function(xa){if(ta){console.warn(\"document.write call from \"+ta+\" script ignored\");return}ua(xa)};F.writeln=function(ya){if(ta){console.warn(\"document.writeln call from \"+ta+\" script ignored\");return}ua(ya+\"\\n\")};function ua(za){var Aa=F.createElement(\"div\");Aa.innerHTML=za;var Ba=va(Aa);if(ra&&ra.parentNode!==pa.parentNode){ra=pa.nextElementSibling}while(Aa.firstChild){pa.parentNode.insertBefore(Aa.firstChild,ra)}Ba.map(wa)}function va(Ca){return Array.prototype.slice.call(Ca.getElementsByTagName(\"script\")).filter(function(Da){var Ea=Da.getAttribute(\"type\");return!Ea||/^(text|application)\\/javascript(;|\$)/i.test(Ea)})}function wa(Fa){var Ga=new phast.ScriptsLoader.Scripts.Factory(F);var Ha=Ga.makeScriptFromElement(Fa);sa=phast.ScriptsLoader.chainScript(sa,Ha)}return qa().then(function(){return sa}).finally(function(){delete F.write;delete F.writeln})}function P(Ia,Ja){if(hasCurrentScript){try{Object.defineProperty(F,\"currentScript\",{configurable:true,get:function(){return Ia}})}catch(Ka){console.error(\"[Phast] Unable to override document.currentScript on this browser: \",Ka)}}return Ja().finally(function(){if(hasCurrentScript){delete F.currentScript}})}function Q(La){var Ma=F.createElement(\"link\");Ma.setAttribute(\"rel\",\"preload\");Ma.setAttribute(\"as\",\"script\");Ma.setAttribute(\"href\",La);F.head.appendChild(Ma)}this.executeString=H;this.copyElement=J;this.restoreOriginals=K;this.replaceElement=L;this.writeProtectAndExecuteString=M;this.writeProtectAndReplaceElement=N;this.addPreload=Q};phast.ScriptsLoader.Scripts={};phast.ScriptsLoader.Scripts.InlineScript=function(Na,Oa){this._utils=Na;this._element=Oa;this.init=function(){return Promise.resolve()};this.execute=function(){var Pa=Oa.textContent.replace(/^\\s*<!--.*\\n/i,\"\");Na.restoreOriginals(Oa);return Na.writeProtectAndExecuteString(Oa,Pa)};this.describe=function(){return\"inline script\"}};phast.ScriptsLoader.Scripts.AsyncBrowserScript=function(Qa,Ra){var Sa;this._utils=Qa;this._element=Ra;this.init=function(){Qa.addPreload(getSrc(Ra));return new Promise(function(Ta){Sa=Ta})};this.execute=function(){var Ua=Qa.copyElement(Ra);Qa.restoreOriginals(Ua);Qa.replaceElement(Ra,Ua).then(Sa).catch(Sa);return Promise.resolve()};this.describe=function(){return\"async script at \"+getSrc(Ra)}};phast.ScriptsLoader.Scripts.SyncBrowserScript=function(Va,Wa){this._utils=Va;this._element=Wa;this.init=function(){Va.addPreload(getSrc(Wa));return Promise.resolve()};this.execute=function(){var Xa=Va.copyElement(Wa);Va.restoreOriginals(Xa);return Va.writeProtectAndReplaceElement(Wa,Xa)};this.describe=function(){return\"sync script at \"+getSrc(Wa)}};phast.ScriptsLoader.Scripts.AsyncAJAXScript=function(Ya,Za,\$a,_a){this._utils=Ya;this._element=Za;this._fetch=\$a;this._fallback=_a;var a0;var b0;this.init=function(){a0=\$a(Za);return new Promise(function(c0){b0=c0})};this.execute=function(){a0.then(function(d0){Ya.restoreOriginals(Za);return Ya.writeProtectAndExecuteString(Za,d0).then(b0)}).catch(function(){_a.init();return _a.execute().then(b0)});return Promise.resolve()};this.describe=function(){return\"bundled async script at \"+Za.getAttribute(\"data-phast-original-src\")}};phast.ScriptsLoader.Scripts.SyncAJAXScript=function(e0,f0,g0,h0){this._utils=e0;this._element=f0;this._fetch=g0;this._fallback=h0;var i0;this.init=function(){i0=g0(f0);return i0};this.execute=function(){return i0.then(function(j0){e0.restoreOriginals(f0);return e0.writeProtectAndExecuteString(f0,j0)}).catch(function(){h0.init();return h0.execute()})};this.describe=function(){return\"bundled sync script at \"+f0.getAttribute(\"data-phast-original-src\")}};phast.ScriptsLoader.Scripts.Factory=function(k0,l0){var m0=phast.ScriptsLoader.Scripts;var n0=new phast.ScriptsLoader.Utilities(k0);this.makeScriptFromElement=function(q0){var r0;if(q0.getAttribute(\"data-phast-debug-force-method\")&&window.location.host.match(/\\.test\$/)){return new m0[q0.getAttribute(\"data-phast-debug-force-method\")](n0,q0)}if(o0(q0)){if(isAsync(q0)){r0=new m0.AsyncBrowserScript(n0,q0);return l0?new m0.AsyncAJAXScript(n0,q0,l0,r0):r0}r0=new m0.SyncBrowserScript(n0,q0);return l0?new m0.SyncAJAXScript(n0,q0,l0,r0):r0}if(p0(q0)){return new m0.InlineScript(n0,q0)}if(isAsync(q0)){return new m0.AsyncBrowserScript(n0,q0)}return new m0.SyncBrowserScript(n0,q0)};function o0(s0){return s0.hasAttribute(\"data-phast-params\")}function p0(t0){return!t0.hasAttribute(\"src\")}};function getSrc(u0){if(u0.hasAttribute(\"data-phast-original-src\")){return u0.getAttribute(\"data-phast-original-src\")}else if(u0.hasAttribute(\"src\")){return u0.getAttribute(\"src\")}}function isAsync(v0){return v0.hasAttribute(\"async\")||v0.hasAttribute(\"data-phast-async\")}function isDefer(w0){return w0.hasAttribute(\"defer\")||w0.hasAttribute(\"data-phast-defer\")}\n");
         $scriptsLoader->setConfig('scriptsLoader', ['csp' => $this->csp]);
         $this->context->addPhastJavaScript($scriptsLoader);
         $this->context->addPhastJavaScript(\Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/ScriptsDeferring/rewrite.js', "var Promise=phast.ES6Promise;var go=phast.once(loadScripts);phast.on(document,\"DOMContentLoaded\").then(function(){if(phast.stylesLoading){phast.onStylesLoaded=go;setTimeout(go,4e3)}else{Promise.resolve().then(go)}});var loadFiltered=false;window.addEventListener(\"load\",function(a){if(!loadFiltered){a.stopImmediatePropagation()}loadFiltered=true});document.addEventListener(\"readystatechange\",function(b){if(document.readyState===\"loading\"){b.stopImmediatePropagation()}});var didSetTimeout=false;var originalSetTimeout=window.setTimeout;window.setTimeout=function(c,d){if(!d||d<0){didSetTimeout=true}return originalSetTimeout.apply(window,arguments)};function loadScripts(){var e=new phast.ScriptsLoader.Scripts.Factory(document,fetchScript);var f=phast.ScriptsLoader.getScriptsInExecutionOrder(document,e);if(f.length===0){return}setReadyState(\"loading\");phast.ScriptsLoader.executeScripts(f).then(restoreReadyState)}function setReadyState(g){try{Object.defineProperty(document,\"readyState\",{configurable:true,get:function(){return g}})}catch(h){console.warn(\"[Phast] Unable to override document.readyState on this browser: \",h)}}function restoreReadyState(){i().then(function(){setReadyState(\"interactive\");triggerEvent(document,\"readystatechange\");return i()}).then(function(){triggerEvent(document,\"DOMContentLoaded\");return i()}).then(function(){delete document[\"readyState\"];triggerEvent(document,\"readystatechange\");if(loadFiltered){triggerEvent(window,\"load\")}loadFiltered=true});function i(){return new Promise(function(j){(function k(l){if(didSetTimeout&&l<10){didSetTimeout=false;originalSetTimeout.call(window,function(){k(l+1)})}else{requestAnimationFrame(j)}})(0)})}}function triggerEvent(m,n){var o=document.createEvent(\"Event\");o.initEvent(n,true,true);m.dispatchEvent(o)}function fetchScript(p){return phast.ResourceLoader.instance.get(phast.ResourceLoader.RequestParams.fromString(p.getAttribute(\"data-phast-params\")))}\n"));
@@ -9224,7 +9123,7 @@ class Factory implements \Kibo\Phast\Filters\Image\ImageFilterFactory
 {
     public function make(array $config)
     {
-        $signature = new \Kibo\Phast\Security\ServiceSignature(new \Kibo\Phast\Cache\File\Cache($config['cache'], 'api-service-signature'));
+        $signature = new \Kibo\Phast\Security\ServiceSignature(new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'api-service-signature'));
         return new \Kibo\Phast\Filters\Image\ImageAPIClient\Filter($config['images']['filters'][\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class], $signature, (new \Kibo\Phast\HTTP\ClientFactory())->make($config));
     }
 }
@@ -9403,7 +9302,7 @@ class CachingServiceFilter implements \Kibo\Phast\Services\ServiceFilter
     }
     private function serializeResource(\Kibo\Phast\ValueObjects\Resource $resource)
     {
-        return ['dataType' => 'resource', 'url' => $resource->getUrl()->toString(), 'mimeType' => $resource->getMimeType(), 'blob' => base64_encode($resource->getContent()), 'dependencies' => $this->serializeDependencies($resource)];
+        return ['dataType' => 'resource', 'url' => $resource->getUrl()->toString(), 'mimeType' => $resource->getMimeType(), 'blob' => $resource->getContent(), 'dependencies' => $this->serializeDependencies($resource)];
     }
     private function serializeDependencies(\Kibo\Phast\ValueObjects\Resource $resource)
     {
@@ -9413,7 +9312,7 @@ class CachingServiceFilter implements \Kibo\Phast\Services\ServiceFilter
     }
     private function deserializeResource(array $data)
     {
-        $params = [\Kibo\Phast\ValueObjects\URL::fromString($data['url']), base64_decode($data['blob']), $data['mimeType']];
+        $params = [\Kibo\Phast\ValueObjects\URL::fromString($data['url']), $data['blob'], $data['mimeType']];
         return \Kibo\Phast\ValueObjects\Resource::makeWithContent(...$params);
     }
     private function serializeException(\Exception $e)
@@ -9433,7 +9332,7 @@ class CompositeFilter implements \Kibo\Phast\Filters\Service\CachedResultService
     /**
      * @var ServiceFilter[]
      */
-    private $filters = array();
+    private $filters = [];
     public function addFilter(\Kibo\Phast\Services\ServiceFilter $filter)
     {
         $this->filters[] = $filter;
@@ -9471,7 +9370,7 @@ namespace Kibo\Phast\Filters\Text\Decode;
 class Filter implements \Kibo\Phast\Services\ServiceFilter
 {
     const UTF8_BOM = "\357\273\277";
-    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request = array())
+    public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request = [])
     {
         $content = $resource->getContent();
         if (substr($content, 0, strlen(self::UTF8_BOM)) == self::UTF8_BOM) {
@@ -9484,12 +9383,12 @@ namespace Kibo\Phast\HTTP;
 
 class CURLClient implements \Kibo\Phast\HTTP\Client
 {
-    public function get(\Kibo\Phast\ValueObjects\URL $url, array $headers = array())
+    public function get(\Kibo\Phast\ValueObjects\URL $url, array $headers = [])
     {
         $this->checkCURL();
         return $this->request($url, $headers);
     }
-    public function post(\Kibo\Phast\ValueObjects\URL $url, $data, array $headers = array())
+    public function post(\Kibo\Phast\ValueObjects\URL $url, $data, array $headers = [])
     {
         $this->checkCURL();
         return $this->request($url, $headers, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $data]);
@@ -9500,7 +9399,7 @@ class CURLClient implements \Kibo\Phast\HTTP\Client
             throw new \Kibo\Phast\HTTP\Exceptions\NetworkError('cURL is not installed');
         }
     }
-    private function request(\Kibo\Phast\ValueObjects\URL $url, array $headers = array(), array $opts = array())
+    private function request(\Kibo\Phast\ValueObjects\URL $url, array $headers = [], array $opts = [])
     {
         $response = new \Kibo\Phast\HTTP\Response();
         $readHeader = function ($_, $headerLine) use($response) {
@@ -10171,7 +10070,7 @@ class Filter implements \Kibo\Phast\Filters\Service\CachedResultServiceFilter
     /**
      * @var ImageFilter[]
      */
-    private $filters = array();
+    private $filters = [];
     /**
      * Filter constructor.
      * @param ImageFactory $imageFactory
