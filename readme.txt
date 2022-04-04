@@ -3,7 +3,7 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 4.4
 Requires PHP: 7.3
-Stable tag: 2.2
+Stable tag: 2.3
 Tested up to: 5.8
 License: AGPL-3.0
 Contributors: apeschar
@@ -196,6 +196,10 @@ Then in PhastPress settings, <strong>disable</strong> image optimization in tags
 Now, reload your site and check if images are optimized.
 
 == Changelog ==
+
+= 2.3 - 2022-04-04 =
+
+* Clarity PDO_SQLITE requirement message.
 
 = 2.2 - 2022-04-03 =
 

@@ -13,10 +13,13 @@ try {
     add_action('admin_notices', function () use ($e) {
         ?>
         <div class="error notice">
+            <p><b>Sorry, PhastPress requires a PHP extension that is not installed.</b></p>
             <p>
-                <b>Sorry, PhastPress can't run yet.</b>
                 The PDO extension needs to be installed with the SQLite3 database driver available.<br>
-                Currently we're getting this error: <code><?= esc_html($e->getMessage()); ?></code>
+                Currently we're getting this error: <em><?= esc_html($e->getMessage()); ?></em>
+            </p>
+            <p>
+                Ask your hosting provider to install the <a href="https://www.php.net/manual/en/ref.pdo-sqlite.php" target="_blank" rel="noopener">PDO_SQLITE extension</a>, or downgrade to <a href="https://downloads.wordpress.org/plugin/phastpress.2.1.zip" target="_blank" rel="noopener">PhastPress 2.1</a>.
             </p>
         </div>
         <?php
