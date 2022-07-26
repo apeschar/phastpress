@@ -51,4 +51,13 @@ class PluginHostImplementation extends ServiceSDKImplementation implements Plugi
         }
         return null;
     }
+
+    public function onPhastConfigurationLoad(array $config) {
+        $nonce = apply_filters('phastpress_csp_nonce', null);
+        if ($nonce !== null) {
+            $config['csp']['nonce'] = $nonce;
+        }
+
+        return $config;
+    }
 }

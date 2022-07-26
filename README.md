@@ -3,7 +3,7 @@
 **Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix\
 **Requires at least**: 4.4\
 **Requires PHP**: 7.3\
-**Stable tag**: 2.3\
+**Stable tag**: 2.4\
 **Tested up to**: 5.8\
 **License**: AGPL-3.0\
 **Contributors**: apeschar
@@ -195,7 +195,20 @@ Then in PhastPress settings, <strong>disable</strong> image optimization in tags
 
 Now, reload your site and check if images are optimized.
 
+### Is it possible to use PhastPress with a CSP?
+
+Yes, as long as you use a CSP with a `script-src` policy containing `nonce-*`. To enable Phast's support for CSP implement the `phastpress_csp_nonce` filter:
+
+`<?php
+add_filter('phastpress_csp_nonce', function () {
+    return 'my-nonce';
+});`
+
 ## Changelog
+
+### 2.4 - 2022-07-26
+
+* Add `phastpress_csp_nonce` filter.
 
 ### 2.3 - 2022-04-04
 
