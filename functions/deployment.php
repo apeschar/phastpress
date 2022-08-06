@@ -127,3 +127,13 @@ function phastpress_render_footer() {
         . '<a href="https://wordpress.org/plugins/phastpress/" target="_blank">'
         . __('Optimized by PhastPress', 'phastpress') . '</a></div>';
 }
+
+function phastpress_script(string $script, array $attrs = []): string {
+    if (!isset($attrs['nonce'])) {
+        $nonce = apply_filters('phastpress_csp_nonce', null);
+        if ($nonce !== null) {
+            $attrs['nonce'] = (string) $nonce;
+        }
+    }
+    return (string) wp_get_inline_script_tag($script, $attrs);
+}

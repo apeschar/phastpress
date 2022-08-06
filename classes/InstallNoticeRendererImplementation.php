@@ -6,9 +6,8 @@ use Kibo\PhastPlugins\SDK\AdminPanel\InstallNoticeRenderer;
 
 class InstallNoticeRendererImplementation implements InstallNoticeRenderer {
     public function render($notice, $onCloseJSFunction) {
-        return sprintf(
+        return phastpress_script(sprintf(
             '
-                <script>
                 (function () {
                     var notice = document.createElement("div");
                     notice.className = "notice notice-success is-dismissible";
@@ -17,10 +16,9 @@ class InstallNoticeRendererImplementation implements InstallNoticeRenderer {
                     var hr = document.querySelector(".wp-header-end");
                     hr.parentNode.insertBefore(notice, hr.nextSibling);
                 })();
-                </script>
             ',
             $onCloseJSFunction,
             json_encode("<p>{$notice}</p>")
-        );
+        ));
     }
 }

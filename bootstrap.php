@@ -122,9 +122,10 @@ add_action('wp_head', function () {
 });
 
 function phastpress_console_log(...$args) {
-    echo '<script data-phast-no-defer>console.log(' .
-         implode(',', array_map('json_encode', $args)) .
-         ")</script>\n";
+    echo phastpress_script(
+        sprintf('console.log(%s)', implode(',', array_map('json_encode', $args))),
+        ['data-phast-no-defer' => '']
+    );
 }
 
 function phastpress_render_settings() {

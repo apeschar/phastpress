@@ -43,7 +43,7 @@ class TwentyTwentyOneDarkMode {
         }
 
         add_filter('wp_body_open', function () {
-            printf("<script data-phast-no-defer class='is-dark-theme'>%s</script>\n", file_get_contents(__FILE__ . '.js'));
+            echo phastpress_script(file_get_contents(__FILE__ . '.js'), ['data-phast-no-defer' => '']);
         });
     }
 

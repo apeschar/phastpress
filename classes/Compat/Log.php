@@ -17,16 +17,14 @@ class Log {
             return;
         }
 
-        $o = '<script data-phast-no-defer>';
-        $o .= 'console.group("[PhastPress] Plugin compatibility");';
+        $o = 'console.group("[PhastPress] Plugin compatibility");';
         foreach (self::$messages as $plugin => $messages) {
             foreach ($messages as $message) {
                 $o .= 'console.log(' . json_encode($plugin ? "{$plugin}: {$message}" : $message) . ');';
             }
         }
         $o .= 'console.groupEnd();';
-        $o .= "</script>\n";
 
-        echo $o;
+        echo phastpress_script($o, ['data-phast-no-defer' => '']);
     }
 }
