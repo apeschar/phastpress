@@ -3,8 +3,8 @@
 **Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix\
 **Requires at least**: 5.7\
 **Requires PHP**: 7.3\
-**Stable tag**: 2.5\
-**Tested up to**: 5.8\
+**Stable tag**: 2.6\
+**Tested up to**: 6.0.2\
 **License**: AGPL-3.0\
 **Contributors**: apeschar
 
@@ -204,7 +204,15 @@ add_filter('phastpress_csp_nonce', function () {
     return 'my-nonce';
 });`
 
+### Why do images not get converted to WebP when using Cloudflare?
+
+Cloudflare [does not support `Vary: Accept`](https://serverfault.com/questions/780882/impossible-to-serve-webp-images-using-cloudflare), so sending WebP via Cloudflare can cause browsers that don't support WebP to download the wrong image type. You can try using [Cloudflare Polish](https://support.cloudflare.com/hc/en-us/articles/360000607372-Using-Cloudflare-Polish-to-compress-images) instead.
+
 ## Changelog
+
+### 2.6 - 2022-10-11
+
+* Bump "Tested up to" to WordPress 6.0.2.
 
 ### 2.5 - 2022-08-06
 
