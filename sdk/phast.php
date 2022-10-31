@@ -5430,6 +5430,7 @@ class Service
     {
         $response = new \Kibo\Phast\HTTP\Response();
         $response->setHeader('Content-Type', 'text/plain');
+        $response->setHeader('X-Robots-Tag', 'none');
         $response->setContent($this->streamResponse($request));
         return $response;
     }
