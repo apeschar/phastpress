@@ -2,13 +2,13 @@
 /*
 Plugin Name: PhastPress
 Description: PhastPress automatically optimizes your site for the best possible Google PageSpeed Insights score.
-Version: 2.7
+Version: 2.8
 Author: Albert Peschar
 Author URI: https://kiboit.com
 License: AGPLv3
 */
 
-define('PHASTPRESS_VERSION', '2.7');
+define('PHASTPRESS_VERSION', '2.8');
 define('PHASTPRESS_PLUGIN_FILE', __FILE__);
 
 if (version_compare(PHP_VERSION, '7.3', '<')) {

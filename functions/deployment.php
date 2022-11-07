@@ -80,6 +80,7 @@ function phastpress_deploy() {
         Compat\GAGoogleAnalytics::class,
         Compat\AdThrive::class,
         Compat\TwentyTwentyOneDarkMode::class,
+        Compat\BurstStatistics::class,
     ] as $class) {
         (new $class())->setup();
     }
