@@ -8032,8 +8032,7 @@ class ServiceConfiguration
         }
         $config['cache'] = ['cacheRoot' => $this->cacheRootManager->getCacheRoot()];
         $apiFilterName = \Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class;
-        $api_enabled = $config['images']['filters'][$apiFilterName]['enabled'];
-        if (!$api_enabled) {
+        if (empty($config['images']['filters'][$apiFilterName]['enabled'])) {
             unset($config['images']['filters'][$apiFilterName]);
             return call_user_func($this->onLoadCb, $config);
         }
