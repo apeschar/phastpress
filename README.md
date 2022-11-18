@@ -3,7 +3,7 @@
 **Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix\
 **Requires at least**: 5.7\
 **Requires PHP**: 7.3\
-**Stable tag**: 2.9\
+**Stable tag**: 2.10\
 **Tested up to**: 6.1\
 **License**: AGPL-3.0\
 **Contributors**: apeschar
@@ -209,6 +209,13 @@ add_filter('phastpress_csp_nonce', function () {
 Cloudflare [does not support `Vary: Accept`](https://serverfault.com/questions/780882/impossible-to-serve-webp-images-using-cloudflare), so sending WebP via Cloudflare can cause browsers that don't support WebP to download the wrong image type. You can try using [Cloudflare Polish](https://support.cloudflare.com/hc/en-us/articles/360000607372-Using-Cloudflare-Polish-to-compress-images) instead.
 
 ## Changelog
+
+### 2.10 - 2022-11-18
+
+Update Phast to version 1.106:
+
+* Set `Content-Type: application/json` header on bundler responses.
+* Remove `X-Robots-Tag` header.
 
 ### 2.9 - 2022-11-07
 

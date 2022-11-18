@@ -5429,8 +5429,7 @@ class Service
     public function serve(\Kibo\Phast\Services\ServiceRequest $request)
     {
         $response = new \Kibo\Phast\HTTP\Response();
-        $response->setHeader('Content-Type', 'text/plain');
-        $response->setHeader('X-Robots-Tag', 'none');
+        $response->setHeader('Content-Type', 'application/json');
         $response->setContent($this->streamResponse($request));
         return $response;
     }
