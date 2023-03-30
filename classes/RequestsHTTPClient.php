@@ -26,32 +26,15 @@ class RequestsHTTPClient implements Client {
         return $this->makePhastResponse($response);
     }
 
-    private function makePhastResponse(\Requests_Response $requestsResponse) {
+    /**
+     * @param \Requests_Response|\WpOrg\Requests\Response $requestsResponse
+     */
+    private function makePhastResponse($requestsResponse) {
         $phastResponse = new Response();
         $phastResponse->setContent($requestsResponse->body);
         foreach ($requestsResponse->headers as $name => $value) {
             $phastResponse->setHeader($name, $value);
         }
         return $phastResponse;
-    }
-
-    public static function loadWordPressRequests() {
-        if (class_exists(\Requests::class)) {
-            return;
-        }
-        $dir = $_SERVER['SCRIPT_FILENAME'];
-        do {
-            $dir = dirname($dir);
-            $classFile = "$dir/wp-includes/class-requests.php";
-            $caFile = "$dir/wp-includes/certificates/ca-bundle.crt";
-            if (file_exists($classFile) && file_exists($caFile)) {
-                @include_once $classFile;
-                if (class_exists(\Requests::class)) {
-                    \Requests::register_autoloader();
-                    \Requests::set_certificate_path($caFile);
-                    return;
-                }
-            }
-        } while ($dir != dirname($dir));
     }
 }

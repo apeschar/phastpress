@@ -27,6 +27,10 @@ try {
     return;
 }
 
+if (!defined('REQUESTS_SILENCE_PSR0_DEPRECATIONS')) {
+    define('REQUESTS_SILENCE_PSR0_DEPRECATIONS', true);
+}
+
 require_once __DIR__ . '/autoload.php';
 
 /* BEGIN UPDATER */

@@ -53,6 +53,9 @@ class WordPress {
     }
 
     public static function loadRequests() {
+        if (!defined('REQUESTS_SILENCE_PSR0_DEPRECATIONS')) {
+            define('REQUESTS_SILENCE_PSR0_DEPRECATIONS', true);
+        }
         if (!class_exists(Requests::class)) {
             require ABSPATH . WPINC . '/class-requests.php';
             Requests::register_autoloader();
