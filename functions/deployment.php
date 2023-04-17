@@ -89,11 +89,13 @@ function phastpress_deploy() {
     $handler = $sdk->getPhastAPI()->deployOutputBufferForDocument();
 
     // Allow disabling PhastPress with hook.
-    add_action('template_redirect', function () use ($handler) {
-        if (apply_filters('phastpress_disable', false)) {
-            $handler->cancel();
-        }
-    }, 100);
+    if ($handler) {
+        add_action('template_redirect', function () use ($handler) {
+            if (apply_filters('phastpress_disable', false)) {
+                $handler->cancel();
+            }
+        }, 100);
+    }
 
     $plugin_config = $sdk->getPluginConfiguration();
     $display_footer = $plugin_config->shouldDisplayFooter();
