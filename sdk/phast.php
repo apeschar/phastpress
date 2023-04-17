@@ -1724,7 +1724,7 @@ class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter
         $didYield = false;
         foreach ($elements as $element) {
             if ($element instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag) {
-                if ($element->tagName == 'meta' && array_keys($element->getAttributes()) == ['charset']) {
+                if ($element->tagName == 'meta' && !array_diff(array_keys($element->getAttributes()), ['charset', '/'])) {
                     continue;
                 }
                 if (!$didYield && !in_array($element->tagName, ['html', 'head', '!doctype'])) {
