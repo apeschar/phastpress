@@ -561,14 +561,11 @@ class Status implements \JsonSerializable
     {
         return $this->enabled;
     }
-    /**
-     * @return array
-     */
-    public function toArray()
+    public function toArray() : array
     {
         return ['package' => ['type' => $this->package->getType(), 'name' => $this->package->getNamespace()], 'available' => $this->available, 'reason' => $this->reason, 'enabled' => $this->enabled];
     }
-    public function jsonSerialize()
+    public function jsonSerialize() : array
     {
         return $this->toArray();
     }
@@ -1111,7 +1108,11 @@ class Optimizer
             if (!$tag instanceof \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Tag) {
                 continue;
             }
-            foreach (preg_split('/\\s+/', $tag->getAttribute('class')) as $cls) {
+            $classAttr = $tag->getAttribute('class');
+            if ($classAttr === null) {
+                continue;
+            }
+            foreach (preg_split('/\\s+/', $classAttr) as $cls) {
                 if ($cls != '' && !isset($classes[$cls]) && preg_match("/^{$this->classNamePattern}\$/", $cls)) {
                     $classes[$cls] = true;
                 }
@@ -2511,7 +2512,7 @@ class Request
      */
     public function getQuery()
     {
-        return \Kibo\Phast\ValueObjects\Query::fromString($this->getQueryString());
+        return \Kibo\Phast\ValueObjects\Query::fromString((string) $this->getQueryString());
     }
     /**
      * @param $name string
@@ -3339,11 +3340,11 @@ class LogEntry implements \JsonSerializable
     {
         return $this->context;
     }
-    public function toArray()
+    public function toArray() : array
     {
         return ['level' => $this->level, 'message' => $this->message, 'context' => $this->context];
     }
-    public function jsonSerialize()
+    public function jsonSerialize() : array
     {
         return $this->toArray();
     }
@@ -5950,7 +5951,7 @@ class ServiceRequest
      */
     private $httpRequest;
     /**
-     * @var URL
+     * @var ?URL
      */
     private $url;
     /**
@@ -6004,9 +6005,9 @@ class ServiceRequest
                 $query->set('src', preg_replace('~^hxxp(?=s?://)~', 'http', $query->get('src')));
             }
             $pathInfo = $request->getPathInfo();
-            if ($pathParams = self::parseBase64PathInfo($pathInfo)) {
+            if ($pathInfo !== null && ($pathParams = self::parseBase64PathInfo($pathInfo))) {
                 $query->update($pathParams);
-            } elseif ($pathInfo) {
+            } elseif ($pathInfo !== null) {
                 $query->update(self::parsePathInfo($pathInfo));
             }
             if ($token = $query->pop('token')) {
@@ -6211,7 +6212,7 @@ class ServiceRequest
     {
         $urlParams = [];
         if ($this->url) {
-            parse_str($this->url->getQuery(), $urlParams);
+            parse_str((string) $this->url->getQuery(), $urlParams);
         }
         $params = array_merge($urlParams, $this->query->toAssoc());
         if (!empty(self::$propagatedSwitches)) {
@@ -6461,7 +6462,7 @@ class Query implements \IteratorAggregate
         }
         return $assoc;
     }
-    public function getIterator()
+    public function getIterator() : \Generator
     {
         foreach ($this->tuples as $tuple) {
             (yield $tuple[0] => $tuple[1]);
