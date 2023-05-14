@@ -13,7 +13,11 @@ class InstallNoticeRendererImplementation implements InstallNoticeRenderer {
                     notice.className = "notice notice-success is-dismissible";
                     notice.addEventListener("click", %s);
                     notice.innerHTML = %s;
-                    var hr = document.querySelector(".wp-header-end");
+
+                    var hr =
+                        document.querySelector(".wp-header-end") ||
+                        document.querySelector("#wpbody-content > .wrap > h1");
+
                     hr.parentNode.insertBefore(notice, hr.nextSibling);
                 })();
             ',

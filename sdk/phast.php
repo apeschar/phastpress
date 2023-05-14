@@ -1667,7 +1667,7 @@ class Filter implements \Kibo\Phast\Filters\HTML\HTMLStreamFilter, \Kibo\Phast\F
                 $this->rewriteSrc($tag, $context, $k);
             } elseif ($isImage && preg_match(self::IMG_SRCSET_ATTR_PATTERN, $k)) {
                 $this->rewriteSrcset($tag, $context, $k);
-            } elseif ($this->inBody && preg_match($this->imagePathPattern, parse_url($v, PHP_URL_PATH))) {
+            } elseif ($this->inBody && is_string($path = parse_url($v, PHP_URL_PATH)) && preg_match($this->imagePathPattern, $path)) {
                 $this->rewriteArbitraryAttribute($tag, $context, $k);
             }
         }
@@ -7343,7 +7343,7 @@ class Nonce implements \JsonSerializable
     {
         return $this->value;
     }
-    public function jsonSerialize()
+    public function jsonSerialize() : array
     {
         return ['fieldName' => $this->fieldName, 'value' => $this->value];
     }
@@ -8666,7 +8666,7 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
             return [$link];
         }
         $media = $link->getAttribute('media');
-        if (preg_match('~^\\s*(this\\.)?media\\s*=\\s*(?<q>[\'"])(?<m>((?!\\k<q>).)+?)\\k<q>\\s*(;|$)~', $link->getAttribute('onload'), $match)) {
+        if (preg_match('~^\\s*(this\\.)?media\\s*=\\s*(?<q>[\'"])(?<m>((?!\\k<q>).)+?)\\k<q>\\s*(;|$)~', (string) $link->getAttribute('onload'), $match)) {
             $media = $match['m'];
         }
         $elements = $this->inlineURL($location, $media);
