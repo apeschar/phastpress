@@ -10,24 +10,43 @@ class WordPress {
         if (defined('ABSPATH')) {
             return;
         }
+
         $complete = false;
-        $hook = function () use (&$complete) {
-            if (!$complete && defined('WP_CONTENT_DIR')) {
-                throw new WordPressLoadedException();
-            }
-        };
+
+        // If set_error_handler is used in wp-config.php this will be a fallback
         $GLOBALS['wp_filter']['all'][0][] = [
-            'function' => $hook,
+            'function' => function () use (&$complete) {
+                if (!$complete && defined('WP_CONTENT_DIR')) {
+                    throw new WordPressLoadedException();
+                }
+            },
             'accepted_args' => 0,
         ];
+
+        // This should trigger as soon as wp-settings.php is loaded
+        set_error_handler(function ($errno, $errstr, $errfile) use ($complete) {
+            if (!$complete && basename($errfile) === 'wp-settings.php') {
+                throw new WordPressLoadedException();
+            }
+        });
+
+        // Cause an error to be raised when wp-settings.php is loaded
+        define('WPINC', 'wp-includes');
+
         try {
-            require self::findWPLoad();
+            $wpLoadScript = self::findWPLoad();
+            chdir(dirname($wpLoadScript));
+            require $wpLoadScript;
+            throw new RuntimeException('WordPress loaded without triggering any hooks');
         } catch (WordPressLoadedException $e) {
-            return;
         } finally {
             $complete = true;
+            set_error_handler(null);
         }
-        throw new RuntimeException('WordPress loaded without triggering any hooks');
+
+        if (!defined('WP_CONTENT_DIR')) {
+            define('WP_CONTENT_DIR', ABSPATH . 'wp-content');
+        }
     }
 
     private static function findWPLoad() {
