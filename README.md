@@ -3,7 +3,7 @@
 **Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix\
 **Requires at least**: 5.7\
 **Requires PHP**: 7.3\
-**Stable tag**: 2.19\
+**Stable tag**: 3.0\
 **Tested up to**: 6.4\
 **License**: AGPL-3.0\
 **Contributors**: apeschar
