@@ -10,7 +10,7 @@ class ServiceSDKImplementation implements ServiceHost {
     }
 
     public function onServiceConfigurationLoad(array $config) {
-        if (class_exists(\Requests::class)) {
+        if (class_exists(\WpOrg\Requests\Requests::class)) {
             $config['httpClient'] = RequestsHTTPClient::class;
         }
 

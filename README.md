@@ -1,7 +1,7 @@
 # PhastPress
 
 **Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix\
-**Requires at least**: 5.7\
+**Requires at least**: 6.2\
 **Requires PHP**: 7.3\
 **Stable tag**: 3.0\
 **Tested up to**: 6.4\
@@ -209,6 +209,11 @@ add_filter('phastpress_csp_nonce', function () {
 Cloudflare [does not support `Vary: Accept`](https://serverfault.com/questions/780882/impossible-to-serve-webp-images-using-cloudflare), so sending WebP via Cloudflare can cause browsers that don't support WebP to download the wrong image type. You can try using [Cloudflare Polish](https://support.cloudflare.com/hc/en-us/articles/360000607372-Using-Cloudflare-Polish-to-compress-images) instead.
 
 ## Changelog
+
+### 3.0 - 2023-12-01
+
+* Moved from deprecated `\Requests` to `\WpOrg\Requests\Requests` class.
+* PhastPress now requires WordPress 6.2.
 
 ### 2.19 - 2023-10-27
 

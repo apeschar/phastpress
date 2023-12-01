@@ -72,14 +72,12 @@ class WordPress {
     }
 
     public static function loadRequests() {
-        if (!defined('REQUESTS_SILENCE_PSR0_DEPRECATIONS')) {
-            define('REQUESTS_SILENCE_PSR0_DEPRECATIONS', true);
+        if (class_exists(\WpOrg\Requests\Requests::class)) {
+            return;
         }
-        if (!class_exists(Requests::class)) {
-            require ABSPATH . WPINC . '/class-requests.php';
-            Requests::register_autoloader();
-            Requests::set_certificate_path(ABSPATH . WPINC . '/certificates/ca-bundle.crt');
-        }
+        require ABSPATH . WPINC . '/Requests/src/Autoload.php';
+        \WpOrg\Requests\Autoload::register();
+        \WpOrg\Requests\Requests::set_certificate_path(ABSPATH . WPINC . '/certificates/ca-bundle.crt');
     }
 }
 
