@@ -8,7 +8,7 @@ if (!defined('PHASTPRESS_VERSION')) {
 }
 
 try {
-    new PDO('sqlite::memory:');
+    phastpress_check_sqlite3();
 } catch (\Throwable $e) {
     add_action('admin_notices', function () use ($e) {
         ?>
@@ -153,3 +153,13 @@ add_action('ai1wm_exclude_content_from_export', function ($filters) {
     }
     return $filters;
 });
+
+function phastpress_check_sqlite3() {
+    $pdo = new PDO('sqlite::memory:');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $version = $pdo->query("select sqlite_version()")->fetchColumn();
+    $minimumVersion = '3.8.2';
+    if (version_compare($version, $minimumVersion, '<')) {
+        throw new RuntimeException(sprintf("SQLite version %s or later is required; installed version is %s", $minimumVersion, $version));
+    }
+}
