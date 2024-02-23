@@ -227,13 +227,16 @@ class Manager
             if ($database->query("\n                SELECT 1\n                FROM sqlite_master\n                WHERE\n                    type = 'table'\n                    AND name = 'cache'\n            ")->fetchColumn()) {
                 return;
             }
-            $database->exec('
-                CREATE TABLE cache (
-                    key BLOB PRIMARY KEY,
-                    value BLOB NOT NULL,
-                    expires_at INT
-                ) WITHOUT ROWID
-            ');
+            $createSql = 'CREATE TABLE cache (
+                key BLOB PRIMARY KEY,
+                value BLOB NOT NULL,
+                expires_at INT
+            )';
+            try {
+                $database->exec("{$createSql} WITHOUT ROWID");
+            } catch (\PDOException $e) {
+                $database->exec($createSql);
+            }
             $database->exec('COMMIT');
         } catch (\Throwable $e) {
             $database->exec('ROLLBACK');
