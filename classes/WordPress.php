@@ -60,6 +60,10 @@ class WordPress {
             if (file_exists($path)) {
                 return $path;
             }
+            $wpPath = $dir . '/wp/wp-load.php';
+            if (file_exists($wpPath)) {
+                return $wpPath;
+            }
             $parent = dirname($dir);
             if ($parent == $dir) {
                 break;
