@@ -3,8 +3,8 @@
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 6.2
 Requires PHP: 7.3
-Stable tag: 3.5
-Tested up to: 6.6
+Stable tag: 3.6
+Tested up to: 6.7
 License: AGPL-3.0
 Contributors: apeschar
 
@@ -209,6 +209,10 @@ add_filter('phastpress_csp_nonce', function () {
 Cloudflare [does not support `Vary: Accept`](https://serverfault.com/questions/780882/impossible-to-serve-webp-images-using-cloudflare), so sending WebP via Cloudflare can cause browsers that don't support WebP to download the wrong image type. You can try using [Cloudflare Polish](https://support.cloudflare.com/hc/en-us/articles/360000607372-Using-Cloudflare-Polish-to-compress-images) instead.
 
 == Changelog ==
+
+= 3.6 - 2024-10-28 =
+
+* Bump "Tested up to" to WordPress 6.7.
 
 = 3.5 - 2024-10-10 =
 
