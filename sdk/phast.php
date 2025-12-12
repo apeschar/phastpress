@@ -9596,22 +9596,22 @@ class LocalRetriever implements \Kibo\Phast\Retrievers\Retriever
     }
     private function guard(\Kibo\Phast\ValueObjects\URL $url, callable $cb)
     {
-        if (!in_array($this->getExtensionForURL($url), self::getAllowedExtensions())) {
-            return false;
-        }
         $file = $this->getFileForURL($url);
         if ($file === false) {
             return false;
         }
+        if (!in_array($this->getExtension($file), self::getAllowedExtensions())) {
+            return false;
+        }
         return $cb($file);
     }
-    private function getExtensionForURL(\Kibo\Phast\ValueObjects\URL $url)
+    private function getExtension($file)
     {
-        $dotPosition = strrpos($url->getDecodedPath(), '.');
+        $dotPosition = strrpos($file, '.');
         if ($dotPosition === false) {
             return '';
         }
-        return strtolower(substr($url->getDecodedPath(), $dotPosition + 1));
+        return strtolower(substr($file, $dotPosition + 1));
     }
     private function getFileForURL(\Kibo\Phast\ValueObjects\URL $url)
     {
