@@ -4,7 +4,7 @@ Plugin URI: https://kiboit.com/?ref=phastpress-wporg
 Tags: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix
 Requires at least: 6.2
 Requires PHP: 7.3
-Stable tag: 3.8
+Stable tag: 3.9
 Tested up to: 6.8
 License: AGPL-3.0
 Contributors: apeschar
@@ -211,9 +211,13 @@ Cloudflare [does not support `Vary: Accept`](https://serverfault.com/questions/7
 
 == Changelog ==
 
+= 3.9 - 2026-02-11 =
+
+* Fix deprecation error due to implicitly marking parameters as nullable. (Thanks to [Roberto Bösenberg](https://github.com/roboes)!)
+
 = 3.8 - 2025-12-11 =
 
-* Fix CVE-2025-14388. (thanks [Angus G.](https://www.linkedin.com/in/angus-g-53a87a16b/))
+* Fix CVE-2025-14388. (Thanks to [Angus G.](https://www.linkedin.com/in/angus-g-53a87a16b/)!)
 
 = 3.7 - 2025-12-10 =
 

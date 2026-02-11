@@ -10,7 +10,7 @@ interface Cache
      * @param int $expiresIn
      * @return mixed
      */
-    public function get($key, callable $cached = null, $expiresIn = 0);
+    public function get($key, ?callable $cached = null, $expiresIn = 0);
     /**
      * @param string $key
      * @param mixed $value
@@ -29,7 +29,7 @@ class Cache implements \Kibo\Phast\Cache\Cache
     private $maxSize;
     private $namespace;
     private $functions;
-    public function __construct(array $config, string $namespace, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    public function __construct(array $config, string $namespace, ?\Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
     {
         $this->cacheRoot = (string) $config['cacheRoot'];
         $this->name = (string) ($config['name'] ?? 'cache');
@@ -37,7 +37,7 @@ class Cache implements \Kibo\Phast\Cache\Cache
         $this->namespace = $namespace;
         $this->functions = $functions ?? new \Kibo\Phast\Common\ObjectifiedFunctions();
     }
-    public function get($key, callable $fn = null, $expiresIn = 0)
+    public function get($key, ?callable $fn = null, $expiresIn = 0)
     {
         return $this->getManager()->get($this->getKey($key), $fn, $expiresIn, $this->functions);
     }
@@ -477,7 +477,7 @@ namespace Kibo\Phast\Common;
 class System
 {
     private $functions;
-    public function __construct(\Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    public function __construct(?\Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
     {
         if ($functions === null) {
             $functions = new \Kibo\Phast\Common\ObjectifiedFunctions();
@@ -875,7 +875,7 @@ class ItemNotFoundException extends \Exception
      * @var URL
      */
     private $url;
-    public function __construct($message = '', $code = 0, \Throwable $previous = null, \Kibo\Phast\ValueObjects\URL $failed = null)
+    public function __construct($message = '', $code = 0, ?\Throwable $previous = null, ?\Kibo\Phast\ValueObjects\URL $failed = null)
     {
         parent::__construct($message, $code, $previous);
         $this->url = $failed;
@@ -1472,7 +1472,7 @@ class ImageURLRewriter
      * @param bool $mustExist
      * @return string
      */
-    public function rewriteUrl($url, \Kibo\Phast\ValueObjects\URL $baseUrl = null, array $params = [], $mustExist = false)
+    public function rewriteUrl($url, ?\Kibo\Phast\ValueObjects\URL $baseUrl = null, array $params = [], $mustExist = false)
     {
         if (strpos($url, '#') === 0) {
             return $url;
@@ -1544,7 +1544,7 @@ class ImageURLRewriter
      * @param URL|null $baseUrl
      * @return URL|null
      */
-    private function makeURLAbsoluteToBase($url, \Kibo\Phast\ValueObjects\URL $baseUrl = null)
+    private function makeURLAbsoluteToBase($url, ?\Kibo\Phast\ValueObjects\URL $baseUrl = null)
     {
         $url = trim($url);
         if (!$url || substr($url, 0, 5) === 'data:') {
@@ -2261,7 +2261,7 @@ class DefaultImage extends \Kibo\Phast\Filters\Image\ImageImplementations\BaseIm
      * @var ObjectifiedFunctions
      */
     private $funcs;
-    public function __construct(\Kibo\Phast\ValueObjects\URL $imageURL, \Kibo\Phast\Retrievers\Retriever $retriever, \Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
+    public function __construct(\Kibo\Phast\ValueObjects\URL $imageURL, \Kibo\Phast\Retrievers\Retriever $retriever, ?\Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
     {
         $this->imageURL = $imageURL;
         $this->retriever = $retriever;
@@ -3590,7 +3590,7 @@ class Writer extends \Kibo\Phast\Logging\LogWriters\BaseLogWriter
      * @param array $config
      * @param ObjectifiedFunctions $funcs
      */
-    public function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
+    public function __construct(array $config, ?\Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
     {
         foreach (['messageType', 'destination', 'extraHeaders'] as $field) {
             if (isset($config[$field])) {
@@ -3644,7 +3644,7 @@ class Writer extends \Kibo\Phast\Logging\LogWriters\BaseLogWriter
      * @param array $config
      * @param ?ObjectifiedFunctions $funcs
      */
-    public function __construct(array $config, \Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
+    public function __construct(array $config, ?\Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
     {
         if (isset($config['path'])) {
             $this->path = (string) $config['path'];
@@ -3740,7 +3740,7 @@ class Logger
      * Logger constructor.
      * @param LogWriter $writer
      */
-    public function __construct(\Kibo\Phast\Logging\LogWriter $writer, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    public function __construct(\Kibo\Phast\Logging\LogWriter $writer, ?\Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
     {
         $this->writer = $writer;
         $this->functions = is_null($functions) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $functions;
@@ -4917,7 +4917,7 @@ class PhastServices
     /**
      * @param callable|null $getConfig
      */
-    public static function serve(callable $getConfig = null)
+    public static function serve(?callable $getConfig = null)
     {
         $httpRequest = \Kibo\Phast\HTTP\Request::fromGlobals();
         if ($httpRequest->getHeader('CDN-Loop') && preg_match('~(^|,)\\s*Phast\\b~', $httpRequest->getHeader('CDN-Loop'))) {
@@ -4983,7 +4983,7 @@ class PhastServices
     {
         return !!\Kibo\Phast\Services\ServiceRequest::getRewrittenService(\Kibo\Phast\HTTP\Request::fromGlobals());
     }
-    public static function output(\Kibo\Phast\HTTP\Request $request, \Kibo\Phast\HTTP\Response $response, array $config, \Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
+    public static function output(\Kibo\Phast\HTTP\Request $request, \Kibo\Phast\HTTP\Response $response, array $config, ?\Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
     {
         if (is_null($funcs)) {
             $funcs = new \Kibo\Phast\Common\ObjectifiedFunctions();
@@ -6307,7 +6307,7 @@ class PhastJavaScript
      * @param string $filename
      * @param ObjectifiedFunctions|null $funcs
      */
-    public static function fromFile($filename, \Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
+    public static function fromFile($filename, ?\Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
     {
         $funcs = $funcs ? $funcs : new \Kibo\Phast\Common\ObjectifiedFunctions();
         $contents = $funcs->file_get_contents($filename);
@@ -8768,7 +8768,7 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
         $elements[] = $this->makeStyle($url, $content, $media, $optimized);
         return $elements;
     }
-    private function addIEFallback(\Kibo\Phast\ValueObjects\URL $fallbackUrl = null, array $elements = null)
+    private function addIEFallback(?\Kibo\Phast\ValueObjects\URL $fallbackUrl = null, ?array $elements = null)
     {
         if ($fallbackUrl === null || !$elements) {
             return $elements;
@@ -9037,7 +9037,7 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
      * @var bool
      */
     private $didInject = false;
-    public function __construct(array $config, \Kibo\Phast\Security\ServiceSignature $signature, \Kibo\Phast\Retrievers\LocalRetriever $retriever, \Kibo\Phast\Services\Bundler\TokenRefMaker $tokenRefMaker, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    public function __construct(array $config, \Kibo\Phast\Security\ServiceSignature $signature, \Kibo\Phast\Retrievers\LocalRetriever $retriever, \Kibo\Phast\Services\Bundler\TokenRefMaker $tokenRefMaker, ?\Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
     {
         $this->config = $config;
         $this->signature = $signature;
@@ -9502,7 +9502,7 @@ class CachingRetriever implements \Kibo\Phast\Retrievers\Retriever
      * @param Cache $cache
      * @param int $defaultCacheTime
      */
-    public function __construct(\Kibo\Phast\Cache\Cache $cache, \Kibo\Phast\Retrievers\Retriever $retriever = null, $defaultCacheTime = 0)
+    public function __construct(\Kibo\Phast\Cache\Cache $cache, ?\Kibo\Phast\Retrievers\Retriever $retriever = null, $defaultCacheTime = 0)
     {
         $this->cache = $cache;
         $this->retriever = $retriever;
@@ -9558,7 +9558,7 @@ class LocalRetriever implements \Kibo\Phast\Retrievers\Retriever
      * @param array $map
      * @param ObjectifiedFunctions|null $functions
      */
-    public function __construct(array $map, \Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    public function __construct(array $map, ?\Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
     {
         $this->map = $map;
         if ($functions) {
@@ -9667,7 +9667,7 @@ class PostDataRetriever implements \Kibo\Phast\Retrievers\Retriever
      * PostDataRetriever constructor.
      * @param ObjectifiedFunctions $funcs
      */
-    public function __construct(\Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
+    public function __construct(?\Kibo\Phast\Common\ObjectifiedFunctions $funcs = null)
     {
         $this->funcs = is_null($funcs) ? new \Kibo\Phast\Common\ObjectifiedFunctions() : $funcs;
     }
