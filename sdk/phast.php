@@ -7375,7 +7375,7 @@ class TranslationsManager
     public function __construct($locale, $pluginName)
     {
         $data = \Kibo\PhastPlugins\SDK\Generated\Translations::DATA;
-        if (isset($data[$this->locale])) {
+        if (isset($data[$locale])) {
             $this->locale = $locale;
         } else {
             $this->locale = self::DEFAULT_LOCALE;
