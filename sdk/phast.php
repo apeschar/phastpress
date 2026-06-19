@@ -19,6 +19,30 @@ interface Cache
      */
     public function set($key, $value, $expiresIn = 0);
 }
+namespace Kibo\Phast\Cache;
+
+class Factory
+{
+    /**
+     * @var array
+     */
+    private $config;
+    public function __construct(array $config)
+    {
+        $this->config = $config;
+    }
+    public function getCache(string $namespace) : \Kibo\Phast\Cache\Cache
+    {
+        $implementation = $this->config['implementation'] ?? null;
+        if (!is_string($implementation) || !$implementation) {
+            throw new \Kibo\Phast\Exceptions\LogicException('Cache implementation is not configured');
+        }
+        if (!class_exists($implementation)) {
+            throw new \Kibo\Phast\Exceptions\LogicException("No such class: {$implementation}");
+        }
+        return new $implementation($this->config, $namespace);
+    }
+}
 namespace Kibo\Phast\Cache\Sqlite;
 
 class Cache implements \Kibo\Phast\Cache\Cache
@@ -374,6 +398,36 @@ namespace Kibo\Phast\Common;
 class ObjectifiedFunctions
 {
     /**
+     * @var array<string, mixed>
+     */
+    private $functions = [];
+    /**
+     * @param string $name
+     * @param mixed $value
+     */
+    public function __set($name, $value)
+    {
+        $this->functions[$name] = $value;
+    }
+    /**
+     * @param string $name
+     * @return mixed|null
+     */
+    public function __get($name)
+    {
+        if (array_key_exists($name, $this->functions)) {
+            return $this->functions[$name];
+        }
+    }
+    /**
+     * @param string $name
+     * @return bool
+     */
+    public function __isset($name)
+    {
+        return isset($this->functions[$name]);
+    }
+    /**
      * @param string $name
      * @param array $arguments
      */
@@ -714,7 +768,18 @@ class DefaultConfiguration
     public static function get()
     {
         $request = \Kibo\Phast\HTTP\Request::fromGlobals();
-        return ['securityToken' => null, 'retrieverMap' => [$request->getHost() => $request->getDocumentRoot()], 'httpClient' => \Kibo\Phast\HTTP\CURLClient::class, 'cache' => ['cacheRoot' => sys_get_temp_dir() . '/phast-cache-' . (new \Kibo\Phast\Common\System())->getUserId(), 'maxSize' => 1024 * 1024 * 1024], 'servicesUrl' => '/phast.php', 'serviceRequestFormat' => \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH, 'compressServiceResponse' => true, 'optimizeHTMLDocumentsOnly' => true, 'optimizeJSONResponses' => false, 'outputServerSideStats' => true, 'documents' => ['maxBufferSizeToApply' => 2 * 1024 * 1024, 'baseUrl' => $request->getAbsoluteURI(), 'filters' => [\Kibo\Phast\Filters\HTML\CommentsRemoval\Filter::class => [], \Kibo\Phast\Filters\HTML\MetaCharset\Filter::class => [], \Kibo\Phast\Filters\HTML\Minify\Filter::class => [], \Kibo\Phast\Filters\HTML\MinifyScripts\Filter::class => [], \Kibo\Phast\Filters\HTML\BaseURLSetter\Filter::class => [], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter::class => [], \Kibo\Phast\Filters\HTML\LazyImageLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\CSSInlining\Filter::class => ['optimizerSizeDiffThreshold' => 1024, 'whitelist' => ['~^https?://fonts\\.googleapis\\.com/~' => ['ieCompatible' => false], '~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~', '~^https?://maxcdn\\.bootstrapcdn\\.com/[^?#]*\\.css~', '~^https?://idangero\\.us/~', '~^https?://[^/]*\\.github\\.io/~', '~^https?://\\w+\\.typekit\\.net/~' => ['ieCompatible' => false], '~^https?://stackpath\\.bootstrapcdn\\.com/~', '~^https?://cdnjs\\.cloudflare\\.com/~']], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class => [], \Kibo\Phast\Filters\HTML\DelayedIFrameLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class => ['urlRefreshTime' => 7200], \Kibo\Phast\Filters\HTML\Diagnostics\Filter::class => ['enabled' => 'diagnostics'], \Kibo\Phast\Filters\HTML\ScriptsDeferring\Filter::class => [], \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter::class => []]], 'images' => ['enable-cache' => 'imgcache', 'api-mode' => false, 'factory' => \Kibo\Phast\Filters\Image\ImageFactory::class, 'maxImageInliningSize' => 512, 'whitelist' => ['~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~'], 'filters' => [\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class => ['api-url' => 'https://optimize.phast.io/?service=images', 'host-name' => $request->getHost(), 'request-uri' => $request->getURI(), 'plugin-version' => 'phast-core-1.0']]], 'styles' => ['filters' => [\Kibo\Phast\Filters\Text\Decode\Filter::class => [], \Kibo\Phast\Filters\CSS\ImportsStripper\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSMinifier\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSURLRewriter\Filter::class => [], \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['maxImageInliningSize' => 512], \Kibo\Phast\Filters\CSS\FontSwap\Filter::class => []]], 'logging' => ['logWriters' => [['class' => \Kibo\Phast\Logging\LogWriters\PHPError\Writer::class, 'levelMask' => \Kibo\Phast\Logging\LogLevel::EMERGENCY | \Kibo\Phast\Logging\LogLevel::ALERT | \Kibo\Phast\Logging\LogLevel::CRITICAL | \Kibo\Phast\Logging\LogLevel::ERROR | \Kibo\Phast\Logging\LogLevel::WARNING], ['enabled' => 'diagnostics', 'class' => \Kibo\Phast\Logging\LogWriters\JSONLFile\Writer::class, 'logRoot' => sys_get_temp_dir() . '/phast-logs']]], 'switches' => ['phast' => true, 'diagnostics' => false], 'scripts' => ['removeLicenseHeaders' => false, 'whitelist' => ['~^https?://' . preg_quote($request->getHost(), '~') . '/~']], 'csp' => ['nonce' => null, 'reportOnly' => false, 'reportUri' => null]];
+        return ['securityToken' => null, 'retrieverMap' => [$request->getHost() => $request->getDocumentRoot()], 'httpClient' => \Kibo\Phast\HTTP\CURLClient::class, 'cache' => ['implementation' => \Kibo\Phast\Cache\Sqlite\Cache::class, 'cacheRoot' => sys_get_temp_dir() . '/phast-cache-' . (new \Kibo\Phast\Common\System())->getUserId(), 'maxSize' => 1024 * 1024 * 1024], 'servicesUrl' => '/phast.php', 'serviceRequestFormat' => \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH, 'compressServiceResponse' => true, 'optimizeHTMLDocumentsOnly' => true, 'optimizeJSONResponses' => false, 'outputServerSideStats' => true, 'documents' => ['maxBufferSizeToApply' => 2 * 1024 * 1024, 'baseUrl' => $request->getAbsoluteURI(), 'filters' => [\Kibo\Phast\Filters\HTML\CommentsRemoval\Filter::class => [], \Kibo\Phast\Filters\HTML\MetaCharset\Filter::class => [], \Kibo\Phast\Filters\HTML\Minify\Filter::class => [], \Kibo\Phast\Filters\HTML\MinifyScripts\Filter::class => [], \Kibo\Phast\Filters\HTML\BaseURLSetter\Filter::class => [], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter::class => [], \Kibo\Phast\Filters\HTML\LazyImageLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\CSSInlining\Filter::class => ['optimizerSizeDiffThreshold' => 1024, 'whitelist' => ['~^https?://fonts\\.googleapis\\.com/~' => ['ieCompatible' => false], '~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~', '~^https?://maxcdn\\.bootstrapcdn\\.com/[^?#]*\\.css~', '~^https?://idangero\\.us/~', '~^https?://[^/]*\\.github\\.io/~', '~^https?://\\w+\\.typekit\\.net/~' => ['ieCompatible' => false], '~^https?://stackpath\\.bootstrapcdn\\.com/~', '~^https?://cdnjs\\.cloudflare\\.com/~']], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class => [], \Kibo\Phast\Filters\HTML\DelayedIFrameLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class => ['urlRefreshTime' => 7200], \Kibo\Phast\Filters\HTML\Diagnostics\Filter::class => ['enabled' => 'diagnostics'], \Kibo\Phast\Filters\HTML\ScriptsDeferring\Filter::class => [], \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter::class => []]], 'images' => [
+            'enable-cache' => 'imgcache',
+            'api-mode' => false,
+            // Cloudflare caches do not reliably vary images by Accept by default,
+            // so use a fixed preferred type unless Accept support is enabled.
+            'cloudflareSupportsAcceptHeader' => false,
+            'cloudflareImageFormat' => 'webp',
+            'factory' => \Kibo\Phast\Filters\Image\ImageFactory::class,
+            'maxImageInliningSize' => 512,
+            'whitelist' => ['~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~'],
+            'filters' => [\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class => ['api-url' => 'https://optimize.phast.io/?service=images', 'host-name' => $request->getHost(), 'request-uri' => $request->getURI(), 'plugin-version' => 'phast-core-1.0']],
+        ], 'styles' => ['filters' => [\Kibo\Phast\Filters\Text\Decode\Filter::class => [], \Kibo\Phast\Filters\CSS\ImportsStripper\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSMinifier\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSURLRewriter\Filter::class => [], \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['maxImageInliningSize' => 512], \Kibo\Phast\Filters\CSS\FontSwap\Filter::class => []]], 'logging' => ['logWriters' => [['class' => \Kibo\Phast\Logging\LogWriters\PHPError\Writer::class, 'levelMask' => \Kibo\Phast\Logging\LogLevel::EMERGENCY | \Kibo\Phast\Logging\LogLevel::ALERT | \Kibo\Phast\Logging\LogLevel::CRITICAL | \Kibo\Phast\Logging\LogLevel::ERROR | \Kibo\Phast\Logging\LogLevel::WARNING], ['enabled' => 'diagnostics', 'class' => \Kibo\Phast\Logging\LogWriters\JSONLFile\Writer::class, 'logRoot' => sys_get_temp_dir() . '/phast-logs']]], 'switches' => ['phast' => true, 'diagnostics' => false], 'scripts' => ['removeLicenseHeaders' => false, 'whitelist' => ['~^https?://' . preg_quote((string) $request->getHost(), '~') . '/~']], 'csp' => ['nonce' => null, 'reportOnly' => false, 'reportUri' => null]];
     }
 }
 namespace Kibo\Phast\Environment;
@@ -1138,7 +1203,7 @@ class OptimizerFactory
     private $cache;
     public function __construct(array $config)
     {
-        $this->cache = new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'css-optimizitor');
+        $this->cache = (new \Kibo\Phast\Cache\Factory($config['cache']))->getCache('css-optimizitor');
     }
     /**
      * @param \Traversable $elements
@@ -1392,7 +1457,7 @@ class ImageInliningManager
     }
     private function shouldStoreForInlining(\Kibo\Phast\ValueObjects\Resource $resource)
     {
-        return $this->hasSizeForInlining($resource) && strpos($resource->getMimeType(), 'image/') === 0 && $resource->getMimeType() !== 'image/webp';
+        return $this->hasSizeForInlining($resource) && strpos($resource->getMimeType(), 'image/') === 0 && !in_array($resource->getMimeType(), ['image/webp', 'image/avif'], true);
     }
     private function hasSizeForInlining(\Kibo\Phast\ValueObjects\Resource $resource)
     {
@@ -1410,7 +1475,7 @@ class ImageInliningManagerFactory
 {
     public function make(array $config)
     {
-        $cache = new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'inline-images-1');
+        $cache = (new \Kibo\Phast\Cache\Factory($config['cache']))->getCache('inline-images-1');
         return new \Kibo\Phast\Filters\HTML\ImagesOptimizationService\ImageInliningManager($cache, $config['images']['maxImageInliningSize']);
     }
 }
@@ -1536,7 +1601,7 @@ class ImageURLRewriter
      */
     public function getCacheSalt()
     {
-        $parts = array_merge([$this->signature->getCacheSalt(), $this->baseUrl->toString(), $this->serviceUrl->toString(), $this->inliningManager->getMaxImageInliningSize(), '20180413'], array_keys($this->whitelist), array_values($this->whitelist));
+        $parts = array_merge([$this->signature->getCacheSalt(), $this->baseUrl->toString(), $this->serviceUrl->toString(), $this->inliningManager->getMaxImageInliningSize(), '20260617'], array_keys($this->whitelist), array_values($this->whitelist));
         return join('-', $parts);
     }
     /**
@@ -1563,12 +1628,15 @@ class ImageURLRewriter
         if (!$url) {
             return false;
         }
+        $urlObject = \Kibo\Phast\ValueObjects\URL::fromString($url);
+        if (preg_match('~\\.(webp|avif)$~i', $urlObject->getPath())) {
+            return false;
+        }
         foreach ($this->whitelist as $pattern) {
             if (preg_match($pattern, $url)) {
                 return true;
             }
         }
-        $urlObject = \Kibo\Phast\ValueObjects\URL::fromString($url);
         if (preg_match('~\\.(jpe?g|gif|png)$~i', $urlObject->getPath()) && $this->retriever->getCacheSalt($urlObject)) {
             return true;
         }
@@ -1767,7 +1835,7 @@ class Factory
 {
     public function make(array $config)
     {
-        return new \Kibo\Phast\Filters\HTML\MinifyScripts\Filter(new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'minified-inline-scripts'));
+        return new \Kibo\Phast\Filters\HTML\MinifyScripts\Filter((new \Kibo\Phast\Cache\Factory($config['cache']))->getCache('minified-inline-scripts'));
     }
 }
 namespace Kibo\Phast\Filters\HTML\MinifyScripts;
@@ -1805,7 +1873,7 @@ class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
 {
     public function make(array $config)
     {
-        $cache = new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'phast-scripts');
+        $cache = (new \Kibo\Phast\Cache\Factory($config['cache']))->getCache('phast-scripts');
         $compiler = new \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\PhastJavaScriptCompiler($cache, $config['servicesUrl'], $config['serviceRequestFormat']);
         return new \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter($compiler, $config['csp']['nonce']);
     }
@@ -2046,7 +2114,7 @@ class Factory
             $composite->addImageFilter($filter);
         }
         if ($this->config['images']['enable-cache']) {
-            return new \Kibo\Phast\Filters\Service\CachingServiceFilter(new \Kibo\Phast\Cache\Sqlite\Cache($this->config['cache'], 'images-1'), $composite, new \Kibo\Phast\Retrievers\LocalRetriever($this->config['retrieverMap']));
+            return new \Kibo\Phast\Filters\Service\CachingServiceFilter((new \Kibo\Phast\Cache\Factory($this->config['cache']))->getCache('images-1'), $composite, new \Kibo\Phast\Retrievers\LocalRetriever($this->config['retrieverMap']));
         }
         return $composite;
     }
@@ -2063,6 +2131,7 @@ interface Image
     const TYPE_JPEG = 'image/jpeg';
     const TYPE_PNG = 'image/png';
     const TYPE_WEBP = 'image/webp';
+    const TYPE_AVIF = 'image/avif';
     /**
      * @return integer
      */
@@ -2095,7 +2164,7 @@ interface Image
      */
     public function compress($compression);
     /**
-     * @param string $type - One of Image::TYPE_JPEG, Image::TYPE_PNG or Image::TYPE_WEBP
+     * @param string $type - One of Image::TYPE_JPEG, Image::TYPE_PNG, Image::TYPE_WEBP or Image::TYPE_AVIF
      * @return Image
      */
     public function encodeTo($type);
@@ -2532,8 +2601,8 @@ class Request
         if ($pathInfo) {
             return $pathInfo;
         }
-        $path = parse_url($this->getEnvValue('REQUEST_URI'), PHP_URL_PATH);
-        if (preg_match('~[^/]\\.php(/.*)~', $path, $match)) {
+        $path = parse_url((string) $this->getEnvValue('REQUEST_URI'), PHP_URL_PATH);
+        if (is_string($path) && preg_match('~[^/]\\.php(/.*)~', $path, $match)) {
             return $match[1];
         }
     }
@@ -2545,8 +2614,8 @@ class Request
     }
     public function getQueryString()
     {
-        $parsed = parse_url($this->getEnvValue('REQUEST_URI'));
-        if (isset($parsed['query'])) {
+        $parsed = parse_url((string) $this->getEnvValue('REQUEST_URI'));
+        if (is_array($parsed) && isset($parsed['query'])) {
             return $parsed['query'];
         }
     }
@@ -2672,7 +2741,7 @@ class Response
     }
     public function isCompressible()
     {
-        return strpos($this->getHeader('Content-Type'), 'image/') === false;
+        return strpos((string) $this->getHeader('Content-Type'), 'image/') === false;
     }
 }
 namespace Kibo\Phast\JSMin;
@@ -4540,7 +4609,7 @@ class Tag extends \Kibo\Phast\Parsing\HTML\HTMLStreamElements\Element
      */
     public function getClasses()
     {
-        return array_values(array_filter(preg_split('~\\s+~', $this->getAttribute('class')), 'strlen'));
+        return array_values(array_filter(preg_split('~\\s+~', (string) $this->getAttribute('class')), 'strlen'));
     }
     /**
      * @param string $attrName
@@ -5021,7 +5090,7 @@ class PhastServices
     }
     private static function shouldZip(\Kibo\Phast\HTTP\Request $request)
     {
-        return !$request->isCloudflare() && strpos($request->getHeader('Accept-Encoding'), 'gzip') !== false;
+        return !$request->isCloudflare() && strpos((string) $request->getHeader('Accept-Encoding'), 'gzip') !== false;
     }
     private static function generateETag(array $headers, $content)
     {
@@ -5212,6 +5281,7 @@ class ServiceSignature
     }
     public function verify($signature, $value)
     {
+        $signature = (string) $signature;
         $user = substr($signature, 0, -self::SIGNATURE_LENGTH);
         $identities = $this->getIdentities();
         if (!isset($identities[$user])) {
@@ -5248,7 +5318,7 @@ class ServiceSignatureFactory
     const CACHE_NAMESPACE = 'signature';
     public function make(array $config)
     {
-        $cache = new \Kibo\Phast\Cache\Sqlite\Cache(array_merge($config['cache'], ['name' => self::CACHE_NAMESPACE, 'maxSize' => 1024 * 1024]), self::CACHE_NAMESPACE);
+        $cache = (new \Kibo\Phast\Cache\Factory(array_merge($config['cache'], ['name' => self::CACHE_NAMESPACE, 'maxSize' => 1024 * 1024])))->getCache(self::CACHE_NAMESPACE);
         $signature = new \Kibo\Phast\Security\ServiceSignature($cache);
         if (isset($config['securityToken'])) {
             $signature->setIdentities($config['securityToken']);
@@ -5697,7 +5767,7 @@ class TokenRefMakerFactory
 {
     public function make(array $config)
     {
-        $cache = new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'token-refs');
+        $cache = (new \Kibo\Phast\Cache\Factory($config['cache']))->getCache('token-refs');
         return new \Kibo\Phast\Services\Bundler\TokenRefMaker($cache);
     }
 }
@@ -5824,11 +5894,19 @@ class Service extends \Kibo\Phast\Services\BaseService
     protected function getParams(\Kibo\Phast\Services\ServiceRequest $request)
     {
         $params = parent::getParams($request);
-        if ($this->proxySupportsAccept($request->getHTTPRequest())) {
+        $httpRequest = $request->getHTTPRequest();
+        if ($this->usesCloudflareConfiguredPreferredTypes($httpRequest)) {
+            $preferredTypes = $this->getCloudflarePreferredTypes();
+            if (!empty($preferredTypes)) {
+                $params['preferredType'] = implode(',', $preferredTypes);
+                \Kibo\Phast\Logging\Log::info('Preferred image types will be served if possible: {types}', ['types' => $params['preferredType']]);
+            }
+        } elseif ($this->proxySupportsAccept($httpRequest)) {
             $params['varyAccept'] = true;
-            if ($this->browserSupportsWebp($request->getHTTPRequest())) {
-                $params['preferredType'] = \Kibo\Phast\Filters\Image\Image::TYPE_WEBP;
-                \Kibo\Phast\Logging\Log::info('WebP will be served if possible!');
+            $preferredTypes = $this->getBrowserSupportedPreferredTypes($httpRequest);
+            if (!empty($preferredTypes)) {
+                $params['preferredType'] = implode(',', $preferredTypes);
+                \Kibo\Phast\Logging\Log::info('Preferred image types will be served if possible: {types}', ['types' => $params['preferredType']]);
             }
         }
         return $params;
@@ -5856,13 +5934,33 @@ class Service extends \Kibo\Phast\Services\BaseService
             parent::validateWhitelisted($request);
         }
     }
-    private function browserSupportsWebp(\Kibo\Phast\HTTP\Request $request)
+    private function getBrowserSupportedPreferredTypes(\Kibo\Phast\HTTP\Request $request)
     {
-        return strpos($request->getHeader('accept'), 'image/webp') !== false;
+        $accept = (string) $request->getHeader('accept');
+        preg_match_all('~(?:^|,)\\s*(image/(?:avif|webp))\\s*(?:;\\s*(?!q\\s*=\\s*0(?:\\.0*)?\\s*(?=;|,|$))[^;,]*)*\\s*(?=,|$)~i', $accept, $matches);
+        $acceptedTypes = array_flip(array_map('strtolower', $matches[1]));
+        return array_values(array_filter([\Kibo\Phast\Filters\Image\Image::TYPE_AVIF, \Kibo\Phast\Filters\Image\Image::TYPE_WEBP], function ($type) use($acceptedTypes) {
+            return isset($acceptedTypes[$type]);
+        }));
+    }
+    private function getCloudflarePreferredTypes()
+    {
+        $format = strtolower(trim($this->config['images']['cloudflareImageFormat'] ?? 'webp'));
+        if ($format === 'avif') {
+            return [\Kibo\Phast\Filters\Image\Image::TYPE_AVIF, \Kibo\Phast\Filters\Image\Image::TYPE_WEBP];
+        }
+        if ($format === '') {
+            return [];
+        }
+        return [\Kibo\Phast\Filters\Image\Image::TYPE_WEBP];
     }
     private function proxySupportsAccept(\Kibo\Phast\HTTP\Request $request)
     {
-        return !$request->isCloudflare();
+        return !empty($this->config['images']['cloudflareSupportsAcceptHeader']) || !$request->isCloudflare();
+    }
+    private function usesCloudflareConfiguredPreferredTypes(\Kibo\Phast\HTTP\Request $request)
+    {
+        return $request->isCloudflare() && empty($this->config['images']['cloudflareSupportsAcceptHeader']);
     }
 }
 namespace Kibo\Phast\Services\Scripts;
@@ -5911,12 +6009,12 @@ trait ServiceFactoryTrait
     {
         $retriever = new \Kibo\Phast\Retrievers\UniversalRetriever();
         $retriever->addRetriever(new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']));
-        $retriever->addRetriever(new \Kibo\Phast\Retrievers\CachingRetriever(new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], $cacheNamespace), (new \Kibo\Phast\Retrievers\RemoteRetrieverFactory())->make($config)));
+        $retriever->addRetriever(new \Kibo\Phast\Retrievers\CachingRetriever((new \Kibo\Phast\Cache\Factory($config['cache']))->getCache($cacheNamespace), (new \Kibo\Phast\Retrievers\RemoteRetrieverFactory())->make($config)));
         return $retriever;
     }
     public function makeCachingServiceFilter(array $config, \Kibo\Phast\Filters\Service\CompositeFilter $compositeFilter, $cacheNamespace)
     {
-        return new \Kibo\Phast\Filters\Service\CachingServiceFilter(new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], $cacheNamespace), $compositeFilter, new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']));
+        return new \Kibo\Phast\Filters\Service\CachingServiceFilter((new \Kibo\Phast\Cache\Factory($config['cache']))->getCache($cacheNamespace), $compositeFilter, new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']));
     }
 }
 namespace Kibo\Phast\Services;
@@ -6264,7 +6362,7 @@ class ServiceRequest
         }
         $url = \Kibo\Phast\ValueObjects\URL::fromString($params['src']);
         $ext = strtolower($url->getExtension());
-        if (preg_match('/^(jpe?g|gif|png|js|css)$/', $ext)) {
+        if (preg_match('/^(jpe?g|gif|png|webp|avif|js|css)$/', $ext)) {
             return $ext;
         }
         return $default;
@@ -6492,7 +6590,7 @@ namespace Kibo\Phast\ValueObjects;
 
 class Resource
 {
-    const EXTENSION_TO_MIME_TYPE = ['gif' => 'image/gif', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'bmp' => 'image/bmp', 'webp' => 'image/webp', 'svg' => 'image/svg+xml', 'css' => 'text/css', 'js' => 'application/javascript', 'json' => 'application/json'];
+    const EXTENSION_TO_MIME_TYPE = ['gif' => 'image/gif', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'bmp' => 'image/bmp', 'webp' => 'image/webp', 'avif' => 'image/avif', 'svg' => 'image/svg+xml', 'css' => 'text/css', 'js' => 'application/javascript', 'json' => 'application/json'];
     /**
      * @var URL
      */
@@ -6770,6 +6868,7 @@ class URL
         if ($requested[0] == '/') {
             return $requested;
         }
+        $base = (string) $base;
         if (substr($base, -1, 1) == '/') {
             $usedBase = $base;
         } else {
@@ -8337,6 +8436,24 @@ class ServiceSDK
         return $this->environmentIdentifier;
     }
 }
+namespace Kibo\Phast\Cache\BlackHole;
+
+class Cache implements \Kibo\Phast\Cache\Cache
+{
+    public function __construct(array $config = [], string $namespace = '')
+    {
+    }
+    public function get($key, ?callable $cached = null, $expiresIn = 0)
+    {
+        if ($cached === null) {
+            return null;
+        }
+        return $cached();
+    }
+    public function set($key, $value, $expiresIn = 0)
+    {
+    }
+}
 namespace Kibo\Phast\Common;
 
 class JSMinifier extends \Kibo\Phast\JSMin\JSMin
@@ -8539,7 +8656,7 @@ class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
         $localRetriever = new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']);
         $retriever = new \Kibo\Phast\Retrievers\UniversalRetriever();
         $retriever->addRetriever($localRetriever);
-        $retriever->addRetriever(new \Kibo\Phast\Retrievers\CachingRetriever(new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'css')));
+        $retriever->addRetriever(new \Kibo\Phast\Retrievers\CachingRetriever((new \Kibo\Phast\Cache\Factory($config['cache']))->getCache('css')));
         if (!isset($config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class]['serviceUrl'])) {
             $config['documents']['filters'][\Kibo\Phast\Filters\HTML\CSSInlining\Filter::class]['serviceUrl'] = $config['servicesUrl'];
         }
@@ -9126,7 +9243,7 @@ class Factory implements \Kibo\Phast\Filters\Image\ImageFilterFactory
 {
     public function make(array $config)
     {
-        $signature = new \Kibo\Phast\Security\ServiceSignature(new \Kibo\Phast\Cache\Sqlite\Cache($config['cache'], 'api-service-signature'));
+        $signature = new \Kibo\Phast\Security\ServiceSignature((new \Kibo\Phast\Cache\Factory($config['cache']))->getCache('api-service-signature'));
         return new \Kibo\Phast\Filters\Image\ImageAPIClient\Filter($config['images']['filters'][\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class], $signature, (new \Kibo\Phast\HTTP\ClientFactory())->make($config));
     }
 }
@@ -9204,10 +9321,25 @@ class Filter implements \Kibo\Phast\Filters\Image\ImageFilter
     private function getRequestHeaders(\Kibo\Phast\Filters\Image\Image $image, array $request)
     {
         $headers = ['X-Phast-Image-API-Client' => $this->getRequestToken(), 'Content-Type' => 'application/octet-stream'];
-        if (isset($request['preferredType']) && $request['preferredType'] == \Kibo\Phast\Filters\Image\Image::TYPE_WEBP) {
-            $headers['Accept'] = 'image/webp';
+        if (isset($request['preferredType'])) {
+            $preferredTypes = $this->getPreferredTypes($request['preferredType']);
+            if (!empty($preferredTypes)) {
+                $headers['Accept'] = implode(',', $preferredTypes);
+            }
         }
         return $headers;
+    }
+    private function getPreferredTypes($preferredType)
+    {
+        $types = is_array($preferredType) ? $preferredType : preg_split('/\\s*,\\s*/', (string) $preferredType, -1, PREG_SPLIT_NO_EMPTY);
+        $result = [];
+        foreach ($types as $type) {
+            $type = trim($type);
+            if (in_array($type, [\Kibo\Phast\Filters\Image\Image::TYPE_AVIF, \Kibo\Phast\Filters\Image\Image::TYPE_WEBP], true) && !in_array($type, $result, true)) {
+                $result[] = $type;
+            }
+        }
+        return $result;
     }
     private function getRequestToken()
     {
@@ -9268,7 +9400,7 @@ class CachingServiceFilter implements \Kibo\Phast\Services\ServiceFilter
     public function apply(\Kibo\Phast\ValueObjects\Resource $resource, array $request)
     {
         $key = $this->cachedFilter->getCacheSalt($resource, $request);
-        $this->logger()->info('Trying to get {url} from cache', ['url' => (string) $resource->getUrl()]);
+        $this->logger()->info('Trying to get {url} from cache', ['url' => (string) $resource->getUrl() ?: '(no url)']);
         $result = $this->cache->get($key);
         if (isset($result['encoding']) && $result['encoding'] != 'identity') {
             $result = null;
@@ -9569,7 +9701,7 @@ class LocalRetriever implements \Kibo\Phast\Retrievers\Retriever
     }
     public static function getAllowedExtensions()
     {
-        return ['css', 'js', 'bmp', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'svg', 'txt'];
+        return ['css', 'js', 'bmp', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'ico', 'svg', 'txt'];
     }
     public function retrieve(\Kibo\Phast\ValueObjects\URL $url)
     {

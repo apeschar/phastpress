@@ -1,11 +1,11 @@
 # PhastPress
 
 **Plugin URI**: https://kiboit.com/?ref=phastpress-wporg\
-**Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, async, asynchronous, gtmetrix\
+**Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, avif, async, asynchronous, gtmetrix\
 **Requires at least**: 6.2\
 **Requires PHP**: 7.3\
-**Stable tag**: 3.9\
-**Tested up to**: 6.8\
+**Stable tag**: 3.10\
+**Tested up to**: 7.0\
 **License**: AGPL-3.0\
 **Contributors**: apeschar
 
@@ -24,7 +24,7 @@ PhastPress has the Phast web page optimisation engine by [Albert Peschar](https:
 
 * Phast optimizes images using PNG quantization ([pngquant](https://pngquant.org/)) and JPEG recoding ([libjpeg-turbo](https://libjpeg-turbo.org/)).
 * Phast inlines small images (< 512 bytes) in the page.
-* Phast converts JPEG images into WebP for supporting browsers.
+* Phast converts JPEG images into AVIF or WebP for supporting browsers.
 * Phast enables [native lazy loading](https://web.dev/native-lazy-loading/) to speed up page loading and save bandwidth.
 
 **Asynchronous scripts and stylesheets:**
@@ -205,11 +205,17 @@ add_filter('phastpress_csp_nonce', function () {
     return 'my-nonce';
 });`
 
-### Why do images not get converted to WebP when using Cloudflare?
+### Why are images converted to WebP instead of AVIF when using Cloudflare?
 
-Cloudflare [does not support `Vary: Accept`](https://serverfault.com/questions/780882/impossible-to-serve-webp-images-using-cloudflare), so sending WebP via Cloudflare can cause browsers that don't support WebP to download the wrong image type. You can try using [Cloudflare Polish](https://support.cloudflare.com/hc/en-us/articles/360000607372-Using-Cloudflare-Polish-to-compress-images) instead.
+Cloudflare [does not support `Vary: Accept`](https://serverfault.com/questions/780882/impossible-to-serve-webp-images-using-cloudflare), so PhastPress always converts images to WebP when requests pass through Cloudflare. This avoids serving AVIF to browsers that do not support it.
 
 ## Changelog
+
+### 3.10 - 2026-06-19
+
+* WebP image compression support for sites served via Cloudflare.
+* AVIF image compression support.
+* Bump "Tested up to" to WordPress 7.0.
 
 ### 3.9 - 2026-02-11
 
