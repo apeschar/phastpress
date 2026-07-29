@@ -768,7 +768,7 @@ class DefaultConfiguration
     public static function get()
     {
         $request = \Kibo\Phast\HTTP\Request::fromGlobals();
-        return ['securityToken' => null, 'retrieverMap' => [$request->getHost() => $request->getDocumentRoot()], 'httpClient' => \Kibo\Phast\HTTP\CURLClient::class, 'cache' => ['implementation' => \Kibo\Phast\Cache\Sqlite\Cache::class, 'cacheRoot' => sys_get_temp_dir() . '/phast-cache-' . (new \Kibo\Phast\Common\System())->getUserId(), 'maxSize' => 1024 * 1024 * 1024], 'servicesUrl' => '/phast.php', 'serviceRequestFormat' => \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH, 'compressServiceResponse' => true, 'optimizeHTMLDocumentsOnly' => true, 'optimizeJSONResponses' => false, 'outputServerSideStats' => true, 'documents' => ['maxBufferSizeToApply' => 2 * 1024 * 1024, 'baseUrl' => $request->getAbsoluteURI(), 'filters' => [\Kibo\Phast\Filters\HTML\CommentsRemoval\Filter::class => [], \Kibo\Phast\Filters\HTML\MetaCharset\Filter::class => [], \Kibo\Phast\Filters\HTML\Minify\Filter::class => [], \Kibo\Phast\Filters\HTML\MinifyScripts\Filter::class => [], \Kibo\Phast\Filters\HTML\BaseURLSetter\Filter::class => [], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter::class => [], \Kibo\Phast\Filters\HTML\LazyImageLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\CSSInlining\Filter::class => ['optimizerSizeDiffThreshold' => 1024, 'whitelist' => ['~^https?://fonts\\.googleapis\\.com/~' => ['ieCompatible' => false], '~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~', '~^https?://maxcdn\\.bootstrapcdn\\.com/[^?#]*\\.css~', '~^https?://idangero\\.us/~', '~^https?://[^/]*\\.github\\.io/~', '~^https?://\\w+\\.typekit\\.net/~' => ['ieCompatible' => false], '~^https?://stackpath\\.bootstrapcdn\\.com/~', '~^https?://cdnjs\\.cloudflare\\.com/~']], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class => [], \Kibo\Phast\Filters\HTML\DelayedIFrameLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class => ['urlRefreshTime' => 7200], \Kibo\Phast\Filters\HTML\Diagnostics\Filter::class => ['enabled' => 'diagnostics'], \Kibo\Phast\Filters\HTML\ScriptsDeferring\Filter::class => [], \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter::class => []]], 'images' => [
+        return ['securityToken' => null, 'retrieverMap' => [], 'httpClient' => \Kibo\Phast\HTTP\CURLClient::class, 'cache' => ['implementation' => \Kibo\Phast\Cache\Sqlite\Cache::class, 'cacheRoot' => sys_get_temp_dir() . '/phast-cache-' . (new \Kibo\Phast\Common\System())->getUserId(), 'maxSize' => 1024 * 1024 * 1024], 'servicesUrl' => '/phast.php', 'serviceRequestFormat' => \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH, 'compressServiceResponse' => true, 'optimizeHTMLDocumentsOnly' => true, 'optimizeJSONResponses' => false, 'outputServerSideStats' => true, 'documents' => ['maxBufferSizeToApply' => 2 * 1024 * 1024, 'baseUrl' => $request->getAbsoluteURI(), 'filters' => [\Kibo\Phast\Filters\HTML\CommentsRemoval\Filter::class => [], \Kibo\Phast\Filters\HTML\MetaCharset\Filter::class => [], \Kibo\Phast\Filters\HTML\Minify\Filter::class => [], \Kibo\Phast\Filters\HTML\MinifyScripts\Filter::class => [], \Kibo\Phast\Filters\HTML\BaseURLSetter\Filter::class => [], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\Tags\Filter::class => [], \Kibo\Phast\Filters\HTML\LazyImageLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\CSSInlining\Filter::class => ['optimizerSizeDiffThreshold' => 1024, 'whitelist' => ['~^https?://fonts\\.googleapis\\.com/~' => ['ieCompatible' => false], '~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~', '~^https?://maxcdn\\.bootstrapcdn\\.com/[^?#]*\\.css~', '~^https?://idangero\\.us/~', '~^https?://[^/]*\\.github\\.io/~', '~^https?://\\w+\\.typekit\\.net/~' => ['ieCompatible' => false], '~^https?://stackpath\\.bootstrapcdn\\.com/~', '~^https?://cdnjs\\.cloudflare\\.com/~']], \Kibo\Phast\Filters\HTML\ImagesOptimizationService\CSS\Filter::class => [], \Kibo\Phast\Filters\HTML\DelayedIFrameLoading\Filter::class => [], \Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class => ['urlRefreshTime' => 7200], \Kibo\Phast\Filters\HTML\Diagnostics\Filter::class => ['enabled' => 'diagnostics'], \Kibo\Phast\Filters\HTML\ScriptsDeferring\Filter::class => [], \Kibo\Phast\Filters\HTML\PhastScriptsCompiler\Filter::class => []]], 'images' => [
             'enable-cache' => 'imgcache',
             'api-mode' => false,
             // Cloudflare caches do not reliably vary images by Accept by default,
@@ -779,7 +779,7 @@ class DefaultConfiguration
             'maxImageInliningSize' => 512,
             'whitelist' => ['~^https?://ajax\\.googleapis\\.com/ajax/libs/jqueryui/~'],
             'filters' => [\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class => ['api-url' => 'https://optimize.phast.io/?service=images', 'host-name' => $request->getHost(), 'request-uri' => $request->getURI(), 'plugin-version' => 'phast-core-1.0']],
-        ], 'styles' => ['filters' => [\Kibo\Phast\Filters\Text\Decode\Filter::class => [], \Kibo\Phast\Filters\CSS\ImportsStripper\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSMinifier\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSURLRewriter\Filter::class => [], \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['maxImageInliningSize' => 512], \Kibo\Phast\Filters\CSS\FontSwap\Filter::class => []]], 'logging' => ['logWriters' => [['class' => \Kibo\Phast\Logging\LogWriters\PHPError\Writer::class, 'levelMask' => \Kibo\Phast\Logging\LogLevel::EMERGENCY | \Kibo\Phast\Logging\LogLevel::ALERT | \Kibo\Phast\Logging\LogLevel::CRITICAL | \Kibo\Phast\Logging\LogLevel::ERROR | \Kibo\Phast\Logging\LogLevel::WARNING], ['enabled' => 'diagnostics', 'class' => \Kibo\Phast\Logging\LogWriters\JSONLFile\Writer::class, 'logRoot' => sys_get_temp_dir() . '/phast-logs']]], 'switches' => ['phast' => true, 'diagnostics' => false], 'scripts' => ['removeLicenseHeaders' => false, 'whitelist' => ['~^https?://' . preg_quote((string) $request->getHost(), '~') . '/~']], 'csp' => ['nonce' => null, 'reportOnly' => false, 'reportUri' => null]];
+        ], 'styles' => ['filters' => [\Kibo\Phast\Filters\Text\Decode\Filter::class => [], \Kibo\Phast\Filters\CSS\ImportsStripper\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSMinifier\Filter::class => [], \Kibo\Phast\Filters\CSS\CSSURLRewriter\Filter::class => [], \Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['maxImageInliningSize' => 512], \Kibo\Phast\Filters\CSS\FontSwap\Filter::class => []]], 'logging' => ['logWriters' => [['class' => \Kibo\Phast\Logging\LogWriters\PHPError\Writer::class, 'levelMask' => \Kibo\Phast\Logging\LogLevel::EMERGENCY | \Kibo\Phast\Logging\LogLevel::ALERT | \Kibo\Phast\Logging\LogLevel::CRITICAL | \Kibo\Phast\Logging\LogLevel::ERROR | \Kibo\Phast\Logging\LogLevel::WARNING], ['enabled' => 'diagnostics', 'class' => \Kibo\Phast\Logging\LogWriters\JSONLFile\Writer::class, 'logRoot' => sys_get_temp_dir() . '/phast-logs']]], 'switches' => ['phast' => true, 'diagnostics' => false], 'scripts' => ['removeLicenseHeaders' => false, 'whitelist' => []], 'csp' => ['nonce' => null, 'reportOnly' => false, 'reportUri' => null]];
     }
 }
 namespace Kibo\Phast\Environment;
@@ -2078,6 +2078,10 @@ class Factory implements \Kibo\Phast\Filters\HTML\HTMLFilterFactory
         }
         $filterConfig = $config['documents']['filters'][\Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter::class];
         $filterConfig['match'] = $config['scripts']['whitelist'];
+        unset($filterConfig['environment']);
+        if (isset($config['scripts']['environment']) && is_string($config['scripts']['environment']) && $config['scripts']['environment'] !== '') {
+            $filterConfig['environment'] = $config['scripts']['environment'];
+        }
         return new \Kibo\Phast\Filters\HTML\ScriptsProxyService\Filter($filterConfig, (new \Kibo\Phast\Security\ServiceSignatureFactory())->make($config), new \Kibo\Phast\Retrievers\LocalRetriever($config['retrieverMap']), (new \Kibo\Phast\Services\Bundler\TokenRefMakerFactory())->make($config));
     }
 }
@@ -4984,9 +4988,10 @@ namespace Kibo\Phast;
 class PhastServices
 {
     /**
-     * @param callable|null $getConfig
+     * @param callable|null $getConfig Returns the user configuration
+     * @param bool $provideServiceRequest Pass the parsed request to $getConfig
      */
-    public static function serve(?callable $getConfig = null)
+    public static function serve(?callable $getConfig = null, bool $provideServiceRequest = false)
     {
         $httpRequest = \Kibo\Phast\HTTP\Request::fromGlobals();
         if ($httpRequest->getHeader('CDN-Loop') && preg_match('~(^|,)\\s*Phast\\b~', $httpRequest->getHeader('CDN-Loop'))) {
@@ -5014,6 +5019,8 @@ class PhastServices
         }
         if ($getConfig === null) {
             $config = [];
+        } elseif ($provideServiceRequest) {
+            $config = $getConfig($serviceRequest);
         } else {
             $config = $getConfig();
         }
@@ -7132,9 +7139,9 @@ class Service
      */
     public function serve()
     {
-        \Kibo\Phast\PhastServices::serve(function () {
-            return $this->config->get();
-        });
+        \Kibo\Phast\PhastServices::serve(function (\Kibo\Phast\Services\ServiceRequest $request) {
+            return $this->config->get($request);
+        }, true);
     }
 }
 namespace Kibo\PhastPlugins\SDK\AdminPanel;
@@ -7686,6 +7693,18 @@ trait PluginHostTrait
     {
         return new \Kibo\PhastPlugins\SDK\AdminPanel\DefaultInstallNoticeRenderer();
     }
+    /**
+     * Returns trusted URLs while the host application is fully loaded.
+     * They are persisted in the generated service configuration.
+     *
+     * @return \Kibo\Phast\ValueObjects\URL[]
+     */
+    public function getScriptSourceURLs()
+    {
+        $hostURLs = $this->getHostURLs();
+        $siteURL = $hostURLs->getSiteURL();
+        return [$siteURL, $hostURLs->getCDNURL($siteURL)];
+    }
 }
 namespace Kibo\PhastPlugins\SDK\Common;
 
@@ -7783,7 +7802,28 @@ class EnvironmentIdentifier
     private $value;
     public function __construct()
     {
-        $this->value = sprintf('%s://%s%s', empty($_SERVER['HTTPS']) ? 'http' : 'https', empty($_SERVER['HTTP_HOST']) ? '' : $_SERVER['HTTP_HOST'], empty($_SERVER['SERVER_PORT']) ? '' : ":{$_SERVER['SERVER_PORT']}");
+        $this->value = self::fromParts(empty($_SERVER['HTTPS']) ? 'http' : 'https', empty($_SERVER['HTTP_HOST']) ? '' : $_SERVER['HTTP_HOST'], empty($_SERVER['SERVER_PORT']) ? null : $_SERVER['SERVER_PORT']);
+    }
+    public static function fromParts($scheme, $host, $port = null)
+    {
+        $scheme = strtolower($scheme);
+        $host = strtolower($host);
+        $parsed = parse_url($scheme . '://' . $host);
+        if ($parsed !== false && isset($parsed['host'])) {
+            $host = $parsed['host'];
+            if (isset($parsed['port'])) {
+                $port = $parsed['port'];
+            }
+        }
+        if ($scheme === 'http' && (int) $port === 80 || $scheme === 'https' && (int) $port === 443) {
+            $port = null;
+        }
+        return sprintf('%s://%s%s', $scheme, $host, empty($port) ? '' : ':' . $port);
+    }
+    public static function makeKey($value)
+    {
+        $digest = substr(hash('sha256', (string) $value, true), 0, 16);
+        return rtrim(strtr(base64_encode($digest), '+/', '-_'), '=');
     }
     public function getValue()
     {
@@ -8122,13 +8162,41 @@ class ServiceConfiguration
      *
      * @return array|bool|mixed
      */
-    public function get()
+    public function get(\Kibo\Phast\Services\ServiceRequest $serviceRequest = null)
     {
         $config = $this->repository->get();
-        $envId = $this->environmentIdentifier->getValue();
-        if (isset($config['alternativeServicesUrls'][$envId])) {
-            $config['servicesUrl'] = $config['alternativeServicesUrls'][$envId];
+        $environment = null;
+        unset($config['scripts']['environment']);
+        if ($serviceRequest === null) {
+            $environmentId = $this->environmentIdentifier->getValue();
+            $environmentKey = \Kibo\PhastPlugins\SDK\Configuration\EnvironmentIdentifier::makeKey($environmentId);
+            if (isset($config['scriptEnvironments'][$environmentKey]) && is_array($config['scriptEnvironments'][$environmentKey]) && isset($config['scriptEnvironments'][$environmentKey]['environment']) && $config['scriptEnvironments'][$environmentKey]['environment'] === $environmentId && $this->isValidScriptEnvironment($config['scriptEnvironments'][$environmentKey])) {
+                $environment = $config['scriptEnvironments'][$environmentKey];
+                $config['scripts']['environment'] = $environmentKey;
+            }
+        } else {
+            $params = $serviceRequest->getParams();
+            if (isset($params['service']) && $params['service'] === 'scripts' && isset($params['environment']) && isset($config['scriptEnvironments'][$params['environment']]) && is_array($config['scriptEnvironments'][$params['environment']]) && $this->isValidScriptEnvironment($config['scriptEnvironments'][$params['environment']]) && $this->matchesServiceQuery($config['scriptEnvironments'][$params['environment']], $serviceRequest)) {
+                $environment = $config['scriptEnvironments'][$params['environment']];
+            }
         }
+        if ($environment !== null) {
+            if ($serviceRequest === null) {
+                $config['servicesUrl'] = $environment['servicesUrl'];
+            }
+            $config['scripts']['whitelist'] = $environment['whitelist'];
+        } elseif ($serviceRequest !== null) {
+            $config['scripts']['whitelist'] = $this->getFallbackScriptWhitelist($config, $serviceRequest);
+        } else {
+            $config['scripts']['whitelist'] = [];
+        }
+        if ($serviceRequest !== null) {
+            $config['servicesUrl'] = $this->getRequestRelativeServicesUrl($serviceRequest);
+        }
+        unset($config['scriptEnvironments']);
+        unset($config['alternativeServicesUrls']);
+        unset($config['scriptWhitelists']);
+        unset($config['scriptWhitelistSources']);
         if (!empty($config['cdnHost'])) {
             $config['retrieverMap'][$config['cdnHost']] = \Kibo\Phast\HTTP\Request::fromGlobals()->getDocumentRoot();
         }
@@ -8143,11 +8211,70 @@ class ServiceConfiguration
         $config['images']['filters'][$apiFilterName]['api-url'] = 'https://optimize.phast.io/?service=images';
         return call_user_func($this->onLoadCb, $config);
     }
+    private function matchesServiceQuery(array $environment, \Kibo\Phast\Services\ServiceRequest $serviceRequest)
+    {
+        if (!isset($environment['servicesUrl'])) {
+            return false;
+        }
+        if ($serviceRequest->getHTTPRequest() === null) {
+            return true;
+        }
+        $servicesURL = \Kibo\Phast\ValueObjects\URL::fromString($environment['servicesUrl']);
+        $serviceQuery = [];
+        parse_str((string) $servicesURL->getQuery(), $serviceQuery);
+        $params = $serviceRequest->getParams();
+        foreach ($serviceQuery as $key => $value) {
+            if (!isset($params[$key]) || $params[$key] != $value) {
+                return false;
+            }
+        }
+        return true;
+    }
+    private function getRequestRelativeServicesUrl(\Kibo\Phast\Services\ServiceRequest $serviceRequest)
+    {
+        $httpRequest = $serviceRequest->getHTTPRequest();
+        if ($httpRequest === null) {
+            return '/';
+        }
+        $path = parse_url((string) $httpRequest->getURI(), PHP_URL_PATH);
+        if (!is_string($path) || $path === '') {
+            return '/';
+        }
+        $pathInfo = $httpRequest->getPathInfo();
+        if (is_string($pathInfo) && $pathInfo !== '' && substr($path, -strlen($pathInfo)) === $pathInfo) {
+            $path = substr($path, 0, -strlen($pathInfo));
+        }
+        return $path === '' ? '/' : $path;
+    }
+    private function getFallbackScriptWhitelist(array $config, \Kibo\Phast\Services\ServiceRequest $serviceRequest)
+    {
+        $params = $serviceRequest->getParams();
+        if (!isset($params['service']) || $params['service'] !== 'scripts' || isset($params['environment']) || !isset($config['scriptEnvironments']) || !is_array($config['scriptEnvironments'])) {
+            return [];
+        }
+        $whitelist = [];
+        foreach ($config['scriptEnvironments'] as $environment) {
+            if (!is_array($environment) || !$this->isValidScriptEnvironment($environment) || !$this->matchesServiceQuery($environment, $serviceRequest)) {
+                continue;
+            }
+            $whitelist = array_merge($whitelist, $environment['whitelist']);
+        }
+        return array_values(array_unique($whitelist));
+    }
+    private function isValidScriptEnvironment(array $environment)
+    {
+        if (!isset($environment['environment']) || !isset($environment['servicesUrl']) || !isset($environment['whitelist']) || !is_array($environment['whitelist'])) {
+            return false;
+        }
+        return !array_key_exists('expiresAt', $environment) || is_numeric($environment['expiresAt']) && $environment['expiresAt'] > time();
+    }
 }
 namespace Kibo\PhastPlugins\SDK\Configuration;
 
 class ServiceConfigurationGenerator
 {
+    const MAX_SCRIPT_ENVIRONMENTS = 1000;
+    const SCRIPT_ENVIRONMENT_TTL = 2592000;
     /**
      * @var ServiceConfigurationRepository
      */
@@ -8173,6 +8300,10 @@ class ServiceConfigurationGenerator
      */
     private $cdnHost;
     /**
+     * @var string[]
+     */
+    private $scriptWhitelist;
+    /**
      * @var ?string
      */
     private $securityTokenRoot;
@@ -8186,6 +8317,13 @@ class ServiceConfigurationGenerator
         $this->servicesUrl = $hostUrls->getServicesURL();
         $this->cdnServicesUrl = $hostUrls->getCDNURL($hostUrls->getServicesURL());
         $this->cdnHost = $hostUrls->getCDNURL($hostUrls->getSiteURL())->getHost();
+        if (method_exists($host, 'getScriptSourceURLs')) {
+            $scriptSourceURLs = $host->getScriptSourceURLs();
+        } else {
+            $siteURL = $hostUrls->getSiteURL();
+            $scriptSourceURLs = [$siteURL, $hostUrls->getCDNURL($siteURL)];
+        }
+        $this->scriptWhitelist = $this->makeScriptWhitelist($scriptSourceURLs);
     }
     public function generateIfNotExists(\Kibo\PhastPlugins\SDK\Configuration\PluginConfiguration $pluginConfig)
     {
@@ -8193,8 +8331,7 @@ class ServiceConfigurationGenerator
             return $this->generate($pluginConfig);
         }
         $config = $this->repository->get();
-        $envId = $this->environmentIdentifier->getValue();
-        if (empty($config['plugin_version']) || $config['plugin_version'] != $this->pluginVersion || empty($config['alternativeServicesUrls'][$envId]) || $config['alternativeServicesUrls'][$envId] != $this->getServicesURLString($pluginConfig)) {
+        if (empty($config['plugin_version']) || $config['plugin_version'] != $this->pluginVersion || !$this->hasCurrentScriptEnvironment($config, $pluginConfig)) {
             return $this->generate($pluginConfig);
         }
         return true;
@@ -8202,19 +8339,47 @@ class ServiceConfigurationGenerator
     public function generate(\Kibo\PhastPlugins\SDK\Configuration\PluginConfiguration $pluginConfig)
     {
         $previousConfig = $this->repository->get();
+        if (!is_array($previousConfig)) {
+            $previousConfig = [];
+        }
+        $config = $this->makeConfig($pluginConfig, $previousConfig);
+        if ($this->repository instanceof \Kibo\PhastPlugins\SDK\Configuration\AtomicServiceConfigurationRepository) {
+            return $this->repository->update(function (array $latestConfig) use($pluginConfig) {
+                return $this->makeConfig($pluginConfig, $latestConfig);
+            });
+        }
+        return $this->repository->store($config);
+    }
+    private function makeConfig(\Kibo\PhastPlugins\SDK\Configuration\PluginConfiguration $pluginConfig, array $previousConfig)
+    {
         $plugin_config = $pluginConfig->get();
         $plugin_version = $this->pluginVersion;
-        $config = ['plugin_version' => $plugin_version, 'servicesUrl' => $this->getServicesURLString($pluginConfig), 'securityToken' => $this->getSecurityToken($previousConfig), 'images' => ['filters' => [\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class => ['enabled' => $plugin_config['img-optimization-api'], 'plugin-version' => $plugin_version]]], 'styles' => ['filters' => [\Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['enabled' => $plugin_config['img-optimization-css']]]], 'serviceRequestFormat' => $plugin_config['pathinfo-query-format'] ? \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH : \Kibo\Phast\Services\ServiceRequest::FORMAT_QUERY, 'compressServiceResponse' => isset($plugin_config['compress-service-response']) ? !!$plugin_config['compress-service-response'] : true, 'cdnHost' => $this->cdnHost];
-        if (isset($previousConfig['alternativeServicesUrls'])) {
-            $config['alternativeServicesUrls'] = $previousConfig['alternativeServicesUrls'];
+        $config = ['plugin_version' => $plugin_version, 'servicesUrl' => $this->getServicesURLString($pluginConfig), 'securityToken' => $this->getSecurityToken($previousConfig), 'images' => ['filters' => [\Kibo\Phast\Filters\Image\ImageAPIClient\Filter::class => ['enabled' => $plugin_config['img-optimization-api'], 'plugin-version' => $plugin_version]]], 'styles' => ['filters' => [\Kibo\Phast\Filters\CSS\ImageURLRewriter\Filter::class => ['enabled' => $plugin_config['img-optimization-css']]]], 'serviceRequestFormat' => $plugin_config['pathinfo-query-format'] ? \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH : \Kibo\Phast\Services\ServiceRequest::FORMAT_QUERY, 'compressServiceResponse' => isset($plugin_config['compress-service-response']) ? !!$plugin_config['compress-service-response'] : true, 'cdnHost' => $this->cdnHost, 'scripts' => ['whitelist' => []]];
+        if (isset($previousConfig['scriptEnvironments']) && is_array($previousConfig['scriptEnvironments'])) {
+            $scriptEnvironments = $previousConfig['scriptEnvironments'];
         } else {
-            $config['alternativeServicesUrls'] = [];
+            $scriptEnvironments = [];
         }
-        $id = $this->environmentIdentifier->getValue();
-        unset($config['alternativeServicesUrls'][$id]);
-        $config['alternativeServicesUrls'][$id] = $this->getServicesURLString($pluginConfig);
-        $config['alternativeServicesUrls'] = array_slice($config['alternativeServicesUrls'], -1000);
-        return $this->repository->store($config);
+        $now = time();
+        foreach ($scriptEnvironments as $key => $scriptEnvironment) {
+            if (!is_array($scriptEnvironment)) {
+                unset($scriptEnvironments[$key]);
+                continue;
+            }
+            if (array_key_exists('expiresAt', $scriptEnvironment)) {
+                if (!is_numeric($scriptEnvironment['expiresAt']) || $scriptEnvironment['expiresAt'] <= $now) {
+                    unset($scriptEnvironments[$key]);
+                }
+                continue;
+            }
+            $scriptEnvironments[$key]['expiresAt'] = $now + self::SCRIPT_ENVIRONMENT_TTL;
+        }
+        $environmentId = $this->environmentIdentifier->getValue();
+        $environmentKey = \Kibo\PhastPlugins\SDK\Configuration\EnvironmentIdentifier::makeKey($environmentId);
+        unset($scriptEnvironments[$environmentKey]);
+        $scriptEnvironments[$environmentKey] = ['environment' => $environmentId, 'servicesUrl' => $this->getServicesURLString($pluginConfig), 'whitelist' => $this->scriptWhitelist, 'expiresAt' => $now + self::SCRIPT_ENVIRONMENT_TTL];
+        $config['scriptEnvironments'] = array_slice($scriptEnvironments, -self::MAX_SCRIPT_ENVIRONMENTS, null, true);
+        return $config;
     }
     private function getSecurityToken($previousConfig)
     {
@@ -8233,6 +8398,50 @@ class ServiceConfigurationGenerator
             return (string) $this->cdnServicesUrl;
         }
         return (string) $this->servicesUrl;
+    }
+    private function hasCurrentScriptEnvironment(array $config, \Kibo\PhastPlugins\SDK\Configuration\PluginConfiguration $pluginConfig)
+    {
+        $environmentId = $this->environmentIdentifier->getValue();
+        $environmentKey = \Kibo\PhastPlugins\SDK\Configuration\EnvironmentIdentifier::makeKey($environmentId);
+        if (!isset($config['scriptEnvironments'][$environmentKey]) || !is_array($config['scriptEnvironments'][$environmentKey])) {
+            return false;
+        }
+        $environment = $config['scriptEnvironments'][$environmentKey];
+        $expected = ['environment' => $environmentId, 'servicesUrl' => $this->getServicesURLString($pluginConfig), 'whitelist' => $this->scriptWhitelist];
+        foreach ($expected as $key => $value) {
+            if (!array_key_exists($key, $environment) || $environment[$key] !== $value) {
+                return false;
+            }
+        }
+        if (!isset($environment['expiresAt']) || !is_numeric($environment['expiresAt'])) {
+            return false;
+        }
+        return $environment['expiresAt'] > time() + self::SCRIPT_ENVIRONMENT_TTL / 2;
+    }
+    private function makeScriptWhitelist(array $urls)
+    {
+        $patterns = [];
+        foreach ($urls as $url) {
+            if (!$url instanceof \Kibo\Phast\ValueObjects\URL) {
+                $url = \Kibo\Phast\ValueObjects\URL::fromString($url);
+            }
+            $scheme = strtolower((string) $url->getScheme());
+            $host = strtolower((string) $url->getHost());
+            if (!in_array($scheme, ['http', 'https']) || $host === '') {
+                continue;
+            }
+            $origin = \Kibo\PhastPlugins\SDK\Configuration\EnvironmentIdentifier::fromParts($scheme, $host, $url->getPort());
+            $authority = substr($origin, strlen($scheme . '://'));
+            $authorityPattern = preg_quote($authority, '~');
+            $port = $url->getPort();
+            if ($scheme === 'http' && (int) $port === 80 || $scheme === 'https' && (int) $port === 443) {
+                $authorityPattern .= '(?:' . preg_quote(':' . $port, '~') . ')?';
+            }
+            $patterns[] = '~^https?\\://' . $authorityPattern . '(?:/|$)~i';
+        }
+        $patterns = array_values(array_unique($patterns));
+        sort($patterns, SORT_STRING);
+        return $patterns;
     }
 }
 namespace Kibo\PhastPlugins\SDK\Configuration;
@@ -9193,8 +9402,8 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
     }
     private function makeProxiedURL(\Kibo\Phast\ValueObjects\URL $url, $cacheMarker)
     {
-        $params = ['service' => 'scripts', 'src' => (string) $url->withoutQuery(), 'cacheMarker' => $cacheMarker];
-        return (new \Kibo\Phast\Services\ServiceRequest())->withUrl(\Kibo\Phast\ValueObjects\URL::fromString($this->config['serviceUrl']))->withParams($params)->serialize();
+        $params = $this->withEnvironment(['service' => 'scripts', 'src' => (string) $url->withoutQuery(), 'cacheMarker' => $cacheMarker]);
+        return (new \Kibo\Phast\Services\ServiceRequest())->withUrl(\Kibo\Phast\ValueObjects\URL::fromString($this->config['serviceUrl']))->withParams($params)->sign($this->signature)->serialize();
     }
     private function makeServiceParams(\Kibo\Phast\ValueObjects\URL $url, $cacheMarker)
     {
@@ -9202,10 +9411,17 @@ class Filter extends \Kibo\Phast\Filters\HTML\BaseHTMLStreamFilter
     }
     private function addScript()
     {
-        $config = ['serviceUrl' => $this->config['serviceUrl'], 'pathInfo' => \Kibo\Phast\Services\ServiceRequest::getDefaultSerializationMode() === \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH, 'urlRefreshTime' => $this->config['urlRefreshTime'], 'whitelist' => $this->config['match']];
-        $script = \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/ScriptsProxyService/rewrite-function.js', "var config=phast.config[\"script-proxy-service\"];var urlPattern=/^(https?:)?\\/\\//;var typePattern=/^\\s*(application|text)\\/(x-)?(java|ecma|j|live)script/i;var cacheMarker=Math.floor((new Date).getTime()/1e3/config.urlRefreshTime);var whitelist=compileWhitelistPatterns(config.whitelist);phast.scripts.push(function(){overrideDOMMethod(\"appendChild\");overrideDOMMethod(\"insertBefore\")});function compileWhitelistPatterns(a){var b=/^(.)(.*)\\1([a-z]*)\$/i;var c=[];a.forEach(function(d){var e=b.exec(d);if(!e){window.console&&window.console.log(\"Phast: Not a pattern:\",d);return}try{c.push(new RegExp(e[2],e[3]))}catch(f){window.console&&window.console.log(\"Phast: Failed to compile pattern:\",d)}});return c}function checkWhitelist(g){for(var h=0;h<whitelist.length;h++){if(whitelist[h].exec(g)){return true}}return false}function overrideDOMMethod(i){var j=Element.prototype[i];var k=function(){var l=processNode(arguments[0]);var m=j.apply(this,arguments);l();return m};Element.prototype[i]=k;window.addEventListener(\"load\",function(){if(Element.prototype[i]===k){delete Element.prototype[i]}})}function processNode(n){if(!n||n.nodeType!==Node.ELEMENT_NODE||n.tagName!==\"SCRIPT\"||!urlPattern.test(n.src)||n.type&&!typePattern.test(n.type)||n.src.substr(0,config.serviceUrl.length)===config.serviceUrl||!checkWhitelist(n.src)){return function(){}}var o=n.src;n.src=phast.buildServiceUrl(config,{service:\"scripts\",src:o,cacheMarker:cacheMarker});n.setAttribute(\"data-phast-rewritten\",\"\");return function(){n.src=o}}\n");
+        $config = $this->withEnvironment(['serviceUrl' => $this->config['serviceUrl'], 'pathInfo' => \Kibo\Phast\Services\ServiceRequest::getDefaultSerializationMode() === \Kibo\Phast\Services\ServiceRequest::FORMAT_PATH, 'urlRefreshTime' => $this->config['urlRefreshTime'], 'whitelist' => $this->config['match']]);
+        $script = \Kibo\Phast\ValueObjects\PhastJavaScript::fromString('/home/albert/code/phast/src/Build/../../src/Filters/HTML/ScriptsProxyService/rewrite-function.js', "var config=phast.config[\"script-proxy-service\"];var urlPattern=/^(https?:)?\\/\\//;var typePattern=/^\\s*(application|text)\\/(x-)?(java|ecma|j|live)script/i;var cacheMarker=Math.floor((new Date).getTime()/1e3/config.urlRefreshTime);var whitelist=compileWhitelistPatterns(config.whitelist);phast.scripts.push(function(){overrideDOMMethod(\"appendChild\");overrideDOMMethod(\"insertBefore\")});function compileWhitelistPatterns(a){var b=/^(.)(.*)\\1([a-z]*)\$/i;var c=[];a.forEach(function(d){var e=b.exec(d);if(!e){window.console&&window.console.log(\"Phast: Not a pattern:\",d);return}try{c.push(new RegExp(e[2],e[3]))}catch(f){window.console&&window.console.log(\"Phast: Failed to compile pattern:\",d)}});return c}function checkWhitelist(g){for(var h=0;h<whitelist.length;h++){if(whitelist[h].exec(g)){return true}}return false}function overrideDOMMethod(i){var j=Element.prototype[i];var k=function(){var l=processNode(arguments[0]);var m=j.apply(this,arguments);l();return m};Element.prototype[i]=k;window.addEventListener(\"load\",function(){if(Element.prototype[i]===k){delete Element.prototype[i]}})}function processNode(n){if(!n||n.nodeType!==Node.ELEMENT_NODE||n.tagName!==\"SCRIPT\"||!urlPattern.test(n.src)||n.type&&!typePattern.test(n.type)||n.src.substr(0,config.serviceUrl.length)===config.serviceUrl||!checkWhitelist(n.src)){return function(){}}var o=n.src;var p={service:\"scripts\",src:o,cacheMarker:cacheMarker};if(typeof config.environment===\"string\"&&config.environment!==\"\"){p.environment=config.environment}n.src=phast.buildServiceUrl(config,p);n.setAttribute(\"data-phast-rewritten\",\"\");return function(){n.src=o}}\n");
         $script->setConfig('script-proxy-service', $config);
         $this->context->addPhastJavaScript($script);
+    }
+    private function withEnvironment(array $values)
+    {
+        if (isset($this->config['environment']) && is_string($this->config['environment']) && $this->config['environment'] !== '') {
+            $values['environment'] = $this->config['environment'];
+        }
+        return $values;
     }
     private function getAbsoluteURL($url)
     {
@@ -9852,12 +10068,24 @@ class DefaultInstallNoticeRenderer implements \Kibo\PhastPlugins\SDK\AdminPanel\
 }
 namespace Kibo\PhastPlugins\SDK\Configuration;
 
+interface AtomicServiceConfigurationRepository extends \Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationRepository
+{
+    /**
+     * Atomically replace the configuration with the value returned by $update.
+     *
+     * @param callable $update Receives the current configuration as an array.
+     * @return bool TRUE on success, FALSE on failure
+     */
+    public function update(callable $update);
+}
+namespace Kibo\PhastPlugins\SDK\Configuration;
+
 /**
  * A default implementation of the ServiceConfigurationRepository interface
  *
  * Class PHPFilesServiceConfigurationRepository
  */
-class PHPFilesServiceConfigurationRepository implements \Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationRepository
+class PHPFilesServiceConfigurationRepository implements \Kibo\PhastPlugins\SDK\Configuration\AtomicServiceConfigurationRepository
 {
     /**
      * @var CacheRootManager
@@ -9895,9 +10123,39 @@ class PHPFilesServiceConfigurationRepository implements \Kibo\PhastPlugins\SDK\C
     {
         return !!$this->get();
     }
+    public function update(callable $update)
+    {
+        $handle = @fopen($this->getServiceConfigurationLockPath(), 'c+');
+        if ($handle === false) {
+            return false;
+        }
+        if (!@flock($handle, LOCK_EX)) {
+            @fclose($handle);
+            return false;
+        }
+        $filename = $this->getServiceConfigurationFilePath();
+        $config = $this->get();
+        if (!is_array($config)) {
+            $config = [];
+        }
+        $config = call_user_func($update, $config);
+        if (!is_array($config)) {
+            @flock($handle, LOCK_UN);
+            @fclose($handle);
+            return false;
+        }
+        $result = $this->storeInPHPFile($filename, $config) !== false;
+        @flock($handle, LOCK_UN);
+        @fclose($handle);
+        return $result;
+    }
     private function getServiceConfigurationFilePath()
     {
         return $this->getCacheStoredFilePath('service-config');
+    }
+    private function getServiceConfigurationLockPath()
+    {
+        return $this->cacheRootManager->getCacheRoot() . '/service-config.lock';
     }
     private function getCacheStoredFilePath($filename)
     {
@@ -9932,6 +10190,10 @@ class PHPFilesServiceConfigurationRepository implements \Kibo\PhastPlugins\SDK\C
     private function readFromPHPFile($filename)
     {
         $content = @file_get_contents($filename);
+        return $this->decodePHPFileContent($content);
+    }
+    private function decodePHPFileContent($content)
+    {
         if (!$content) {
             return false;
         }
@@ -9945,9 +10207,13 @@ class PHPFilesServiceConfigurationRepository implements \Kibo\PhastPlugins\SDK\C
     }
     private function storeInPHPFile($filename, $value)
     {
-        $value = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n";
-        $content = "<?php exit; ?>\n" . sha1($value) . "\n" . $value;
+        $content = $this->encodePHPFileContent($value);
         return @file_put_contents($filename, $content, LOCK_EX);
+    }
+    private function encodePHPFileContent(array $value)
+    {
+        $value = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n";
+        return "<?php exit; ?>\n" . sha1($value) . "\n" . $value;
     }
 }
 namespace Kibo\PhastPlugins\SDK;
@@ -10039,6 +10305,10 @@ class SDK extends \Kibo\PhastPlugins\SDK\ServiceSDK
      */
     protected $host;
     /**
+     * @var ServiceConfigurationGenerator
+     */
+    private $serviceConfigurationGenerator;
+    /**
      * SDK constructor.
      * @param PluginHost $host
      */
@@ -10108,7 +10378,10 @@ class SDK extends \Kibo\PhastPlugins\SDK\ServiceSDK
     }
     private function getServiceConfigurationGenerator()
     {
-        return new \Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationGenerator($this->getPHPFilesServiceConfigurationRepository(), $this->getEnvironmentIdentifier(), $this->getPluginVersion(), $this->host);
+        if ($this->serviceConfigurationGenerator === null) {
+            $this->serviceConfigurationGenerator = new \Kibo\PhastPlugins\SDK\Configuration\ServiceConfigurationGenerator($this->getPHPFilesServiceConfigurationRepository(), $this->getEnvironmentIdentifier(), $this->getPluginVersion(), $this->host);
+        }
+        return $this->serviceConfigurationGenerator;
     }
     public function updatePreviewCookie($enable = true)
     {

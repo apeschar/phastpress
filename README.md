@@ -4,7 +4,7 @@
 **Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, avif, async, asynchronous, gtmetrix\
 **Requires at least**: 6.2\
 **Requires PHP**: 7.3\
-**Stable tag**: 3.10\
+**Stable tag**: 3.11\
 **Tested up to**: 7.0\
 **License**: AGPL-3.0\
 **Contributors**: apeschar
@@ -210,6 +210,10 @@ add_filter('phastpress_csp_nonce', function () {
 Cloudflare [does not support `Vary: Accept`](https://serverfault.com/questions/780882/impossible-to-serve-webp-images-using-cloudflare), so PhastPress always converts images to WebP when requests pass through Cloudflare. This avoids serving AVIF to browsers that do not support it.
 
 ## Changelog
+
+### 3.11 - 2026-07-29
+
+* Improve script optimization compatibility with multisite installations, CDNs, and path-rewriting service proxies.
 
 ### 3.10 - 2026-06-19
 

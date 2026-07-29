@@ -2,6 +2,7 @@
 
 namespace Kibo\PhastPlugins\PhastPress;
 
+use Kibo\Phast\ValueObjects\URL;
 use Kibo\PhastPlugins\SDK\Common\PluginHostTrait;
 use Kibo\PhastPlugins\SDK\PluginHost;
 
@@ -27,6 +28,35 @@ class PluginHostImplementation extends ServiceSDKImplementation implements Plugi
 
     public function getHostURLs() {
         return new HostURLsImplementation();
+    }
+
+    public function getScriptSourceURLs() {
+        $urls = [
+            home_url('/'),
+            site_url('/'),
+            content_url('/'),
+            plugins_url('/'),
+            includes_url('/'),
+        ];
+
+        if (is_multisite()) {
+            $urls[] = network_home_url('/');
+            $urls[] = network_site_url('/');
+        }
+
+        $hostURLs = $this->getHostURLs();
+        $urls = array_map([URL::class, 'fromString'], array_unique($urls));
+        $cdnURLs = [];
+        foreach ($urls as $url) {
+            $cdnURLs[] = $hostURLs->getCDNURL($url);
+        }
+        $urls = array_merge($urls, $cdnURLs);
+
+        $unique = [];
+        foreach ($urls as $url) {
+            $unique[$url->toString()] = $url;
+        }
+        return array_values($unique);
     }
 
     public function getInstallNoticeRenderer() {
