@@ -8162,7 +8162,7 @@ class ServiceConfiguration
      *
      * @return array|bool|mixed
      */
-    public function get(\Kibo\Phast\Services\ServiceRequest $serviceRequest = null)
+    public function get(?\Kibo\Phast\Services\ServiceRequest $serviceRequest = null)
     {
         $config = $this->repository->get();
         $environment = null;
