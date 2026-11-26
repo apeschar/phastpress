@@ -4,8 +4,8 @@
 **Tags**: pagespeed insights, optimization, page speed, optimisation, speed, performance, load time, loadtime, images, css, webp, avif, async, asynchronous, gtmetrix\
 **Requires at least**: 6.2\
 **Requires PHP**: 7.3\
-**Stable tag**: 3.13\
-**Tested up to**: 7.1\
+**Stable tag**: 3.14\
+**Tested up to**: 7.2\
 **License**: AGPL-3.0\
 **Contributors**: apeschar
 
@@ -210,6 +210,16 @@ add_filter('phastpress_csp_nonce', function () {
 Cloudflare [does not support `Vary: Accept`](https://serverfault.com/questions/780882/impossible-to-serve-webp-images-using-cloudflare), so PhastPress always converts images to WebP when requests pass through Cloudflare. This avoids serving AVIF to browsers that do not support it.
 
 ## Changelog
+
+### 3.14 - 2026-11-26
+
+* Bump "Tested up to" to WordPress 7.2.
+* Update Phast to 1.114.
+* Fix the cache being deleted repeatedly once it was full, on newer PHP and SQLite versions (such as PHP 8.5).
+* Answer requests for invalid (empty or unreadable) images with 422 instead of 500 when not redirecting to the original image, and log them as a warning instead of a critical error.
+* Fix a fatal error when the diagnostics service is requested directly.
+* Security hardening: create diagnostics log files with mode 0600 and only reuse log files owned by the web server user, and generate diagnostics request IDs and the fallback security token (used when `AUTH_KEY` is not defined) with a secure random number generator.
+* Fix a deprecation warning on PHP 8.5 in the admin panel translations.
 
 ### 3.13 - 2026-10-24
 

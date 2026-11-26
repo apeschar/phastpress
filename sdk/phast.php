@@ -43,6 +43,147 @@ class Factory
         return new $implementation($this->config, $namespace);
     }
 }
+namespace Kibo\Phast\Cache\Redis;
+
+/**
+ * Cache backed by Redis, using the phpredis extension.
+ *
+ * Configuration (under `cache`):
+ *
+ *     'implementation' => \Kibo\Phast\Cache\Redis\Cache::class,
+ *     'redis' => [
+ *         'host' => '/run/redis/redis.sock', // or a hostname
+ *         'port' => 0,                       // 0 for a unix socket
+ *         'database' => 0,
+ *         'prefix' => 'phast:',
+ *         'timeout' => 1.0,                  // connect/read timeout, seconds
+ *         'defaultTtl' => 0,                 // seconds for entries without
+ *                                            // an expiry; 0: none
+ *     ],
+ *
+ * Entries without an expiry are kept until Redis evicts them, or for
+ * `defaultTtl` seconds if set. Caches configured as `persistent` (such as the
+ * service signature token) never get a default TTL. Either configure Redis
+ * with a `maxmemory` limit and an eviction policy (with a `defaultTtl`,
+ * `volatile-lru` never evicts persistent entries), or, with a disk-based
+ * Redis-compatible server without eviction such as Kvrocks, use `defaultTtl`
+ * to bound its size.
+ *
+ * Redis errors are logged and treated as cache misses: a failing cache makes
+ * requests slower, never fail.
+ */
+class Cache implements \Kibo\Phast\Cache\Cache
+{
+    use \Kibo\Phast\Logging\LoggingTrait;
+    /** @var array<string, \Redis> */
+    private static $connections = [];
+    private $config;
+    private $namespace;
+    private $persistent;
+    private $functions;
+    public function __construct(array $config, string $namespace, ?\Kibo\Phast\Common\ObjectifiedFunctions $functions = null)
+    {
+        $this->config = ($config['redis'] ?? []) + ['host' => '127.0.0.1', 'port' => 6379, 'database' => 0, 'prefix' => 'phast:', 'timeout' => 1.0, 'defaultTtl' => 0];
+        $this->persistent = !empty($config['persistent']);
+        $this->namespace = $namespace;
+        $this->functions = $functions ?? new \Kibo\Phast\Common\ObjectifiedFunctions();
+    }
+    public function get($key, ?callable $cached = null, $expiresIn = 0)
+    {
+        $data = $this->call(function (\Redis $redis) use($key) {
+            return $redis->get($this->getKey($key));
+        });
+        if (is_string($data) && $this->unserialize($data, $value)) {
+            return $value;
+        }
+        if ($cached === null) {
+            return null;
+        }
+        $value = $cached();
+        $this->set($key, $value, $expiresIn);
+        return $value;
+    }
+    public function set($key, $value, $expiresIn = 0)
+    {
+        $data = $this->serialize($value);
+        $ttl = (int) $expiresIn;
+        if ($ttl <= 0 && !$this->persistent) {
+            $ttl = (int) $this->config['defaultTtl'];
+        }
+        $this->call(function (\Redis $redis) use($key, $data, $ttl) {
+            if ($ttl > 0) {
+                return $redis->set($this->getKey($key), $data, ['ex' => $ttl]);
+            }
+            return $redis->set($this->getKey($key), $data);
+        });
+    }
+    private function getKey(string $key) : string
+    {
+        // Hashed: keys may be long URLs and contain any bytes.
+        return $this->config['prefix'] . sha1($this->namespace . "\0" . $key, true);
+    }
+    private function serialize($value) : string
+    {
+        // gzcompress adds a checksum, so corrupted entries are detected.
+        return gzcompress(serialize($value));
+    }
+    private function unserialize(string $data, &$result) : bool
+    {
+        $data = @gzuncompress($data);
+        if ($data === false) {
+            return false;
+        }
+        if ($data === serialize(false)) {
+            $result = false;
+            return true;
+        }
+        $value = @unserialize($data);
+        if ($value === false) {
+            return false;
+        }
+        $result = $value;
+        return true;
+    }
+    /**
+     * @return mixed The callback's result, or null if Redis failed.
+     */
+    private function call(callable $fn)
+    {
+        if (!extension_loaded('redis')) {
+            $this->logger()->error('Redis cache error: the phpredis extension is not loaded');
+            return null;
+        }
+        try {
+            return $fn($this->connect());
+        } catch (\RedisException $e) {
+            $this->logger()->error('Redis cache error: {message}', ['message' => $e->getMessage()]);
+            // Reconnect on the next call; the connection may be broken.
+            unset(self::$connections[$this->getConnectionKey()]);
+            return null;
+        }
+    }
+    private function connect() : \Redis
+    {
+        $connectionKey = $this->getConnectionKey();
+        if (!isset(self::$connections[$connectionKey])) {
+            $redis = new \Redis();
+            // Persistent: avoids a new connection for every request.
+            if (!$redis->pconnect((string) $this->config['host'], (int) $this->config['port'], (float) $this->config['timeout'], $connectionKey)) {
+                throw new \RedisException('Could not connect to Redis');
+            }
+            $redis->setOption(\Redis::OPT_READ_TIMEOUT, (float) $this->config['timeout']);
+            if ($this->config['database']) {
+                $redis->select((int) $this->config['database']);
+            }
+            self::$connections[$connectionKey] = $redis;
+        }
+        return self::$connections[$connectionKey];
+    }
+    private function getConnectionKey() : string
+    {
+        return 'phast:' . $this->config['host'] . ':' . $this->config['port'] . ':' . $this->config['database'];
+    }
+}
 namespace Kibo\Phast\Cache\Sqlite;
 
 class Cache implements \Kibo\Phast\Cache\Cache
@@ -97,6 +238,17 @@ class Connection extends \PDO
         }
         return $this->statements[$query];
     }
+    /**
+     * Drop the cached statements. They reference this connection, so without
+     * this the connection (and any lock it holds) outlives the last reference.
+     */
+    public function closeStatements() : void
+    {
+        foreach ($this->statements ?? [] as $statement) {
+            $statement->closeCursor();
+        }
+        $this->statements = [];
+    }
     public function getPageSize() : int
     {
         return (int) $this->query('PRAGMA page_size')->fetchColumn();
@@ -134,6 +286,9 @@ class Manager
             ');
             $query->execute(['key' => $this->hashKey($key), 'time' => $functions->time()]);
             $row = $query->fetch(\PDO::FETCH_ASSOC);
+            // Reset the cached statement now: left active, it keeps a shared
+            // lock while this process is idle, blocking all other writers.
+            $query->closeCursor();
             if ($row && $this->unserialize($row['value'], $value)) {
                 return $value;
             }
@@ -151,13 +306,18 @@ class Manager
             $db = $this->getDatabase();
             $tries = 10;
             while ($tries--) {
+                $statement = $db->prepare('
+                    REPLACE INTO cache (key, value, expires_at)
+                    VALUES (:key, :value, :expires_at)
+                ');
                 try {
-                    $db->prepare('
-                        REPLACE INTO cache (key, value, expires_at)
-                        VALUES (:key, :value, :expires_at)
-                    ')->execute(['key' => $this->hashKey($key), 'value' => $this->serialize($value), 'expires_at' => $expiresIn > 0 ? $functions->time() + $expiresIn : null]);
+                    $statement->execute(['key' => $this->hashKey($key), 'value' => $this->serialize($value), 'expires_at' => $expiresIn > 0 ? $functions->time() + $expiresIn : null]);
                     return;
                 } catch (\PDOException $e) {
+                    // The connection caches prepared statements. Executing
+                    // this one again after a failure returns SQLITE_MISUSE
+                    // unless it is reset first.
+                    $statement->closeCursor();
                     if (!$this->isFullException($e)) {
                         throw $e;
                     }
@@ -283,9 +443,32 @@ class Manager
             return null;
         }
         $this->logger()->error('Caught {exceptionClass} during cache operation: {message}; retrying operation', ['exceptionClass' => get_class($e), 'message' => $e->getMessage()]);
-        $this->database = null;
-        $this->purge();
+        $this->closeDatabase();
+        // Only throw the database away if it is unusable. Other workers keep
+        // their own connections to this file; after it is unlinked they fail
+        // with "attempt to write a readonly database" and would then remove
+        // the replacement too, wiping the whole cache over and over.
+        if ($this->isCorruptException($e)) {
+            $this->purge();
+        }
         return $fn();
+    }
+    private function isCorruptException(\PDOException $e) : bool
+    {
+        return preg_match('~\\b(11 database disk image is malformed|26 file is not a database)\\b~', $e->getMessage()) > 0;
+    }
+    private function closeDatabase() : void
+    {
+        if ($this->database) {
+            if ($this->database->inTransaction()) {
+                try {
+                    $this->database->rollBack();
+                } catch (\PDOException $e) {
+                }
+            }
+            $this->database->closeStatements();
+        }
+        $this->database = null;
     }
     private function purge() : void
     {
@@ -311,11 +494,14 @@ class Manager
                 if (!($row = $selectQuery->fetch(\PDO::FETCH_ASSOC))) {
                     $selectQuery->execute(['key' => '']);
                     if (!($row = $selectQuery->fetch(\PDO::FETCH_ASSOC))) {
-                        return;
+                        // The cache is empty; still commit the deletions.
+                        break;
                     }
                 }
+                $selectQuery->closeCursor();
                 $deleteQuery->execute(['key' => $row['key']]);
             }
+            $selectQuery->closeCursor();
             $this->getDatabase()->exec('COMMIT');
         } catch (\Throwable $e) {
             $this->getDatabase()->exec('ROLLBACK');
@@ -930,6 +1116,16 @@ class Switches
 namespace Kibo\Phast\Exceptions;
 
 class CachedExceptionException extends \Exception
+{
+}
+namespace Kibo\Phast\Exceptions;
+
+/**
+ * Marks exceptions caused by the request's input rather than by Phast or the
+ * server (e.g. an uploaded image that cannot be decoded). Services answer them
+ * with a 4xx status instead of 500.
+ */
+interface ClientErrorException extends \Throwable
 {
 }
 namespace Kibo\Phast\Exceptions;
@@ -2128,6 +2324,14 @@ namespace Kibo\Phast\Filters\Image\Exceptions;
 class ImageProcessingException extends \Kibo\Phast\Exceptions\RuntimeException
 {
 }
+namespace Kibo\Phast\Filters\Image\Exceptions;
+
+/**
+ * The image data is empty or cannot be decoded.
+ */
+class InvalidImageException extends \Kibo\Phast\Filters\Image\Exceptions\ImageProcessingException implements \Kibo\Phast\Exceptions\ClientErrorException
+{
+}
 namespace Kibo\Phast\Filters\Image;
 
 interface Image
@@ -2378,11 +2582,11 @@ class DefaultImage extends \Kibo\Phast\Filters\Image\ImageImplementations\BaseIm
     {
         if (!isset($this->imageInfo)) {
             if ($this->getImageString() === '') {
-                throw new \Kibo\Phast\Filters\Image\Exceptions\ImageProcessingException('Image is empty');
+                throw new \Kibo\Phast\Filters\Image\Exceptions\InvalidImageException('Image is empty');
             }
             $imageInfo = @getimagesizefromstring($this->getImageString());
             if ($imageInfo === false) {
-                throw new \Kibo\Phast\Filters\Image\Exceptions\ImageProcessingException('Could not read GD image info');
+                throw new \Kibo\Phast\Filters\Image\Exceptions\InvalidImageException('Could not read GD image info');
             }
             $this->imageInfo = $imageInfo;
         }
@@ -3218,6 +3422,73 @@ trait JSONLFileLogTrait
         }
         $this->filename = $this->dir . '/log' . $suffix . '.jsonl';
     }
+    /**
+     * Open the log file for reading and writing, refusing files that this
+     * process did not create. The log directory may be shared with other
+     * users (it defaults to a directory in the system temp dir), so another
+     * user could have placed a file, symlink or hard link at the log path.
+     *
+     * A new file is created exclusively, with mode 0600. An existing file is
+     * only opened if it is a regular file with a single link and mode 0600,
+     * owned by the effective user (if the posix extension is available), and
+     * it is still the same file after opening it.
+     *
+     * @param bool $create Create the file if it doesn't exist
+     * @return resource|false
+     */
+    private function openLogFile($create)
+    {
+        if ($create) {
+            $umask = umask(077);
+            try {
+                $fp = @fopen($this->filename, 'x+');
+            } finally {
+                umask($umask);
+            }
+            if ($fp) {
+                $stat = @fstat($fp);
+                if ($stat && $this->isOwnLogFile($stat)) {
+                    return $fp;
+                }
+                fclose($fp);
+                return false;
+            }
+        }
+        // fstat() after opening would describe a symlink's target, which may
+        // be any 0600 file of ours, and opening a FIFO could block; so check
+        // the path itself first, then that we opened that same file.
+        $before = @lstat($this->filename);
+        if (!$before || !$this->isOwnLogFile($before)) {
+            return false;
+        }
+        $fp = @fopen($this->filename, 'r+');
+        if (!$fp) {
+            return false;
+        }
+        $after = @fstat($fp);
+        if (!$after || $after['dev'] !== $before['dev'] || $after['ino'] !== $before['ino'] || !$this->isOwnLogFile($after)) {
+            fclose($fp);
+            return false;
+        }
+        return $fp;
+    }
+    private function isOwnLogFile(array $stat)
+    {
+        if (($stat['mode'] & 0170000) !== 0100000) {
+            return false;
+        }
+        if (DIRECTORY_SEPARATOR === '\\') {
+            // Windows doesn't report meaningful modes, links or owners.
+            return true;
+        }
+        if (($stat['mode'] & 07777) !== 0600 || $stat['nlink'] !== 1) {
+            return false;
+        }
+        if (function_exists('posix_geteuid') && $stat['uid'] !== posix_geteuid()) {
+            return false;
+        }
+        return true;
+    }
 }
 namespace Kibo\Phast\Logging;
 
@@ -3479,8 +3750,10 @@ class Reader implements \Kibo\Phast\Logging\LogReader
     use \Kibo\Phast\Logging\Common\JSONLFileLogTrait;
     public function readEntries()
     {
-        $fp = @fopen($this->filename, 'r');
-        while ($fp && ($row = @fgets($fp))) {
+        if (!($fp = $this->openLogFile(false))) {
+            return;
+        }
+        while ($row = @fgets($fp)) {
             $decoded = @json_decode($row, true);
             if (!$decoded) {
                 continue;
@@ -3626,10 +3899,20 @@ class Writer extends \Kibo\Phast\Logging\LogWriters\BaseLogWriter
     protected function doWriteEntry(\Kibo\Phast\Logging\LogEntry $entry)
     {
         $encoded = @\Kibo\Phast\Common\JSON::encode($entry->toArray());
-        if ($encoded) {
-            $this->makeDirIfNotExists();
-            @file_put_contents($this->filename, $encoded . "\n", FILE_APPEND | LOCK_EX);
+        if (!$encoded) {
+            return;
         }
+        $this->makeDirIfNotExists();
+        if (!($fp = $this->openLogFile(true))) {
+            return;
+        }
+        if (@flock($fp, LOCK_EX)) {
+            @fseek($fp, 0, SEEK_END);
+            @fwrite($fp, $encoded . "\n");
+            @fflush($fp);
+            @flock($fp, LOCK_UN);
+        }
+        @fclose($fp);
     }
     private function makeDirIfNotExists()
     {
@@ -5046,6 +5329,13 @@ class PhastServices
             echo "Item not found\n";
             \Kibo\Phast\Logging\Log::error('Item not found: {message}', ['message' => $e->getMessage()]);
             exit;
+        } catch (\Kibo\Phast\Exceptions\ClientErrorException $e) {
+            if (!$redirecting) {
+                http_response_code(422);
+            }
+            echo "Invalid input\n";
+            \Kibo\Phast\Logging\Log::warning('Invalid input: {message}', ['message' => $e->getMessage()]);
+            exit;
         } catch (\Exception $e) {
             echo "Internal error, see logs\n";
             \Kibo\Phast\Logging\Log::critical('Unhandled exception: {type} Message: {message} File: {file} Line: {line}', ['type' => get_class($e), 'message' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
@@ -5303,7 +5593,7 @@ class ServiceSignature
     {
         $token = '';
         for ($i = 0; $i < self::AUTO_TOKEN_SIZE; $i++) {
-            $token .= chr(mt_rand(33, 126));
+            $token .= chr(random_int(33, 126));
         }
         return $token;
     }
@@ -5325,7 +5615,12 @@ class ServiceSignatureFactory
     const CACHE_NAMESPACE = 'signature';
     public function make(array $config)
     {
-        $cache = (new \Kibo\Phast\Cache\Factory(array_merge($config['cache'], ['name' => self::CACHE_NAMESPACE, 'maxSize' => 1024 * 1024])))->getCache(self::CACHE_NAMESPACE);
+        $cache = (new \Kibo\Phast\Cache\Factory(array_merge($config['cache'], [
+            'name' => self::CACHE_NAMESPACE,
+            'maxSize' => 1024 * 1024,
+            // The security token must never expire or be evicted.
+            'persistent' => true,
+        ])))->getCache(self::CACHE_NAMESPACE);
         $signature = new \Kibo\Phast\Security\ServiceSignature($cache);
         if (isset($config['securityToken'])) {
             $signature->setIdentities($config['securityToken']);
@@ -5827,6 +6122,10 @@ class Factory
 }
 namespace Kibo\Phast\Services\Diagnostics;
 
+/**
+ * Serves the request log for the diagnostics overlay that the Diagnostics
+ * HTML filter adds to documents when the diagnostics switch is on.
+ */
 class Service
 {
     private $logRoot;
@@ -5837,23 +6136,17 @@ class Service
     public function serve(\Kibo\Phast\Services\ServiceRequest $request)
     {
         $params = $request->getParams();
-        if (isset($params['documentRequestId'])) {
-            $items = $this->getRequestLog($params['documentRequestId']);
-        } else {
-            $items = $this->getSystemDiagnostics();
+        if ($this->logRoot === null) {
+            throw new \Kibo\Phast\Exceptions\ItemNotFoundException('Diagnostics are not enabled');
         }
+        if (!isset($params['documentRequestId']) || !is_string($params['documentRequestId'])) {
+            throw new \Kibo\Phast\Exceptions\ItemNotFoundException('No document request ID');
+        }
+        $items = iterator_to_array((new \Kibo\Phast\Logging\LogReaders\JSONLFile\Reader($this->logRoot, $params['documentRequestId']))->readEntries(), false);
         $response = new \Kibo\Phast\HTTP\Response();
         $response->setContent(\Kibo\Phast\Common\JSON::prettyEncode($items));
         $response->setHeader('Content-Type', 'application/json');
         return $response;
-    }
-    private function getRequestLog($requestId)
-    {
-        return iterator_to_array((new \Kibo\Phast\Logging\LogReaders\JSONLFile\Reader($this->logRoot, $requestId))->readEntries());
-    }
-    private function getSystemDiagnostics()
-    {
-        return (new \Kibo\Phast\Diagnostics\SystemDiagnostics())->run(require PHAST_CONFIG_FILE);
     }
 }
 namespace Kibo\Phast\Services;
@@ -6130,10 +6423,22 @@ class ServiceRequest
             if ($query->get('documentRequestId')) {
                 self::$documentRequestId = $query->get('documentRequestId');
             } else {
-                self::$documentRequestId = (string) mt_rand(0, 999999999);
+                self::$documentRequestId = self::generateDocumentRequestId();
             }
         }
         return $instance;
+    }
+    /**
+     * @return string 22 random alphanumeric characters (131 bits)
+     */
+    private static function generateDocumentRequestId()
+    {
+        $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        $id = '';
+        for ($i = 0; $i < 22; $i++) {
+            $id .= $chars[random_int(0, 61)];
+        }
+        return $id;
     }
     public static function getRewrittenService(\Kibo\Phast\HTTP\Request $request)
     {
@@ -7481,7 +7786,7 @@ class TranslationsManager
     public function __construct($locale, $pluginName)
     {
         $data = \Kibo\PhastPlugins\SDK\Generated\Translations::DATA;
-        if (isset($data[$this->locale])) {
+        if (is_string($locale) && isset($data[$locale])) {
             $this->locale = $locale;
         } else {
             $this->locale = self::DEFAULT_LOCALE;
@@ -8691,6 +8996,14 @@ namespace Kibo\Phast\Environment\Exceptions;
 class PackageHasNoFactoryException extends \Kibo\Phast\Exceptions\LogicException
 {
 }
+namespace Kibo\Phast\Exceptions;
+
+/**
+ * A cached exception whose original was a ClientErrorException.
+ */
+class CachedClientErrorException extends \Kibo\Phast\Exceptions\CachedExceptionException implements \Kibo\Phast\Exceptions\ClientErrorException
+{
+}
 namespace Kibo\Phast\Filters\CSS\CSSMinifier;
 
 class Filter implements \Kibo\Phast\Services\ServiceFilter
@@ -9672,7 +9985,9 @@ class CachingServiceFilter implements \Kibo\Phast\Services\ServiceFilter
     }
     private function deserializeException(array $data)
     {
-        return new \Kibo\Phast\Exceptions\CachedExceptionException(sprintf('Phast: %s: Type: %s, Msg: %s, Code: %s', static::class, $data['class'], $data['msg'], $data['code']));
+        // Keep client errors recognizable, so a cached one still gets a 4xx.
+        $class = is_a($data['class'], \Kibo\Phast\Exceptions\ClientErrorException::class, true) ? \Kibo\Phast\Exceptions\CachedClientErrorException::class : \Kibo\Phast\Exceptions\CachedExceptionException::class;
+        return new $class(sprintf('Phast: %s: Type: %s, Msg: %s, Code: %s', static::class, $data['class'], $data['msg'], $data['code']));
     }
 }
 namespace Kibo\Phast\Filters\Service;
